@@ -1,9 +1,9 @@
-
-from flask import Flask, render_template_string, request, jsonify
+from flask import Flask, request, jsonify
 import anthropic
 import json
 import os
 
+app = Flask(__name__)
 client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
 
 CLOSET_FILE = "closet.json"
@@ -21,6 +21,7 @@ def save_closet(items):
 @app.route('/')
 def index():
     return open('index.html').read()
+
 @app.route('/api/outfit', methods=['POST'])
 def outfit():
     data = request.json
@@ -42,4 +43,4 @@ def closet_load():
     return jsonify({"items": load_closet()})
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
