@@ -1,0 +1,847 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>FashionGPT</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'DM Sans',sans-serif;background:#FFF0F8;min-height:100vh;max-width:480px;margin:0 auto;overflow-x:hidden}
+
+@keyframes float{0%,100%{transform:translateY(0) rotate(-2deg)}50%{transform:translateY(-10px) rotate(2deg)}}
+@keyframes wingFlap{0%,100%{transform:scaleX(1) rotate(-22deg)}50%{transform:scaleX(0.7) rotate(-22deg)}}
+@keyframes wingFlap2{0%,100%{transform:scaleX(1) rotate(22deg)}50%{transform:scaleX(0.7) rotate(22deg)}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+@keyframes shimmer{0%{background-position:200% center}100%{background-position:-200% center}}
+@keyframes sparkle{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.1;transform:scale(0.3)}}
+@keyframes typing{0%,60%,100%{opacity:1}30%{opacity:0.3}}
+@keyframes dustFly{0%{transform:translateX(0) translateY(0) rotate(0deg);opacity:1}100%{transform:translateX(var(--tx,100px)) translateY(var(--ty,-80px)) rotate(720deg);opacity:0}}
+@keyframes burstIn{0%{transform:scale(0) rotate(-10deg);opacity:0}60%{transform:scale(1.1) rotate(2deg);opacity:1}100%{transform:scale(1) rotate(0deg);opacity:1}}
+@keyframes twinkle{0%,100%{opacity:0.8;transform:scale(1)}50%{opacity:0.1;transform:scale(0.4)}}
+@keyframes slideUp{from{transform:translateY(30px);opacity:0}to{transform:translateY(0);opacity:1}}
+
+.screen{display:none;min-height:100vh}
+.screen.active{display:flex;flex-direction:column;animation:fadeUp 0.45s ease}
+
+/* SPLASH */
+.splash{background:linear-gradient(160deg,#FFE4F5 0%,#F0D4FF 40%,#D4E8FF 70%,#C8F5EE 100%);min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;overflow:hidden;padding:40px 20px}
+.splash-star{position:absolute;border-radius:50%;animation:twinkle var(--d,2s) ease-in-out infinite var(--delay,0s)}
+.fairy-wrap{position:relative;margin-bottom:28px}
+.fairy-svg{animation:float 3s ease-in-out infinite}
+.wing-l{transform-origin:right center;animation:wingFlap 1.4s ease-in-out infinite;display:block}
+.wing-r{transform-origin:left center;animation:wingFlap2 1.4s ease-in-out infinite;display:block}
+.dust-particle{position:absolute;width:6px;height:6px;border-radius:50%;background:#FFD700;pointer-events:none;animation:dustFly 1.2s ease-out forwards}
+.brand{font-family:'Playfair Display',serif;text-align:center;margin-bottom:28px}
+.brand h1{font-size:44px;font-style:italic;color:#8B3FA8;letter-spacing:-1px;line-height:1}
+.brand p{font-size:12px;color:#C080D8;letter-spacing:3px;text-transform:uppercase;font-weight:300;margin-top:8px}
+.enter-btn{background:linear-gradient(135deg,#D4537E,#8B3FA8,#4A7AC8);background-size:200% auto;animation:shimmer 4s linear infinite;border:none;border-radius:50px;padding:16px 52px;font-family:'Playfair Display',serif;font-style:italic;font-size:17px;color:#fff;cursor:pointer;position:relative;overflow:hidden}
+.enter-btn:active{transform:scale(0.97)}
+
+/* NAV */
+.nav{display:flex;border-bottom:1px solid #F0C0E8;background:#fff;flex-shrink:0}
+.nav-btn{flex:1;padding:14px 8px;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:#C080D8;background:none;border:none;cursor:pointer;font-family:'DM Sans',sans-serif}
+.nav-btn.active{color:#8B3FA8;border-bottom:2px solid #8B3FA8}
+
+/* WORLD */
+.world-bg{background:linear-gradient(180deg,#FDE8FF 0%,#FFE4F0 50%,#FFF0E0 100%);flex:1;padding-bottom:30px;position:relative;overflow:hidden}
+.flower-bar{height:6px;background:linear-gradient(90deg,#FFB8D8,#E8A0FF,#B8D0FF,#FFB8D8);background-size:200% auto;animation:shimmer 3s linear infinite}
+
+/* ELLA */
+.ella-row{display:flex;align-items:flex-end;gap:12px;padding:18px 16px 0}
+.ella-mini-wrap{flex-shrink:0;position:relative}
+.ella-mini-svg{animation:float 2.5s ease-in-out infinite}
+.ella-wing-l{transform-origin:right center;animation:wingFlap 1.4s ease-in-out infinite}
+.ella-wing-r{transform-origin:left center;animation:wingFlap2 1.4s ease-in-out infinite}
+.bubble{background:#fff;border-radius:18px 18px 18px 4px;padding:13px 16px;flex:1;border:1px solid #F0C0E8}
+.bubble-name{font-size:9px;color:#C080D8;letter-spacing:2px;text-transform:uppercase;margin-bottom:3px}
+.bubble-text{font-family:'Playfair Display',serif;font-style:italic;font-size:14px;color:#3A1060;line-height:1.5}
+
+/* INPUTS */
+.section{padding:14px 16px}
+.label{font-size:10px;color:#B080C8;letter-spacing:2px;text-transform:uppercase;font-weight:500;margin-bottom:8px}
+.magic-input{width:100%;background:#fff;border:1.5px solid #E8C0F0;border-radius:16px;padding:13px 16px;font-size:14px;color:#2A0848;outline:none;resize:none;min-height:75px;font-family:'DM Sans',sans-serif;line-height:1.5}
+.magic-input:focus{border-color:#8B3FA8}
+.magic-input::placeholder{color:#D0A0E0;font-style:italic;font-size:13px}
+.text-input{width:100%;background:#fff;border:1.5px solid #E8C0F0;border-radius:50px;padding:12px 18px;font-size:14px;color:#2A0848;outline:none;font-family:'DM Sans',sans-serif}
+.text-input:focus{border-color:#8B3FA8}
+.text-input::placeholder{color:#D0A0E0;font-style:italic}
+.primary-btn{width:100%;margin-top:10px;background:linear-gradient(135deg,#D4537E,#8B3FA8);border:none;border-radius:50px;padding:14px;font-family:'Playfair Display',serif;font-style:italic;font-size:15px;color:#fff;cursor:pointer}
+.primary-btn:active{transform:scale(0.98)}
+.skip-btn{width:100%;margin-top:8px;background:transparent;border:none;font-size:12px;color:#C080D8;cursor:pointer;font-family:'DM Sans',sans-serif;padding:6px}
+
+/* BUDGET */
+.budget-wrap{padding:14px 16px 0}
+.budget-label{font-size:10px;color:#B080C8;letter-spacing:2px;text-transform:uppercase;font-weight:500;margin-bottom:10px}
+.budget-toggle{display:flex;background:#fff;border:1px solid #F0C0E8;border-radius:50px;padding:4px;gap:4px}
+.budget-opt{flex:1;padding:10px 6px;border:none;border-radius:50px;font-size:11px;cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:500;background:transparent;color:#C080D8;text-align:center;transition:all 0.2s}
+.budget-opt.active.luxury{background:linear-gradient(135deg,#1A1A2E,#2D1B4E);color:#FFD700}
+.budget-opt.active.normal{background:linear-gradient(135deg,#D4537E,#8B3FA8);color:#fff}
+.budget-desc{font-size:11px;margin-top:8px;padding:8px 12px;border-radius:10px;line-height:1.4}
+.budget-desc.luxury{background:#1A1A2E;color:#C9A84C;font-family:'Playfair Display',serif;font-style:italic}
+.budget-desc.normal{background:#FDE8FF;color:#7040A0}
+
+/* ERA PICKER */
+.era-scroll{display:flex;gap:10px;padding:4px 16px 12px;overflow-x:auto;scrollbar-width:none}
+.era-scroll::-webkit-scrollbar{display:none}
+.era-card{flex-shrink:0;width:110px;border-radius:16px;overflow:hidden;cursor:pointer;border:2px solid transparent;transition:all 0.2s;position:relative}
+.era-card.selected{border-color:#8B3FA8;transform:scale(1.04)}
+.era-bg{height:80px;display:flex;align-items:center;justify-content:center;font-size:28px}
+.era-label{padding:6px 8px;background:#fff;border-top:1px solid #F0C0E8}
+.era-year{font-size:10px;color:#C080D8;letter-spacing:1px;text-transform:uppercase}
+.era-name{font-family:'Playfair Display',serif;font-size:12px;color:#3A1060;font-style:italic}
+
+/* PATH */
+.path-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.path-card{background:#fff;border:1px solid #F0C0E8;border-radius:16px;padding:20px 12px;text-align:center;cursor:pointer;transition:all 0.2s}
+.path-card:hover{border-color:#8B3FA8;transform:translateY(-2px)}
+.path-icon{font-size:32px;margin-bottom:8px}
+.path-title{font-family:'Playfair Display',serif;font-size:13px;font-weight:600;color:#3A1060;margin-bottom:3px}
+.path-sub{font-size:11px;color:#C080D8}
+
+/* OUTFIT */
+.outfit-hero{padding:28px 20px;text-align:center;position:relative;overflow:hidden}
+.outfit-hero.luxury{background:linear-gradient(135deg,#0A0A1A,#1A1A2E,#2D1B4E)}
+.outfit-hero.normal{background:linear-gradient(135deg,#2A0848,#6B2FA0,#C4407A)}
+.outfit-hero-tag{font-size:10px;letter-spacing:3px;text-transform:uppercase;margin-bottom:6px}
+.outfit-hero.luxury .outfit-hero-tag{color:#C9A84C}
+.outfit-hero.normal .outfit-hero-tag{color:rgba(255,255,255,0.6)}
+.outfit-hero-title{font-family:'Playfair Display',serif;font-style:italic;font-size:24px;color:#fff}
+.outfit-hero-sub{font-size:12px;margin-top:4px;color:rgba(255,255,255,0.6)}
+.budget-badge{display:inline-block;padding:4px 12px;border-radius:20px;font-size:10px;letter-spacing:2px;text-transform:uppercase;margin-top:8px}
+.budget-badge.luxury{background:#C9A84C;color:#0A0A1A;font-weight:500}
+.budget-badge.normal{background:rgba(255,255,255,0.2);color:#fff}
+
+.outfit-items{padding:16px}
+.outfit-item{background:#fff;border:1px solid #F0C0E8;border-radius:14px;padding:12px;margin-bottom:10px;display:flex;align-items:flex-start;gap:12px;animation:slideUp 0.4s ease both}
+.outfit-item.luxury{border-color:#E8D5A0;background:#FFFDF5}
+.item-thumb{width:70px;height:70px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;flex-direction:column;gap:2px;cursor:pointer;text-decoration:none}
+.item-thumb.normal{background:linear-gradient(135deg,#FDE8FF,#E8D0FF)}
+.item-thumb.luxury{background:linear-gradient(135deg,#1A1A2E,#2D1B4E)}
+.item-thumb-label{font-size:8px;margin-top:2px;color:#C080D8}
+.item-thumb.luxury .item-thumb-label{color:#C9A84C}
+.item-info{flex:1;min-width:0}
+.item-cat{font-size:9px;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:2px;color:#C080D8}
+.item-cat.luxury{color:#C9A84C}
+.item-name{font-family:'Playfair Display',serif;font-size:14px;color:#2A0848;margin-bottom:2px}
+.item-brand{font-size:11px;font-weight:500;margin-bottom:2px;color:#8B3FA8}
+.item-brand.luxury{color:#C9A84C}
+.item-detail{font-size:11px;color:#888;line-height:1.4}
+.item-link{display:inline-block;margin-top:5px;font-size:10px;padding:3px 10px;border-radius:20px;text-decoration:none;font-weight:500;background:#FDE8FF;color:#8B3FA8}
+.item-link.luxury{background:#1A1A2E;color:#FFD700}
+
+.ella-note-box{margin:0 16px 16px;padding:14px 16px;border-radius:14px;background:#2A0848}
+.ella-note-box.luxury{background:linear-gradient(135deg,#0A0A1A,#1A1A2E)}
+.ella-note-label{font-size:9px;letter-spacing:2px;margin-bottom:4px;color:rgba(255,255,255,0.5)}
+.ella-note-box.luxury .ella-note-label{color:#C9A84C}
+.ella-note-text{font-family:'Playfair Display',serif;font-style:italic;font-size:14px;color:#fff}
+
+.action-row{display:flex;gap:8px;padding:0 16px 16px;flex-wrap:wrap}
+.action-btn{flex:1;min-width:100px;background:#FDE8FF;border:1px solid #E8C0F0;border-radius:50px;padding:10px 12px;font-family:'Playfair Display',serif;font-style:italic;font-size:12px;color:#7040A0;cursor:pointer;text-align:center}
+
+.loading-state{text-align:center;padding:40px 20px}
+.loading-dots span{display:inline-block;width:8px;height:8px;border-radius:50%;background:#C080D8;margin:0 3px;animation:typing 1.2s ease-in-out infinite}
+.loading-dots span:nth-child(2){animation-delay:0.2s}
+.loading-dots span:nth-child(3){animation-delay:0.4s}
+.loading-label{font-family:'Playfair Display',serif;font-style:italic;font-size:14px;color:#8B3FA8;margin-top:12px}
+
+/* CLOSET */
+.closet-header{background:linear-gradient(135deg,#2A0848,#6B2FA0);padding:24px 16px;text-align:center}
+.closet-title{font-family:'Playfair Display',serif;font-style:italic;font-size:22px;color:#fff}
+.closet-sub{font-size:11px;color:rgba(255,255,255,0.6);margin-top:4px;letter-spacing:1px}
+.add-item-card{background:#fff;border:1.5px dashed #C890E8;border-radius:16px;padding:20px;margin:14px 16px;text-align:center;cursor:pointer}
+.add-item-card:hover{background:#FDE8FF;border-color:#8B3FA8}
+.add-icon{font-size:32px;margin-bottom:8px}
+.add-title{font-family:'Playfair Display',serif;font-style:italic;font-size:14px;color:#3A1060;margin-bottom:3px}
+.add-sub{font-size:11px;color:#C080D8}
+.closet-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:0 16px}
+.closet-item{background:#fff;border:1px solid #F0C0E8;border-radius:12px;overflow:hidden;position:relative}
+.closet-item img{width:100%;height:110px;object-fit:cover}
+.closet-item-label{padding:6px 8px;font-size:11px;color:#3A1060;font-family:'Playfair Display',serif;font-style:italic}
+.closet-item-del{position:absolute;top:6px;right:6px;background:rgba(255,255,255,0.9);border:none;border-radius:50%;width:22px;height:22px;font-size:12px;cursor:pointer}
+.empty-closet{text-align:center;padding:40px 20px;color:#C080D8;font-family:'Playfair Display',serif;font-style:italic;font-size:15px}
+
+/* MODAL */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:100;align-items:flex-end;justify-content:center}
+.modal-overlay.open{display:flex}
+.modal{background:#fff;border-radius:24px 24px 0 0;padding:24px 20px;width:100%;max-width:480px}
+.modal-title{font-family:'Playfair Display',serif;font-style:italic;font-size:18px;color:#2A0848;margin-bottom:4px}
+.modal-sub{font-size:12px;color:#C080D8;margin-bottom:20px}
+.camera-preview{width:100%;height:220px;border-radius:14px;object-fit:cover;margin-bottom:14px;display:none}
+.camera-placeholder{width:100%;height:220px;border-radius:14px;background:linear-gradient(135deg,#FDE8FF,#E8D0FF);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;margin-bottom:14px;cursor:pointer}
+.modal-input{width:100%;background:#F8F0FF;border:1px solid #E8C0F0;border-radius:12px;padding:11px 14px;font-size:13px;color:#2A0848;outline:none;margin-bottom:12px;font-family:'DM Sans',sans-serif}
+.modal-btns{display:flex;gap:8px}
+.modal-btn-cancel{flex:1;background:#F8F0FF;border:1px solid #E8C0F0;border-radius:50px;padding:12px;font-size:13px;color:#8B3FA8;cursor:pointer}
+.modal-btn-save{flex:2;background:linear-gradient(135deg,#D4537E,#8B3FA8);border:none;border-radius:50px;padding:12px;font-size:13px;color:#fff;cursor:pointer;font-family:'Playfair Display',serif;font-style:italic}
+
+.back-row{padding:12px 16px 0}
+.back-btn{background:rgba(255,255,255,0.8);border:1px solid #F0C0E8;border-radius:50px;padding:7px 14px;font-size:12px;color:#7040A0;cursor:pointer}
+
+/* SPARKLE BURST */
+.sparkle-burst{position:fixed;pointer-events:none;z-index:999}
+.sparkle-dot{position:absolute;width:8px;height:8px;border-radius:50%;animation:dustFly 0.9s ease-out forwards}
+
+/* BOUNCING FAIRY */
+@keyframes trailFade{0%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(0.2)}}
+.bouncy-fairy{position:fixed;font-size:36px;pointer-events:none;z-index:9999;transition:none;will-change:transform;filter:drop-shadow(0 0 8px rgba(200,160,255,0.9))}
+.pixie-dust{position:fixed;pointer-events:none;z-index:9998;font-size:12px;animation:trailFade 1s ease-out forwards}
+</style>
+</head>
+<body>
+
+<!-- SPLASH -->
+<div id="splash" class="screen active">
+  <div class="splash" id="splash-bg">
+    
+    <div class="brand"><h1>FashionGPT</h1><p>your style, elevated</p></div>
+    <button class="enter-btn" onclick="enterWorld()">Enter the world</button>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div id="main" class="screen">
+  <div class="world-bg">
+    <div class="flower-bar"></div>
+    <div class="nav">
+      <button class="nav-btn active" onclick="showTab('style-tab',this)">Style me</button>
+      <button class="nav-btn" onclick="showTab('closet-tab',this)">My closet</button>
+    </div>
+
+    <div id="style-tab">
+      <div class="ella-row">
+        <div class="ella-mini-wrap" style="font-size:48px;animation:float 2.5s ease-in-out infinite;filter:drop-shadow(0 0 8px rgba(200,160,255,0.7))">🧚</div>
+        <div class="bubble">
+          <div class="bubble-name">Ella</div>
+          <div class="bubble-text">You are here. Good. Now tell me -- what is the occasion?</div>
+        </div>
+      </div>
+
+      <div class="budget-wrap">
+        <div class="budget-label">Your budget</div>
+        <div class="budget-toggle">
+          <button class="budget-opt normal active" id="btn-normal" onclick="setBudget('normal')">Everyday -- Zara, ASOS, Mango</button>
+          <button class="budget-opt luxury" id="btn-luxury" onclick="setBudget('luxury')">Luxury -- Chanel, Dior, Prada</button>
+        </div>
+        <div class="budget-desc normal" id="budget-desc">Ella curates looks from Zara, ASOS, Mango and more.</div>
+      </div>
+
+      <div class="section">
+        <div class="label">Tell Ella</div>
+        <textarea class="magic-input" id="occasion" placeholder="Going for brunch. Want to look effortless and chic."></textarea>
+        <button class="primary-btn" onclick="goToStep('celeb-step')">Next</button>
+      </div>
+    </div>
+
+    <div id="closet-tab" style="display:none">
+      <div class="closet-header">
+        <div class="closet-title">My Closet</div>
+        <div class="closet-sub">YOUR WARDROBE -- CURATED</div>
+      </div>
+      <div class="add-item-card" onclick="openCamera()">
+        <div class="add-icon">📸</div>
+        <div class="add-title">Add a piece</div>
+        <div class="add-sub">Take a photo or upload from your camera roll</div>
+      </div>
+      <div class="closet-grid" id="closet-grid">
+        <div class="empty-closet" style="grid-column:1/-1">Your closet is empty.<br>Start adding pieces.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- CELEB STEP -->
+<div id="celeb-step" class="screen">
+  <div class="world-bg">
+    <div class="flower-bar"></div>
+    <div class="back-row"><button class="back-btn" onclick="goToStep('main')">Back</button></div>
+    <div class="ella-row">
+      <div class="ella-mini-wrap" style="font-size:48px;animation:float 2.5s ease-in-out infinite;filter:drop-shadow(0 0 8px rgba(200,160,255,0.7))">🧚</div>
+      <div class="bubble">
+        <div class="bubble-name">Ella</div>
+        <div class="bubble-text">Any celebrity in mind? Or type a name -- I will channel their energy.</div>
+      </div>
+    </div>
+    <div class="section">
+      <input type="text" class="text-input" id="celeb-input" placeholder="e.g. Zendaya, Kendall Jenner, Rihanna..."/>
+      <button class="primary-btn" onclick="goToStep('era-step')" style="margin-top:10px">Next</button>
+      <button class="skip-btn" onclick="skipCeleb()">Skip -- no celeb in mind</button>
+    </div>
+  </div>
+</div>
+
+<!-- ERA STEP -->
+<div id="era-step" class="screen">
+  <div class="world-bg">
+    <div class="flower-bar"></div>
+    <div class="back-row"><button class="back-btn" onclick="goToStep('celeb-step')">Back</button></div>
+    <div class="ella-row">
+      <div class="ella-mini-wrap" style="font-size:48px;animation:float 2.5s ease-in-out infinite;filter:drop-shadow(0 0 8px rgba(200,160,255,0.7))">🧚</div>
+      <div class="bubble">
+        <div class="bubble-name">Ella</div>
+        <div class="bubble-text">Which era are we dressing from? Scroll and pick your timeline.</div>
+      </div>
+    </div>
+    <div class="section" style="padding-bottom:0">
+      <div class="label">Choose your era</div>
+    </div>
+    <div class="era-scroll" id="era-scroll"></div>
+    <div class="section">
+      <button class="primary-btn" onclick="goToStep('path-step')">Next</button>
+      <button class="skip-btn" onclick="skipEra()">Skip -- no specific era</button>
+    </div>
+  </div>
+</div>
+
+<!-- PATH STEP -->
+<div id="path-step" class="screen">
+  <div class="world-bg">
+    <div class="flower-bar"></div>
+    <div class="back-row"><button class="back-btn" onclick="goToStep('era-step')">Back</button></div>
+    <div class="ella-row">
+      <div class="ella-mini-wrap" style="font-size:48px;animation:float 2.5s ease-in-out infinite;filter:drop-shadow(0 0 8px rgba(200,160,255,0.7))">🧚</div>
+      <div class="bubble">
+        <div class="bubble-name">Ella</div>
+        <div class="bubble-text" id="path-says">How are we building this look?</div>
+      </div>
+    </div>
+    <div class="section">
+      <div class="path-grid">
+        <div class="path-card" onclick="getOutfit('closet')">
+          <div class="path-icon">👗</div>
+          <div class="path-title">My closet</div>
+          <div class="path-sub">style what I own</div>
+        </div>
+        <div class="path-card" onclick="getOutfit('discover')">
+          <div class="path-icon">🔍</div>
+          <div class="path-title">Discover looks</div>
+          <div class="path-sub">Ella finds the outfit</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- OUTFIT -->
+<div id="outfit" class="screen">
+  <div class="outfit-hero normal" id="outfit-hero">
+    <div class="outfit-hero-tag">Ella's pick</div>
+    <div class="outfit-hero-title" id="outfit-title">Your look</div>
+    <div class="outfit-hero-sub" id="outfit-sub"></div>
+    <div class="budget-badge normal" id="outfit-budget-badge">Everyday</div>
+  </div>
+  <div id="outfit-body">
+    <div class="loading-state">
+      <div class="loading-dots"><span></span><span></span><span></span></div>
+      <div class="loading-label">Ella is putting it together.</div>
+    </div>
+  </div>
+</div>
+
+<!-- CAMERA MODAL -->
+<div class="modal-overlay" id="camera-modal">
+  <div class="modal">
+    <div class="modal-title">Add to your closet</div>
+    <div class="modal-sub">Take a photo or choose from your gallery</div>
+    <div class="camera-placeholder" id="cam-placeholder" onclick="triggerCamera()">
+      <div style="font-size:36px">📸</div>
+      <div style="font-size:13px;color:#C080D8;font-family:'Playfair Display',serif;font-style:italic">Tap to take photo</div>
+    </div>
+    <img id="cam-preview" class="camera-preview" src="" alt="preview"/>
+    <input type="file" id="cam-input" accept="image/*" capture="environment" style="display:none" onchange="previewPhoto(this)"/>
+    <input type="text" class="modal-input" id="item-label" placeholder="What is this? e.g. White ribbed tee"/>
+    <div class="modal-btns">
+      <button class="modal-btn-cancel" onclick="closeCamera()">Cancel</button>
+      <button class="modal-btn-save" onclick="saveToCloset()">Add to closet</button>
+    </div>
+  </div>
+</div>
+
+<script>
+var occasion = '';
+var celeb = '';
+var era = '';
+var currentPath = '';
+var budget = 'normal';
+var closetItems = [];
+
+var ERAS = [
+  {year:'1900s', name:'Edwardian', emoji:'🎩', bg:'#F5EDE0', color:'#6B4C2A'},
+  {year:'1920s', name:'Flapper', emoji:'💃', bg:'#1A1A2E', color:'#C9A84C'},
+  {year:'1950s', name:'Old Hollywood', emoji:'🌟', bg:'#FFF0E0', color:'#C4407A'},
+  {year:'1960s', name:'Mod', emoji:'🔵', bg:'#E0F0FF', color:'#185FA5'},
+  {year:'1970s', name:'Disco', emoji:'🪩', bg:'#2A0848', color:'#E0A0FF'},
+  {year:'1980s', name:'Power Dress', emoji:'💼', bg:'#FFE0E0', color:'#993C1D'},
+  {year:'1990s', name:'Grunge', emoji:'🖤', bg:'#1A1A1A', color:'#888'},
+  {year:'2000s', name:'Y2K', emoji:'💿', bg:'#E0F8FF', color:'#185FA5'},
+  {year:'2010s', name:'Tumblr', emoji:'🌸', bg:'#FFE4F5', color:'#C4407A'},
+  {year:'2015s', name:'Dark Academia', emoji:'📚', bg:'#2C1A0E', color:'#C4A882'},
+  {year:'Now', name:'Clean Girl', emoji:'✨', bg:'#F5F5F0', color:'#5A5A50'},
+  {year:'Now', name:'Quiet Luxury', emoji:'🤍', bg:'#F0EDE8', color:'#3A3530'},
+  {year:'Now', name:'Goth', emoji:'🖤', bg:'#0A0A0A', color:'#666'},
+  {year:'Now', name:'Cottagecore', emoji:'🌿', bg:'#E8F5E0', color:'#3A6B2A'}
+];
+
+var STORE_LINKS = {
+  'Chanel':'https://www.chanel.com','Dior':'https://www.dior.com','Prada':'https://www.prada.com',
+  'The Row':'https://www.therow.com','Loro Piana':'https://www.loropiana.com',
+  'Brunello Cucinelli':'https://www.brunellocucinelli.com','Bottega Veneta':'https://www.bottegaveneta.com',
+  'Valentino':'https://www.valentino.com','Zimmermann':'https://www.zimmermannwear.com',
+  'Jacquemus':'https://www.jacquemus.com','Manolo Blahnik':'https://www.manoloblahnik.com',
+  'Christian Louboutin':'https://www.christianlouboutin.com','Hermes':'https://www.hermes.com',
+  'Louis Vuitton':'https://www.louisvuitton.com','Celine':'https://www.celine.com',
+  'Cartier':'https://www.cartier.com','Charlotte Tilbury':'https://www.charlottetilbury.com',
+  'Zara':'https://www.zara.com','ASOS':'https://www.asos.com','Mango':'https://www.mango.com',
+  'NYX':'https://www.nyxcosmetics.com','Maybelline':'https://www.maybelline.com',
+  'NARS':'https://www.narscosmetics.com','Olaplex':'https://olaplex.com'
+};
+
+function buildEras() {
+  var scroll = document.getElementById('era-scroll');
+  var html = '';
+  for (var i = 0; i < ERAS.length; i++) {
+    var e = ERAS[i];
+    html += '<div class="era-card" id="era-'+i+'" onclick="selectEra('+i+')">';
+    html += '<div class="era-bg" style="background:'+e.bg+';font-size:32px;display:flex;align-items:center;justify-content:center">'+e.emoji+'</div>';
+    html += '<div class="era-label"><div class="era-year">'+e.year+'</div><div class="era-name">'+e.name+'</div></div>';
+    html += '</div>';
+  }
+  scroll.innerHTML = html;
+}
+
+function selectEra(i) {
+  var cards = document.querySelectorAll('.era-card');
+  for (var j = 0; j < cards.length; j++) cards[j].classList.remove('selected');
+  document.getElementById('era-'+i).classList.add('selected');
+  era = ERAS[i].year + ' ' + ERAS[i].name;
+}
+
+function enterWorld() {
+  fairyActive = false;
+  showBarbieEntry();
+}
+
+function showBarbieEntry() {
+  var entry = document.getElementById('barbie-entry');
+  entry.style.display = 'block';
+
+  // spawn sparkles continuously
+  var sparkInterval = setInterval(function() {
+    var s = document.createElement('div');
+    s.style.cssText = 'position:absolute;font-size:'+(12+Math.random()*20)+'px;left:'+(Math.random()*100)+'%;top:'+(Math.random()*100)+'%;z-index:4;pointer-events:none;animation:trailFade 1.2s ease-out forwards';
+    s.textContent = ['✨','💫','⭐','🌟','✦'][Math.floor(Math.random()*5)];
+    document.getElementById('entry-sparkles').appendChild(s);
+    setTimeout(function(){ if(s.parentNode) s.parentNode.removeChild(s); }, 1200);
+  }, 80);
+
+  // step 1 - fly clothes in from sides
+  setTimeout(function() {
+    document.getElementById('fly1').style.left = '5%';
+    document.getElementById('fly2').style.right = '5%';
+    document.getElementById('fly3').style.left = '8%';
+    document.getElementById('fly4').style.right = '8%';
+    document.getElementById('fly5').style.left = '6%';
+    document.getElementById('fly6').style.right = '6%';
+  }, 100);
+
+  // step 2 - open curtains
+  setTimeout(function() {
+    document.getElementById('curtain-l').style.transform = 'translateX(-100%)';
+    document.getElementById('curtain-r').style.transform = 'translateX(100%)';
+    document.getElementById('entry-reveal').style.opacity = '1';
+  }, 600);
+
+  // step 3 - go to main
+  setTimeout(function() {
+    clearInterval(sparkInterval);
+    entry.style.opacity = '0';
+    entry.style.transition = 'opacity 0.5s ease';
+    // remove bouncing fairy completely
+    var bf = document.querySelector('.bouncy-fairy');
+    if (bf) bf.remove();
+    // remove any leftover pixie dust
+    var dusts = document.querySelectorAll('.pixie-dust');
+    for (var i = 0; i < dusts.length; i++) dusts[i].remove();
+    setTimeout(function() {
+      entry.style.display = 'none';
+      entry.style.opacity = '1';
+      goTo('main');
+    }, 500);
+  }, 3200);
+}
+
+
+
+function sparkleReveal() {
+  var colors = ['#FFD700','#E0A0FF','#FFB0E0','#C8A0FF','#B0D0FF'];
+  for (var i = 0; i < 30; i++) {
+    var dot = document.createElement('div');
+    dot.className = 'sparkle-dot';
+    var x = Math.random() * window.innerWidth;
+    var y = Math.random() * 300;
+    var angle = Math.random() * Math.PI * 2;
+    var dist = 40 + Math.random() * 100;
+    dot.style.cssText = 'left:'+x+'px;top:'+y+'px;background:'+colors[i%colors.length]+';--tx:'+Math.cos(angle)*dist+'px;--ty:'+Math.sin(angle)*dist+'px;animation-delay:'+(Math.random()*0.5)+'s;width:'+(4+Math.random()*8)+'px;height:'+(4+Math.random()*8)+'px';
+    document.body.appendChild(dot);
+    setTimeout(function(d){ d.remove(); }, 1400);
+  }
+}
+
+function goTo(id) {
+  var screens = document.querySelectorAll('.screen');
+  for (var i = 0; i < screens.length; i++) {
+    if (screens[i] && screens[i].classList) screens[i].classList.remove('active');
+  }
+  var el = document.getElementById(id);
+  if (el) { el.classList.add('active'); window.scrollTo(0, 0); }
+}
+
+function goToStep(id) {
+  if (id === 'celeb-step') {
+    var occ = document.getElementById('occasion').value.trim();
+    if (!occ) { document.getElementById('occasion').focus(); return; }
+    occasion = occ;
+  }
+  goTo(id);
+}
+
+function showTab(tabId, btn) {
+  document.getElementById('style-tab').style.display = tabId === 'style-tab' ? 'block' : 'none';
+  document.getElementById('closet-tab').style.display = tabId === 'closet-tab' ? 'block' : 'none';
+  var btns = document.querySelectorAll('.nav-btn');
+  for (var i = 0; i < btns.length; i++) { if (btns[i] && btns[i].classList) btns[i].classList.remove('active'); }
+  btn.classList.add('active');
+  if (tabId === 'closet-tab') renderCloset();
+}
+
+function setBudget(b) {
+  budget = b;
+  document.getElementById('btn-normal').className = 'budget-opt normal' + (b === 'normal' ? ' active' : '');
+  document.getElementById('btn-luxury').className = 'budget-opt luxury' + (b === 'luxury' ? ' active' : '');
+  var desc = document.getElementById('budget-desc');
+  if (b === 'luxury') {
+    desc.className = 'budget-desc luxury';
+    desc.textContent = 'Ella selects from Chanel, Dior, Prada, The Row, Bottega Veneta with direct links.';
+  } else {
+    desc.className = 'budget-desc normal';
+    desc.textContent = 'Ella curates looks from Zara, ASOS, Mango and more.';
+  }
+}
+
+function skipCeleb() { celeb = ''; goTo('era-step'); }
+function skipEra() { era = ''; goTo('path-step'); }
+
+function getOutfit(p) {
+  celeb = document.getElementById('celeb-input') ? document.getElementById('celeb-input').value.trim() : celeb;
+  currentPath = p;
+  var hero = document.getElementById('outfit-hero');
+  var badge = document.getElementById('outfit-budget-badge');
+  hero.className = 'outfit-hero ' + (budget === 'luxury' ? 'luxury' : 'normal');
+  badge.className = 'budget-badge ' + (budget === 'luxury' ? 'luxury' : 'normal');
+  badge.textContent = budget === 'luxury' ? 'Luxury' : 'Everyday';
+  var title = celeb ? celeb + "'s energy" : (era ? era + ' vibes' : 'Your look');
+  document.getElementById('outfit-title').textContent = title;
+  document.getElementById('outfit-sub').textContent = occasion;
+  var loadMsg = budget === 'luxury' ? 'Ella is selecting from the finest houses.' : 'Ella is putting it together.';
+  document.getElementById('outfit-body').innerHTML = '<div class="loading-state"><div class="loading-dots"><span></span><span></span><span></span></div><div class="loading-label">' + loadMsg + '</div></div>';
+  goTo('outfit');
+  fetchOutfit();
+}
+
+function fetchOutfit() {
+  var closetDesc = '';
+  if (currentPath === 'closet' && closetItems.length > 0) {
+    var labels = [];
+    for (var i = 0; i < closetItems.length; i++) labels.push(closetItems[i].label);
+    closetDesc = 'IMPORTANT: The user owns these specific pieces in their closet: ' + labels.join(', ') + '. You MUST build the outfit using these exact pieces as the foundation. Only suggest additional items if something essential is missing.';
+  }
+
+  var brandGuide = budget === 'luxury'
+    ? 'Use ONLY luxury brands: Chanel, Dior, Prada, The Row, Loro Piana, Brunello Cucinelli, Bottega Veneta, Valentino, Zimmermann, Jacquemus, Manolo Blahnik, Christian Louboutin, Hermes, Louis Vuitton, Celine, Cartier, Charlotte Tilbury.'
+    : 'Use ONLY accessible brands: Zara, ASOS, Mango, HM, Other Stories, NYX, Maybelline, NARS, Olaplex.';
+
+  var celebLine = celeb ? 'Channel the style of: ' + celeb : 'Pick the most fitting celebrity aesthetic.';
+  var eraLine = era ? 'Era/aesthetic: ' + era + '. Incorporate key elements of this era into the look.' : '';
+  var pathLine = currentPath === 'closet' ? 'CLOSET MODE: Use the users own pieces listed above.' : 'DISCOVER MODE: Find a complete new look.';
+  var budgetLine = budget === 'luxury' ? 'LUXURY' : 'EVERYDAY';
+
+  var promptText = [
+    'You are Ella, a razor-sharp fashion stylist. Gossip Girl energy. No fluff, no exclamation marks. Precise, elegant, authoritative.',
+    '',
+    'Occasion: ' + occasion,
+    celebLine,
+    eraLine,
+    'Path: ' + pathLine,
+    closetDesc,
+    'Budget mode: ' + budgetLine,
+    brandGuide,
+    '',
+    'Respond ONLY in this exact JSON format, nothing else:',
+    '{',
+    '  "celeb_vibe": "who they are channeling plus 4 word vibe",',
+    '  "occasion_note": "one elegant sentence about this look",',
+    '  "items": [',
+    '    {',
+    '      "category": "Top",',
+    '      "name": "specific item name",',
+    '      "brand": "brand name",',
+    '      "detail": "color, fit, one styling tip",',
+    '      "emoji": "👕",',
+    '      "owned": true or false',
+    '    }',
+    '  ],',
+    '  "ella_note": "one Gossip Girl coded closing line, no exclamation mark"',
+    '}',
+    '',
+    'Categories: Top, Bottom, Shoes, Bag, Accessories, Hair, Makeup.',
+    'If using closet pieces, set owned to true for those items.',
+    'Keep the era aesthetic throughout all choices.'
+  ].join('\n');
+
+  fetch('/api/outfit', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt: promptText })
+  }).then(function(r) {
+    return r.json();
+  }).then(function(data) {
+    renderOutfit(data.outfit);
+    sparkleReveal();
+  }).catch(function() {
+    document.getElementById('outfit-body').innerHTML = '<div style="padding:20px;text-align:center;color:#C080D8;font-family:serif;font-style:italic">Ella stepped out. Try again.</div>';
+  });
+}
+
+function renderOutfit(raw) {
+  try {
+    var clean = raw.replace(/```json|```/g, '').trim();
+    var data = JSON.parse(clean);
+    document.getElementById('outfit-title').textContent = data.celeb_vibe || 'Your look';
+    document.getElementById('outfit-sub').textContent = data.occasion_note || '';
+    var isLux = budget === 'luxury';
+    var html = '<div class="outfit-items">';
+    for (var i = 0; i < data.items.length; i++) {
+      var item = data.items[i];
+      var searchQuery = encodeURIComponent(item.name);
+      var brandSearchLinks = {
+        'Zara':'https://www.zara.com/us/en/search?searchTerm='+searchQuery,
+        'ASOS':'https://www.asos.com/search/?q='+searchQuery,
+        'Mango':'https://shop.mango.com/us/search?q='+searchQuery,
+        'Chanel':'https://www.chanel.com/us/search/?q='+searchQuery,
+        'Dior':'https://www.dior.com/en_us/search#q='+searchQuery,
+        'Prada':'https://www.prada.com/us/en/search.html?q='+searchQuery,
+        'The Row':'https://www.therow.com/en-us/search?q='+searchQuery,
+        'Bottega Veneta':'https://www.bottegaveneta.com/en-us/search?q='+searchQuery,
+        'Louis Vuitton':'https://us.louisvuitton.com/eng-us/search/'+searchQuery,
+        'Hermes':'https://www.hermes.com/us/en/search/?q='+searchQuery,
+        'Celine':'https://www.celine.com/en-us/search?q='+searchQuery,
+        'Valentino':'https://www.valentino.com/en-us/search?q='+searchQuery,
+        'Jacquemus':'https://www.jacquemus.com/search?q='+searchQuery,
+        'Zimmermann':'https://www.zimmermannwear.com/search?q='+searchQuery,
+        'Charlotte Tilbury':'https://www.charlottetilbury.com/us/search?q='+searchQuery,
+        'NYX':'https://www.nyxcosmetics.com/search?q='+searchQuery,
+        'Maybelline':'https://www.maybelline.com/search#q='+searchQuery,
+        'NARS':'https://www.narscosmetics.com/USA/search?q='+searchQuery,
+        'Olaplex':'https://olaplex.com/search?q='+searchQuery
+      };
+      var brandLink = brandSearchLinks[item.brand] || ('https://www.google.com/search?q='+encodeURIComponent(item.brand+' '+item.name));
+      var isOwned = item.owned === true;
+      html += '<div class="outfit-item'+(isLux?' luxury':'')+'" style="animation-delay:'+(i*0.08)+'s">';
+      html += '<a href="'+brandLink+'" target="_blank" class="item-thumb '+(isLux?'luxury':'normal')+'">';
+      html += '<span>'+item.emoji+'</span>';
+      html += '<span class="item-thumb-label">'+(isOwned ? 'yours' : (isLux?'shop':'view'))+'</span>';
+      html += '</a>';
+      html += '<div class="item-info">';
+      html += '<div class="item-cat'+(isLux?' luxury':'')+'">'+item.category+(isOwned?' -- from your closet':'')+'</div>';
+      html += '<div class="item-name">'+item.name+'</div>';
+      html += '<div class="item-brand'+(isLux?' luxury':'')+'">'+item.brand+'</div>';
+      html += '<div class="item-detail">'+item.detail+'</div>';
+      if (!isOwned) {
+        html += '<a href="'+brandLink+'" target="_blank" class="item-link'+(isLux?' luxury':'')+'">'+(isLux?'Shop now':'View')+'</a>';
+      }
+      html += '</div></div>';
+    }
+    html += '</div>';
+    if (data.ella_note) {
+      html += '<div class="ella-note-box'+(isLux?' luxury':'')+'"><div class="ella-note-label">ELLA SAYS</div><div class="ella-note-text">'+data.ella_note+'</div></div>';
+    }
+    html += '<div class="action-row"><button class="action-btn" onclick="getOutfit(\''+currentPath+'\')">Redo</button><button class="action-btn" onclick="goTo(\'main\')">Start over</button></div>';
+    document.getElementById('outfit-body').innerHTML = html;
+  } catch(e) {
+    document.getElementById('outfit-body').innerHTML = '<div style="padding:20px;text-align:center;color:#C080D8;font-family:serif;font-style:italic">Something went wrong. Try again.</div>';
+  }
+}
+
+function openCamera() {
+  document.getElementById('camera-modal').classList.add('open');
+  document.getElementById('cam-preview').style.display = 'none';
+  document.getElementById('cam-placeholder').style.display = 'flex';
+  document.getElementById('item-label').value = '';
+}
+function closeCamera() { document.getElementById('camera-modal').classList.remove('open'); }
+function triggerCamera() { document.getElementById('cam-input').click(); }
+
+function previewPhoto(input) {
+  if (input.files && input.files[0]) {
+    var reader = new FileReader();
+    reader.onload = function(e) {
+      var p = document.getElementById('cam-preview');
+      p.src = e.target.result;
+      p.style.display = 'block';
+      document.getElementById('cam-placeholder').style.display = 'none';
+    };
+    reader.readAsDataURL(input.files[0]);
+  }
+}
+
+function saveToCloset() {
+  var label = document.getElementById('item-label').value.trim();
+  var preview = document.getElementById('cam-preview');
+  if (!label) { document.getElementById('item-label').focus(); return; }
+  var imgSrc = preview.style.display !== 'none' ? preview.src : null;
+  closetItems.push({ label: label, img: imgSrc, id: Date.now() });
+  fetch('/api/closet/save', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ items: closetItems })
+  });
+  closeCamera();
+  renderCloset();
+  showTab('closet-tab', document.querySelectorAll('.nav-btn')[1]);
+}
+
+function deleteClosetItem(id) {
+  var newItems = [];
+  for (var i = 0; i < closetItems.length; i++) {
+    if (closetItems[i].id !== id) newItems.push(closetItems[i]);
+  }
+  closetItems = newItems;
+  fetch('/api/closet/save', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ items: closetItems })
+  });
+  renderCloset();
+}
+
+function renderCloset() {
+  var grid = document.getElementById('closet-grid');
+  if (closetItems.length === 0) {
+    grid.innerHTML = '<div class="empty-closet" style="grid-column:1/-1">Your closet is empty.<br>Start adding pieces.</div>';
+    return;
+  }
+  var html = '';
+  for (var i = 0; i < closetItems.length; i++) {
+    var item = closetItems[i];
+    html += '<div class="closet-item">';
+    if (item.img) {
+      html += '<img src="'+item.img+'" alt="'+item.label+'"/>';
+    } else {
+      html += '<div style="height:110px;background:linear-gradient(135deg,#FDE8FF,#E8D0FF);display:flex;align-items:center;justify-content:center;font-size:28px">👗</div>';
+    }
+    html += '<div class="closet-item-label">'+item.label+'</div>';
+    html += '<button class="closet-item-del" onclick="deleteClosetItem('+item.id+')">x</button>';
+    html += '</div>';
+  }
+  grid.innerHTML = html;
+}
+
+buildEras();
+fetch('/api/closet/load').then(function(r) {
+  return r.json();
+}).then(function(data) {
+  if (data.items) closetItems = data.items;
+});
+
+// BOUNCING FAIRY
+(function(){
+  var fairy = document.createElement('div');
+  fairy.className = 'bouncy-fairy';
+  fairy.textContent = '🧚‍♀️';
+  document.body.appendChild(fairy);
+
+  var x = Math.random() * (window.innerWidth - 60) + 20;
+  var y = Math.random() * (window.innerHeight - 60) + 20;
+  var vx = (Math.random() * 3 + 2) * (Math.random() > 0.5 ? 1 : -1);
+  var vy = (Math.random() * 3 + 2) * (Math.random() > 0.5 ? 1 : -1);
+  var dustTimer = 0;
+  var dustEmojis = ['✨','💫','⭐','🌟','✦','·'];
+
+  function spawnDustAt(px, py) {
+    var d = document.createElement('div');
+    d.className = 'pixie-dust';
+    d.textContent = dustEmojis[Math.floor(Math.random() * dustEmojis.length)];
+    d.style.left = (px + Math.random()*20-10) + 'px';
+    d.style.top = (py + Math.random()*20-10) + 'px';
+    d.style.color = ['#FFD700','#E0A0FF','#FFB0E0','#B0E0FF','#FFFFFF'][Math.floor(Math.random()*5)];
+    d.style.fontSize = (8 + Math.random()*14) + 'px';
+    document.body.appendChild(d);
+    setTimeout(function(){ if(d.parentNode) d.parentNode.removeChild(d); }, 1000);
+  }
+
+  function loop() {
+    x += vx;
+    y += vy;
+    var w = window.innerWidth - 50;
+    var h = window.innerHeight - 50;
+    if (x < 10) { x = 10; vx = Math.abs(vx) + Math.random()*0.5; }
+    if (x > w) { x = w; vx = -(Math.abs(vx) + Math.random()*0.5); }
+    if (y < 10) { y = 10; vy = Math.abs(vy) + Math.random()*0.5; }
+    if (y > h) { y = h; vy = -(Math.abs(vy) + Math.random()*0.5); }
+    // cap speed
+    var speed = Math.sqrt(vx*vx + vy*vy);
+    if (speed > 6) { vx = vx/speed*6; vy = vy/speed*6; }
+    if (speed < 1.5) { vx *= 1.1; vy *= 1.1; }
+    // random direction nudge
+    if (Math.random() < 0.015) { vx += (Math.random()-0.5)*2; vy += (Math.random()-0.5)*2; }
+    fairy.style.left = x + 'px';
+    fairy.style.top = y + 'px';
+    // flip based on direction
+    fairy.style.transform = vx < 0 ? 'scaleX(-1)' : 'scaleX(1)';
+    dustTimer++;
+    if (dustTimer % 3 === 0 && document.getElementById('splash').classList.contains('active')) spawnDustAt(x + 18, y + 18);
+    requestAnimationFrame(loop);
+  }
+  loop();
+})();
+</script>
+
+<!-- BARBIE ENTRY SCREEN -->
+<div id="barbie-entry" style="display:none;position:fixed;inset:0;z-index:500;background:#FFF0F8;overflow:hidden">
+
+  <!-- animated background shimmer -->
+  <div style="position:absolute;inset:0;background:linear-gradient(160deg,#FFE4F5,#F0D4FF,#D4E8FF,#C8F5EE);animation:shimmer 2s linear infinite;background-size:400% auto"></div>
+
+  <!-- curtain left -->
+  <div id="curtain-l" style="position:absolute;left:0;top:0;width:50%;height:100%;background:linear-gradient(135deg,#F0C0FF,#D4A0FF,#B880FF);z-index:2;transform:translateX(0);transition:transform 1.2s cubic-bezier(0.77,0,0.175,1);display:flex;align-items:center;justify-content:flex-end;padding-right:20px">
+    <div style="font-size:60px;opacity:0.3">👗</div>
+  </div>
+  <!-- curtain right -->
+  <div id="curtain-r" style="position:absolute;right:0;top:0;width:50%;height:100%;background:linear-gradient(225deg,#FFB8D8,#FF90C0,#E060A0);z-index:2;transform:translateX(0);transition:transform 1.2s cubic-bezier(0.77,0,0.175,1);display:flex;align-items:center;justify-content:flex-start;padding-left:20px">
+    <div style="font-size:60px;opacity:0.3">👠</div>
+  </div>
+
+  <!-- center content that reveals -->
+  <div id="entry-reveal" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:1;opacity:0;transition:opacity 0.8s ease 0.8s">
+    <div style="font-size:80px;margin-bottom:16px;animation:float 2s ease-in-out infinite">✨</div>
+    <div style="font-family:'Playfair Display',serif;font-style:italic;font-size:36px;color:#8B3FA8;letter-spacing:-1px;margin-bottom:8px">Welcome</div>
+    <div style="font-family:'Playfair Display',serif;font-style:italic;font-size:22px;color:#E891C0">to your world</div>
+    <div style="margin-top:24px;display:flex;gap:16px;font-size:32px">
+      <span style="animation:float 2s ease-in-out infinite">👗</span>
+      <span style="animation:float 2.3s ease-in-out infinite 0.2s">👠</span>
+      <span style="animation:float 2.1s ease-in-out infinite 0.4s">👜</span>
+      <span style="animation:float 2.4s ease-in-out infinite 0.6s">💄</span>
+      <span style="animation:float 2.2s ease-in-out infinite 0.8s">💍</span>
+    </div>
+    <!-- flying clothes from sides -->
+    <div id="fly1" style="position:absolute;font-size:40px;left:-80px;top:20%;transition:left 1s ease 0.4s">👗</div>
+    <div id="fly2" style="position:absolute;font-size:36px;right:-80px;top:35%;transition:right 1s ease 0.5s">👠</div>
+    <div id="fly3" style="position:absolute;font-size:38px;left:-80px;top:60%;transition:left 1s ease 0.6s">👜</div>
+    <div id="fly4" style="position:absolute;font-size:34px;right:-80px;top:70%;transition:right 1s ease 0.7s">💄</div>
+    <div id="fly5" style="position:absolute;font-size:36px;left:-80px;top:80%;transition:left 1s ease 0.8s">👒</div>
+    <div id="fly6" style="position:absolute;font-size:34px;right:-80px;top:15%;transition:right 1s ease 0.5s">💎</div>
+  </div>
+
+  <!-- sparkle overlay -->
+  <div id="entry-sparkles" style="position:absolute;inset:0;z-index:3;pointer-events:none"></div>
+</div>
+</body>
+</html>
