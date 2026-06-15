@@ -2,8 +2,6 @@
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-TDC0X0C9TK"></script>
-<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-TDC0X0C9TK');</script>
 <title>FashionGPT</title>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
@@ -226,6 +224,21 @@ body{font-family:'DM Sans',sans-serif;background:#FFF0F8;min-height:100vh;max-wi
         <div class="budget-desc normal" id="budget-desc">Ella curates looks from Zara, ASOS, Mango and more.</div>
       </div>
 
+      <div class="section" style="padding-top:0">
+        <div class="label">Currency</div>
+        <div style="display:flex;gap:8px;margin-bottom:12px">
+          <button class="budget-opt normal active" id="btn-inr" onclick="setCurrency('INR')" style="flex:1;padding:10px;border:1px solid #F0C0E8;border-radius:50px;background:linear-gradient(135deg,#D4537E,#8B3FA8);color:#fff;font-size:12px;cursor:pointer">🇮🇳 INR</button>
+          <button class="budget-opt" id="btn-usd" onclick="setCurrency('USD')" style="flex:1;padding:10px;border:1px solid #F0C0E8;border-radius:50px;background:#fff;color:#C080D8;font-size:12px;cursor:pointer">🇺🇸 USD</button>
+        </div>
+        <div class="label">Price range per piece</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="price-btn active" id="price-low" onclick="setPrice('low')" style="flex:1;min-width:80px;padding:9px 8px;border:1px solid #F0C0E8;border-radius:50px;font-size:11px;cursor:pointer;background:linear-gradient(135deg,#D4537E,#8B3FA8);color:#fff">💸 Budget</button>
+          <button class="price-btn" id="price-mid" onclick="setPrice('mid')" style="flex:1;min-width:80px;padding:9px 8px;border:1px solid #F0C0E8;border-radius:50px;font-size:11px;cursor:pointer;background:#fff;color:#C080D8">💰 Mid</button>
+          <button class="price-btn" id="price-high" onclick="setPrice('high')" style="flex:1;min-width:80px;padding:9px 8px;border:1px solid #F0C0E8;border-radius:50px;font-size:11px;cursor:pointer;background:#fff;color:#C080D8">👑 Luxury</button>
+        </div>
+        <div id="price-desc" style="font-size:11px;margin-top:8px;padding:8px 12px;border-radius:10px;background:#FDE8FF;color:#7040A0">Budget: under ₹2,500 per piece</div>
+      </div>
+
       <div class="section">
         <div class="label">Tell Ella</div>
         <textarea class="magic-input" id="occasion" placeholder="Going for brunch. Want to look effortless and chic."></textarea>
@@ -363,7 +376,51 @@ var celeb = '';
 var era = '';
 var currentPath = '';
 var budget = 'normal';
+var currency = 'INR';
+var priceRange = 'low';
 var closetItems = [];
+
+var PRICE_RANGES = {
+  INR: {
+    low: { label: 'Budget', desc: 'under ₹2,500 per piece', range: 'under ₹2,500 per piece (approx 0)' },
+    mid: { label: 'Mid range', desc: '₹2,500 - ₹10,000 per piece', range: '₹2,500-10,000 per piece (approx 0-120)' },
+    high: { label: 'Luxury', desc: '₹10,000+ per piece', range: 'above ₹10,000 per piece (approx 20+)' }
+  },
+  USD: {
+    low: { label: 'Budget', desc: 'under 0 per piece', range: 'under 0 per piece' },
+    mid: { label: 'Mid range', desc: '0 - 20 per piece', range: '0-120 per piece' },
+    high: { label: 'Luxury', desc: '20+ per piece', range: 'above 20 per piece' }
+  }
+};
+
+function setCurrency(c) {
+  currency = c;
+  document.getElementById('btn-inr').style.background = c === 'INR' ? 'linear-gradient(135deg,#D4537E,#8B3FA8)' : '#fff';
+  document.getElementById('btn-inr').style.color = c === 'INR' ? '#fff' : '#C080D8';
+  document.getElementById('btn-usd').style.background = c === 'USD' ? 'linear-gradient(135deg,#D4537E,#8B3FA8)' : '#fff';
+  document.getElementById('btn-usd').style.color = c === 'USD' ? '#fff' : '#C080D8';
+  updatePriceDesc();
+}
+
+function setPrice(p) {
+  priceRange = p;
+  var btns = ['price-low','price-mid','price-high'];
+  var vals = ['low','mid','high'];
+  for (var i = 0; i < btns.length; i++) {
+    var active = vals[i] === p;
+    document.getElementById(btns[i]).style.background = active ? 'linear-gradient(135deg,#D4537E,#8B3FA8)' : '#fff';
+    document.getElementById(btns[i]).style.color = active ? '#fff' : '#C080D8';
+  }
+  updatePriceDesc();
+}
+
+function updatePriceDesc() {
+  var desc = document.getElementById('price-desc');
+  if (desc) {
+    var info = PRICE_RANGES[currency][priceRange];
+    desc.textContent = info.label + ': ' + info.desc;
+  }
+}
 
 var ERAS = [
   {year:'1900s', name:'Edwardian', emoji:'🎩', bg:'#F5EDE0', color:'#6B4C2A'},
@@ -565,6 +622,9 @@ function fetchOutfit() {
   var pathLine = currentPath === 'closet' ? 'CLOSET MODE: Use the users own pieces listed above.' : 'DISCOVER MODE: Find a complete new look.';
   var budgetLine = budget === 'luxury' ? 'LUXURY' : 'EVERYDAY';
 
+  var priceInfo = PRICE_RANGES[currency][priceRange];
+  var currencyLine = 'Currency: ' + currency + '. Price range: ' + priceInfo.range + '. Include the price of each item in ' + currency + ' next to the item name. Keep all prices within this range.';
+
   var promptText = [
     'You are Ella, a razor-sharp fashion stylist. Gossip Girl energy. No fluff, no exclamation marks. Precise, elegant, authoritative.',
     '',
@@ -575,6 +635,7 @@ function fetchOutfit() {
     closetDesc,
     'Budget mode: ' + budgetLine,
     brandGuide,
+    currencyLine,
     '',
     'Respond ONLY in this exact JSON format, nothing else:',
     '{',
@@ -587,6 +648,7 @@ function fetchOutfit() {
     '      "brand": "brand name",',
     '      "detail": "color, fit, one styling tip",',
     '      "emoji": "👕",',
+    '      "price": "price in the chosen currency e.g. ₹1,999 or 5",',
     '      "owned": true or false',
     '    }',
     '  ],',
@@ -656,6 +718,7 @@ function renderOutfit(raw) {
       html += '<div class="item-name">'+item.name+'</div>';
       html += '<div class="item-brand'+(isLux?' luxury':'')+'">'+item.brand+'</div>';
       html += '<div class="item-detail">'+item.detail+'</div>';
+      if (item.price) { html += '<div style="font-size:12px;font-weight:600;color:'+(isLux?'#C9A84C':'#8B3FA8')+';margin-top:3px">'+item.price+'</div>'; }
       if (!isOwned) {
         html += '<a href="'+brandLink+'" target="_blank" class="item-link'+(isLux?' luxury':'')+'">'+(isLux?'Shop now':'View')+'</a>';
       }
