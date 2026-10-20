@@ -775,41 +775,34 @@ body {
   </div>
   <div id="celeb-category-tabs" style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
     <button class="detail-chip selected" onclick="filterCelebCategory('all',this)">All</button>
-    <button class="detail-chip" onclick="filterCelebCategory('indian-women',this)">🇮🇳 Indian Women</button>
-    <button class="detail-chip" onclick="filterCelebCategory('global-women',this)">🌍 Global Women</button>
+    <button class="detail-chip" onclick="filterCelebCategory('women',this)">Women</button>
     <button class="detail-chip" onclick="filterCelebCategory('men',this)">Men</button>
   </div>
   <div class="celeb-suggestions" id="celeb-suggestions">
-    <!-- Indian Women -->
-    <div class="celeb-sug" data-cat="indian-women" onclick="setCeleb('Deepika Padukone')">Deepika Padukone</div>
-    <div class="celeb-sug" data-cat="indian-women" onclick="setCeleb('Alia Bhatt')">Alia Bhatt</div>
-    <div class="celeb-sug" data-cat="indian-women" onclick="setCeleb('Ananya Panday')">Ananya Panday</div>
-    <div class="celeb-sug" data-cat="indian-women" onclick="setCeleb('Janhvi Kapoor')">Janhvi Kapoor</div>
-    <div class="celeb-sug" data-cat="indian-women" onclick="setCeleb('Kiara Advani')">Kiara Advani</div>
-    <div class="celeb-sug" data-cat="indian-women" onclick="setCeleb('Sonam Kapoor')">Sonam Kapoor</div>
-    <div class="celeb-sug" data-cat="indian-women" onclick="setCeleb('Priyanka Chopra')">Priyanka Chopra</div>
-    <div class="celeb-sug" data-cat="indian-women" onclick="setCeleb('Sara Ali Khan')">Sara Ali Khan</div>
-    <div class="celeb-sug" data-cat="indian-women" onclick="setCeleb('Shanaya Kapoor')">Shanaya Kapoor</div>
-    <!-- Global Women -->
-    <div class="celeb-sug" data-cat="global-women" onclick="setCeleb('Zendaya')">Zendaya</div>
-    <div class="celeb-sug" data-cat="global-women" onclick="setCeleb('Kendall Jenner')">Kendall Jenner</div>
-    <div class="celeb-sug" data-cat="global-women" onclick="setCeleb('Hailey Bieber')">Hailey Bieber</div>
-    <div class="celeb-sug" data-cat="global-women" onclick="setCeleb('Bella Hadid')">Bella Hadid</div>
-    <div class="celeb-sug" data-cat="global-women" onclick="setCeleb('Dua Lipa')">Dua Lipa</div>
-    <div class="celeb-sug" data-cat="global-women" onclick="setCeleb('Rihanna')">Rihanna</div>
-    <div class="celeb-sug" data-cat="global-women" onclick="setCeleb('Olivia Rodrigo')">Olivia Rodrigo</div>
-    <div class="celeb-sug" data-cat="global-women" onclick="setCeleb('Sydney Sweeney')">Sydney Sweeney</div>
-    <div class="celeb-sug" data-cat="global-women" onclick="setCeleb('Audrey Hepburn')">Audrey Hepburn</div>
-    <div class="celeb-sug" data-cat="global-women" onclick="setCeleb('Taylor Swift')">Taylor Swift</div>
+    <!-- Women -->
+    <div class="celeb-sug" data-cat="women" onclick="setCeleb('Zendaya')">Zendaya</div>
+    <div class="celeb-sug" data-cat="women" onclick="setCeleb('Kylie Jenner')">Kylie Jenner</div>
+    <div class="celeb-sug" data-cat="women" onclick="setCeleb('Bella Hadid')">Bella Hadid</div>
+    <div class="celeb-sug" data-cat="women" onclick="setCeleb('Hailey Bieber')">Hailey Bieber</div>
+    <div class="celeb-sug" data-cat="women" onclick="setCeleb('Sabrina Carpenter')">Sabrina Carpenter</div>
+    <div class="celeb-sug" data-cat="women" onclick="setCeleb('Alexandra Saint Mleux')">Alexandra Saint Mleux</div>
+    <div class="celeb-sug" data-cat="women" onclick="setCeleb('Kendall Jenner')">Kendall Jenner</div>
+    <div class="celeb-sug" data-cat="women" onclick="setCeleb('Ariana Grande')">Ariana Grande</div>
+    <div class="celeb-sug" data-cat="women" onclick="setCeleb('Rihanna')">Rihanna</div>
+    <div class="celeb-sug" data-cat="women" onclick="setCeleb('Dua Lipa')">Dua Lipa</div>
+    <div class="celeb-sug" data-cat="women" onclick="setCeleb('Taylor Swift')">Taylor Swift</div>
+    <div class="celeb-sug" data-cat="women" onclick="setCeleb('Olivia Rodrigo')">Olivia Rodrigo</div>
+    <div class="celeb-sug" data-cat="women" onclick="setCeleb('Sydney Sweeney')">Sydney Sweeney</div>
+    <div class="celeb-sug" data-cat="women" onclick="setCeleb('Audrey Hepburn')">Audrey Hepburn</div>
     <!-- Men -->
-    <div class="celeb-sug" data-cat="men" onclick="setCeleb('Ranveer Singh')">Ranveer Singh</div>
-    <div class="celeb-sug" data-cat="men" onclick="setCeleb('Vijay Deverakonda')">Vijay Deverakonda</div>
-    <div class="celeb-sug" data-cat="men" onclick="setCeleb('Siddhant Chaturvedi')">Siddhant Chaturvedi</div>
-    <div class="celeb-sug" data-cat="men" onclick="setCeleb('Kartik Aaryan')">Kartik Aaryan</div>
     <div class="celeb-sug" data-cat="men" onclick="setCeleb('Harry Styles')">Harry Styles</div>
     <div class="celeb-sug" data-cat="men" onclick="setCeleb('Timothée Chalamet')">Timothée Chalamet</div>
     <div class="celeb-sug" data-cat="men" onclick="setCeleb('A$AP Rocky')">A$AP Rocky</div>
     <div class="celeb-sug" data-cat="men" onclick="setCeleb('Zayn Malik')">Zayn Malik</div>
+    <div class="celeb-sug" data-cat="men" onclick="setCeleb('Jacob Elordi')">Jacob Elordi</div>
+    <div class="celeb-sug" data-cat="men" onclick="setCeleb('Charles Leclerc')">Charles Leclerc</div>
+    <div class="celeb-sug" data-cat="men" onclick="setCeleb('Brad Pitt')">Brad Pitt</div>
+    <div class="celeb-sug" data-cat="men" onclick="setCeleb('Tom Holland')">Tom Holland</div>
     <div class="celeb-sug" data-cat="men" onclick="setCeleb('No specific muse')">No specific muse</div>
   </div>
 
@@ -1140,6 +1133,9 @@ function filterCelebCategory(cat, btn) {
   document.querySelectorAll('#celeb-suggestions .celeb-sug').forEach(el => {
     if (cat === 'all') {
       el.style.display = '';
+    } else if (cat === 'women') {
+      // Women tab = global women only (not indian-women)
+      el.style.display = (el.dataset.cat === 'women') ? '' : 'none';
     } else {
       el.style.display = (el.dataset.cat === cat) ? '' : 'none';
     }
