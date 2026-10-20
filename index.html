@@ -1,912 +1,1396 @@
-<!DOCTYPE html>
-<html>
-<head>
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<!-- FashionGPT Phase 1 — Clean Minimal Redesign -->
+<!-- Layout: Full-screen flow: Landing → Quiz → Occasion → Celeb → Era → Results + Gallery -->
 <title>FashionGPT</title>
-<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=DM+Sans:wght@300;400;500&display=swap">
+
+<!-- Google Analytics -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-TDC0X0C9TK"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-TDC0X0C9TK');
+</script>
+
 <style>
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'DM Sans',sans-serif;background:#FFF0F8;min-height:100vh;max-width:480px;margin:0 auto;overflow-x:hidden}
+/* ── Token system ── */
+:root {
+  --bg: #FAFAF8;
+  --bg2: #F2F1EE;
+  --fg: #1A1916;
+  --fg2: #6B6860;
+  --fg3: #9E9C96;
+  --accent: #B8977E;
+  --accent-dk: #9E7D65;
+  --border: #E5E3DF;
+  --card: #FFFFFF;
+  --serif: 'Cormorant Garamond', Georgia, serif;
+  --sans: 'DM Sans', system-ui, sans-serif;
+  --r: 2px;
+  --r-lg: 6px;
+  --shadow: 0 1px 3px rgba(26,25,22,0.06), 0 4px 12px rgba(26,25,22,0.04);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #18181A; --bg2: #222224; --fg: #F0EDE8; --fg2: #A09C94;
+    --fg3: #6A675F; --accent: #C9A88A; --accent-dk: #B8977E;
+    --border: #2E2E30; --card: #222224; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #18181A; --bg2: #222224; --fg: #F0EDE8; --fg2: #A09C94;
+  --fg3: #6A675F; --accent: #C9A88A; --accent-dk: #B8977E;
+  --border: #2E2E30; --card: #222224; color-scheme: dark;
+}
 
-@keyframes float{0%,100%{transform:translateY(0) rotate(-2deg)}50%{transform:translateY(-10px) rotate(2deg)}}
-@keyframes wingFlap{0%,100%{transform:scaleX(1) rotate(-22deg)}50%{transform:scaleX(0.7) rotate(-22deg)}}
-@keyframes wingFlap2{0%,100%{transform:scaleX(1) rotate(22deg)}50%{transform:scaleX(0.7) rotate(22deg)}}
-@keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
-@keyframes shimmer{0%{background-position:200% center}100%{background-position:-200% center}}
-@keyframes sparkle{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.1;transform:scale(0.3)}}
-@keyframes typing{0%,60%,100%{opacity:1}30%{opacity:0.3}}
-@keyframes dustFly{0%{transform:translateX(0) translateY(0) rotate(0deg);opacity:1}100%{transform:translateX(var(--tx,100px)) translateY(var(--ty,-80px)) rotate(720deg);opacity:0}}
-@keyframes burstIn{0%{transform:scale(0) rotate(-10deg);opacity:0}60%{transform:scale(1.1) rotate(2deg);opacity:1}100%{transform:scale(1) rotate(0deg);opacity:1}}
-@keyframes twinkle{0%,100%{opacity:0.8;transform:scale(1)}50%{opacity:0.1;transform:scale(0.4)}}
-@keyframes slideUp{from{transform:translateY(30px);opacity:0}to{transform:translateY(0);opacity:1}}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+  background: var(--bg); color: var(--fg);
+  font-family: var(--sans); font-size: 15px; line-height: 1.6;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 0;
+}
 
-.screen{display:none;min-height:100vh}
-.screen.active{display:flex;flex-direction:column;animation:fadeUp 0.45s ease}
+/* ── Screens ── */
+.screen {
+  display: none; min-height: 100vh;
+  flex-direction: column; align-items: center;
+  padding-block: 48px 72px;
+}
+.screen.active { display: flex; }
 
-/* SPLASH */
-.splash{background:linear-gradient(160deg,#FFE4F5 0%,#F0D4FF 40%,#D4E8FF 70%,#C8F5EE 100%);min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;overflow:hidden;padding:40px 20px}
-.splash-star{position:absolute;border-radius:50%;animation:twinkle var(--d,2s) ease-in-out infinite var(--delay,0s)}
-.fairy-wrap{position:relative;margin-bottom:28px}
-.fairy-svg{animation:float 3s ease-in-out infinite}
-.wing-l{transform-origin:right center;animation:wingFlap 1.4s ease-in-out infinite;display:block}
-.wing-r{transform-origin:left center;animation:wingFlap2 1.4s ease-in-out infinite;display:block}
-.dust-particle{position:absolute;width:6px;height:6px;border-radius:50%;background:#FFD700;pointer-events:none;animation:dustFly 1.2s ease-out forwards}
-.brand{font-family:'Playfair Display',serif;text-align:center;margin-bottom:28px}
-.brand h1{font-size:44px;font-style:italic;color:#8B3FA8;letter-spacing:-1px;line-height:1}
-.brand p{font-size:12px;color:#C080D8;letter-spacing:3px;text-transform:uppercase;font-weight:300;margin-top:8px}
-.enter-btn{background:linear-gradient(135deg,#D4537E,#8B3FA8,#4A7AC8);background-size:200% auto;animation:shimmer 4s linear infinite;border:none;border-radius:50px;padding:16px 52px;font-family:'Playfair Display',serif;font-style:italic;font-size:17px;color:#fff;cursor:pointer;position:relative;overflow:hidden}
-.enter-btn:active{transform:scale(0.97)}
+/* ── Landing ── */
+#screen-landing {
+  justify-content: center; text-align: center;
+  background: var(--bg);
+}
+.landing-inner { max-width: 480px; width: 100%; }
+.fairy-wrap {
+  width: 96px; height: 96px; margin: 0 auto 24px;
+  position: relative; display: flex; align-items: center; justify-content: center;
+}
+.fairy-emoji {
+  font-size: 52px; animation: fairy-float 3s ease-in-out infinite;
+  display: block;
+}
+@keyframes fairy-float {
+  0%,100% { transform: translateY(0) rotate(-3deg); }
+  50% { transform: translateY(-10px) rotate(3deg); }
+}
+.pixie-dot {
+  position: absolute; width: 4px; height: 4px;
+  border-radius: 50%; background: var(--accent);
+  animation: pixie-burst 3s ease-in-out infinite;
+  opacity: 0;
+}
+@keyframes pixie-burst {
+  0% { opacity: 0; transform: translate(0,0) scale(0); }
+  30% { opacity: 1; transform: translate(var(--tx), var(--ty)) scale(1); }
+  100% { opacity: 0; transform: translate(calc(var(--tx)*2), calc(var(--ty)*2)) scale(0); }
+}
+.landing-eyebrow {
+  font-family: var(--sans); font-size: 11px; font-weight: 500;
+  letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--accent); margin-bottom: 12px;
+}
+.landing-title {
+  font-family: var(--serif); font-size: clamp(42px, 10vw, 68px);
+  font-weight: 300; line-height: 1.05; letter-spacing: -0.01em;
+  color: var(--fg); margin-bottom: 8px;
+  text-wrap: balance;
+}
+.landing-title em { font-style: italic; color: var(--accent); }
+.landing-sub {
+  font-size: 15px; color: var(--fg2); margin-bottom: 36px;
+  font-weight: 300; max-width: 340px; margin-inline: auto;
+}
+.btn-primary {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: var(--fg); color: var(--bg);
+  font-family: var(--sans); font-size: 13px; font-weight: 500;
+  letter-spacing: 0.06em; text-transform: uppercase;
+  padding: 14px 32px; border: none; cursor: pointer;
+  border-radius: var(--r); transition: opacity 0.2s;
+  text-decoration: none;
+}
+.btn-primary:hover { opacity: 0.82; }
+.btn-secondary {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: transparent; color: var(--fg);
+  font-family: var(--sans); font-size: 13px; font-weight: 500;
+  letter-spacing: 0.06em; text-transform: uppercase;
+  padding: 13px 28px; border: 1px solid var(--border); cursor: pointer;
+  border-radius: var(--r); transition: border-color 0.2s;
+  text-decoration: none;
+}
+.btn-secondary:hover { border-color: var(--fg3); }
+.landing-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+.divider-word {
+  display: flex; align-items: center; gap: 12px;
+  color: var(--fg3); font-size: 12px; margin: 28px 0;
+}
+.divider-word::before, .divider-word::after {
+  content: ''; flex: 1; height: 1px; background: var(--border);
+}
 
-/* NAV */
-.nav{display:flex;border-bottom:1px solid #F0C0E8;background:#fff;flex-shrink:0}
-.nav-btn{flex:1;padding:14px 8px;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:#C080D8;background:none;border:none;cursor:pointer;font-family:'DM Sans',sans-serif}
-.nav-btn.active{color:#8B3FA8;border-bottom:2px solid #8B3FA8}
+/* ── Progress bar ── */
+.progress-bar {
+  width: 100%; max-width: 440px;
+  height: 2px; background: var(--border);
+  border-radius: 99px; margin-bottom: 40px;
+}
+.progress-fill {
+  height: 100%; background: var(--accent);
+  border-radius: 99px; transition: width 0.4s ease;
+}
+.step-label {
+  font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--fg3); margin-bottom: 8px; font-weight: 500;
+}
 
-/* WORLD */
-.world-bg{background:linear-gradient(180deg,#FDE8FF 0%,#FFE4F0 50%,#FFF0E0 100%);flex:1;padding-bottom:30px;position:relative;overflow:hidden}
-.flower-bar{height:6px;background:linear-gradient(90deg,#FFB8D8,#E8A0FF,#B8D0FF,#FFB8D8);background-size:200% auto;animation:shimmer 3s linear infinite}
+/* ── Section headers ── */
+.section-head { text-align: center; margin-bottom: 32px; }
+.section-title {
+  font-family: var(--serif); font-size: clamp(28px, 6vw, 42px);
+  font-weight: 300; line-height: 1.1; text-wrap: balance; color: var(--fg);
+}
+.section-title em { font-style: italic; color: var(--accent); }
+.section-desc { font-size: 14px; color: var(--fg2); margin-top: 8px; font-weight: 300; }
 
-/* ELLA */
-.ella-row{display:flex;align-items:flex-end;gap:12px;padding:18px 16px 0}
-.ella-mini-wrap{flex-shrink:0;position:relative}
-.ella-mini-svg{animation:float 2.5s ease-in-out infinite}
-.ella-wing-l{transform-origin:right center;animation:wingFlap 1.4s ease-in-out infinite}
-.ella-wing-r{transform-origin:left center;animation:wingFlap2 1.4s ease-in-out infinite}
-.bubble{background:#fff;border-radius:18px 18px 18px 4px;padding:13px 16px;flex:1;border:1px solid #F0C0E8}
-.bubble-name{font-size:9px;color:#C080D8;letter-spacing:2px;text-transform:uppercase;margin-bottom:3px}
-.bubble-text{font-family:'Playfair Display',serif;font-style:italic;font-size:14px;color:#3A1060;line-height:1.5}
+/* ── Style Quiz Screen ── */
+#screen-quiz { max-width: 640px; width: 100%; margin-inline: auto; }
+.quiz-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 10px; width: 100%; margin-bottom: 28px;
+}
+.quiz-chip {
+  padding: 12px 14px; border: 1px solid var(--border);
+  border-radius: var(--r); cursor: pointer; font-size: 13px;
+  color: var(--fg2); transition: all 0.18s; text-align: center;
+  background: var(--card);
+}
+.quiz-chip:hover { border-color: var(--accent); color: var(--fg); }
+.quiz-chip.selected {
+  border-color: var(--accent); background: var(--accent);
+  color: var(--bg); font-weight: 500;
+}
+.quiz-label {
+  font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--fg3); margin-bottom: 12px; margin-top: 24px; font-weight: 500;
+}
+.quiz-input {
+  width: 100%; padding: 13px 14px;
+  border: 1px solid var(--border); border-radius: var(--r);
+  background: var(--card); color: var(--fg);
+  font-family: var(--sans); font-size: 14px;
+  transition: border-color 0.18s; outline: none;
+}
+.quiz-input:focus { border-color: var(--accent); }
+.quiz-row { display: flex; gap: 10px; flex-wrap: wrap; }
 
-/* INPUTS */
-.section{padding:14px 16px}
-.label{font-size:10px;color:#B080C8;letter-spacing:2px;text-transform:uppercase;font-weight:500;margin-bottom:8px}
-.magic-input{width:100%;background:#fff;border:1.5px solid #E8C0F0;border-radius:16px;padding:13px 16px;font-size:14px;color:#2A0848;outline:none;resize:none;min-height:75px;font-family:'DM Sans',sans-serif;line-height:1.5}
-.magic-input:focus{border-color:#8B3FA8}
-.magic-input::placeholder{color:#D0A0E0;font-style:italic;font-size:13px}
-.text-input{width:100%;background:#fff;border:1.5px solid #E8C0F0;border-radius:50px;padding:12px 18px;font-size:14px;color:#2A0848;outline:none;font-family:'DM Sans',sans-serif}
-.text-input:focus{border-color:#8B3FA8}
-.text-input::placeholder{color:#D0A0E0;font-style:italic}
-.primary-btn{width:100%;margin-top:10px;background:linear-gradient(135deg,#D4537E,#8B3FA8);border:none;border-radius:50px;padding:14px;font-family:'Playfair Display',serif;font-style:italic;font-size:15px;color:#fff;cursor:pointer}
-.primary-btn:active{transform:scale(0.98)}
-.skip-btn{width:100%;margin-top:8px;background:transparent;border:none;font-size:12px;color:#C080D8;cursor:pointer;font-family:'DM Sans',sans-serif;padding:6px}
+/* ── Occasion screen ── */
+#screen-occasion { max-width: 560px; width: 100%; margin-inline: auto; }
+.occasion-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 10px; width: 100%; margin-bottom: 28px;
+}
+.occasion-tile {
+  padding: 18px 12px; border: 1px solid var(--border);
+  border-radius: var(--r); cursor: pointer; text-align: center;
+  transition: all 0.18s; background: var(--card);
+}
+.occasion-tile:hover { border-color: var(--accent); }
+.occasion-tile.selected { border-color: var(--accent); background: var(--accent); }
+.occasion-tile.selected .ot-icon,
+.occasion-tile.selected .ot-name { color: var(--bg); }
+.ot-icon { font-size: 24px; display: block; margin-bottom: 6px; }
+.ot-name { font-size: 12px; font-weight: 500; color: var(--fg2); }
+.occasion-tile.selected .ot-name { color: var(--bg); }
 
-/* BUDGET */
-.budget-wrap{padding:14px 16px 0}
-.budget-label{font-size:10px;color:#B080C8;letter-spacing:2px;text-transform:uppercase;font-weight:500;margin-bottom:10px}
-.budget-toggle{display:flex;background:#fff;border:1px solid #F0C0E8;border-radius:50px;padding:4px;gap:4px}
-.budget-opt{flex:1;padding:10px 6px;border:none;border-radius:50px;font-size:11px;cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:500;background:transparent;color:#C080D8;text-align:center;transition:all 0.2s}
-.budget-opt.active.luxury{background:linear-gradient(135deg,#1A1A2E,#2D1B4E);color:#FFD700}
-.budget-opt.active.normal{background:linear-gradient(135deg,#D4537E,#8B3FA8);color:#fff}
-.budget-desc{font-size:11px;margin-top:8px;padding:8px 12px;border-radius:10px;line-height:1.4}
-.budget-desc.luxury{background:#1A1A2E;color:#C9A84C;font-family:'Playfair Display',serif;font-style:italic}
-.budget-desc.normal{background:#FDE8FF;color:#7040A0}
+.city-weather-row { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+.city-weather-row > * { flex: 1; min-width: 140px; }
 
-/* ERA PICKER */
-.era-scroll{display:flex;gap:10px;padding:4px 16px 12px;overflow-x:auto;scrollbar-width:none}
-.era-scroll::-webkit-scrollbar{display:none}
-.era-card{flex-shrink:0;width:110px;border-radius:16px;overflow:hidden;cursor:pointer;border:2px solid transparent;transition:all 0.2s;position:relative}
-.era-card.selected{border-color:#8B3FA8;transform:scale(1.04)}
-.era-bg{height:80px;display:flex;align-items:center;justify-content:center;font-size:28px}
-.era-label{padding:6px 8px;background:#fff;border-top:1px solid #F0C0E8}
-.era-year{font-size:10px;color:#C080D8;letter-spacing:1px;text-transform:uppercase}
-.era-name{font-family:'Playfair Display',serif;font-size:12px;color:#3A1060;font-style:italic}
+.detail-chips { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; }
+.detail-chip {
+  padding: 8px 14px; border: 1px solid var(--border);
+  border-radius: 99px; cursor: pointer; font-size: 13px;
+  color: var(--fg2); background: var(--card); transition: all 0.16s;
+}
+.detail-chip:hover { border-color: var(--accent); color: var(--fg); }
+.detail-chip.selected { border-color: var(--accent); background: var(--accent); color: var(--bg); }
 
-/* PATH */
-.path-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.path-card{background:#fff;border:1px solid #F0C0E8;border-radius:16px;padding:20px 12px;text-align:center;cursor:pointer;transition:all 0.2s}
-.path-card:hover{border-color:#8B3FA8;transform:translateY(-2px)}
-.path-icon{font-size:32px;margin-bottom:8px}
-.path-title{font-family:'Playfair Display',serif;font-size:13px;font-weight:600;color:#3A1060;margin-bottom:3px}
-.path-sub{font-size:11px;color:#C080D8}
+/* ── Celeb + Era ── */
+#screen-celeb, #screen-era { max-width: 560px; width: 100%; margin-inline: auto; }
+.celeb-input-wrap { position: relative; margin-bottom: 20px; }
+.celeb-input-wrap input {
+  width: 100%; padding: 16px 48px 16px 18px;
+  border: 1px solid var(--border); border-radius: var(--r);
+  font-family: var(--serif); font-size: 20px; font-weight: 300;
+  background: var(--card); color: var(--fg); outline: none; transition: border-color 0.18s;
+}
+.celeb-input-wrap input:focus { border-color: var(--accent); }
+.celeb-suggestions { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 28px; }
+.celeb-sug {
+  padding: 7px 14px; background: var(--bg2);
+  border: 1px solid var(--border); border-radius: 99px;
+  font-size: 13px; color: var(--fg2); cursor: pointer;
+  transition: all 0.16s;
+}
+.celeb-sug:hover { border-color: var(--accent); color: var(--fg); }
 
-/* OUTFIT */
-.outfit-hero{padding:28px 20px;text-align:center;position:relative;overflow:hidden}
-.outfit-hero.luxury{background:linear-gradient(135deg,#0A0A1A,#1A1A2E,#2D1B4E)}
-.outfit-hero.normal{background:linear-gradient(135deg,#2A0848,#6B2FA0,#C4407A)}
-.outfit-hero-tag{font-size:10px;letter-spacing:3px;text-transform:uppercase;margin-bottom:6px}
-.outfit-hero.luxury .outfit-hero-tag{color:#C9A84C}
-.outfit-hero.normal .outfit-hero-tag{color:rgba(255,255,255,0.6)}
-.outfit-hero-title{font-family:'Playfair Display',serif;font-style:italic;font-size:24px;color:#fff}
-.outfit-hero-sub{font-size:12px;margin-top:4px;color:rgba(255,255,255,0.6)}
-.budget-badge{display:inline-block;padding:4px 12px;border-radius:20px;font-size:10px;letter-spacing:2px;text-transform:uppercase;margin-top:8px}
-.budget-badge.luxury{background:#C9A84C;color:#0A0A1A;font-weight:500}
-.budget-badge.normal{background:rgba(255,255,255,0.2);color:#fff}
+.era-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px; width: 100%; margin-bottom: 28px;
+}
+.era-tile {
+  padding: 16px 14px; border: 1px solid var(--border);
+  border-radius: var(--r); cursor: pointer; transition: all 0.18s;
+  background: var(--card);
+}
+.era-tile:hover { border-color: var(--accent); }
+.era-tile.selected { border-color: var(--accent); background: var(--accent); }
+.era-tile.selected .era-name, .era-tile.selected .era-decade { color: var(--bg); }
+.era-decade { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--fg3); margin-bottom: 4px; }
+.era-name { font-size: 14px; font-weight: 500; color: var(--fg); }
 
-.outfit-items{padding:16px}
-.outfit-item{background:#fff;border:1px solid #F0C0E8;border-radius:14px;padding:12px;margin-bottom:10px;display:flex;align-items:flex-start;gap:12px;animation:slideUp 0.4s ease both}
-.outfit-item.luxury{border-color:#E8D5A0;background:#FFFDF5}
-.item-thumb{width:70px;height:70px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;flex-direction:column;gap:2px;cursor:pointer;text-decoration:none}
-.item-thumb.normal{background:linear-gradient(135deg,#FDE8FF,#E8D0FF)}
-.item-thumb.luxury{background:linear-gradient(135deg,#1A1A2E,#2D1B4E)}
-.item-thumb-label{font-size:8px;margin-top:2px;color:#C080D8}
-.item-thumb.luxury .item-thumb-label{color:#C9A84C}
-.item-info{flex:1;min-width:0}
-.item-cat{font-size:9px;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:2px;color:#C080D8}
-.item-cat.luxury{color:#C9A84C}
-.item-name{font-family:'Playfair Display',serif;font-size:14px;color:#2A0848;margin-bottom:2px}
-.item-brand{font-size:11px;font-weight:500;margin-bottom:2px;color:#8B3FA8}
-.item-brand.luxury{color:#C9A84C}
-.item-detail{font-size:11px;color:#888;line-height:1.4}
-.item-link{display:inline-block;margin-top:5px;font-size:10px;padding:3px 10px;border-radius:20px;text-decoration:none;font-weight:500;background:#FDE8FF;color:#8B3FA8}
-.item-link.luxury{background:#1A1A2E;color:#FFD700}
+/* ── Mode + Budget ── */
+#screen-mode { max-width: 560px; width: 100%; margin-inline: auto; }
+.mode-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 28px; }
+.mode-card {
+  padding: 24px 18px; border: 1px solid var(--border);
+  border-radius: var(--r-lg); cursor: pointer;
+  transition: all 0.18s; background: var(--card); text-align: center;
+}
+.mode-card:hover { border-color: var(--accent); }
+.mode-card.selected { border-color: var(--accent); background: var(--accent); }
+.mode-card.selected .mc-title, .mode-card.selected .mc-desc { color: var(--bg); }
+.mc-icon { font-size: 28px; margin-bottom: 10px; }
+.mc-title { font-family: var(--serif); font-size: 20px; font-weight: 400; color: var(--fg); margin-bottom: 4px; }
+.mc-desc { font-size: 12px; color: var(--fg2); }
 
-.ella-note-box{margin:0 16px 16px;padding:14px 16px;border-radius:14px;background:#2A0848}
-.ella-note-box.luxury{background:linear-gradient(135deg,#0A0A1A,#1A1A2E)}
-.ella-note-label{font-size:9px;letter-spacing:2px;margin-bottom:4px;color:rgba(255,255,255,0.5)}
-.ella-note-box.luxury .ella-note-label{color:#C9A84C}
-.ella-note-text{font-family:'Playfair Display',serif;font-style:italic;font-size:14px;color:#fff}
+.budget-toggles { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+.budget-btn {
+  flex: 1; min-width: 100px; padding: 12px;
+  border: 1px solid var(--border); border-radius: var(--r);
+  background: var(--card); color: var(--fg2);
+  cursor: pointer; font-size: 13px; font-weight: 500;
+  transition: all 0.18s; text-align: center;
+}
+.budget-btn:hover { border-color: var(--accent); }
+.budget-btn.selected { border-color: var(--accent); background: var(--fg); color: var(--bg); }
 
-.action-row{display:flex;gap:8px;padding:0 16px 16px;flex-wrap:wrap}
-.action-btn{flex:1;min-width:100px;background:#FDE8FF;border:1px solid #E8C0F0;border-radius:50px;padding:10px 12px;font-family:'Playfair Display',serif;font-style:italic;font-size:12px;color:#7040A0;cursor:pointer;text-align:center}
+.currency-row { display: flex; gap: 8px; margin-bottom: 28px; }
+.currency-btn {
+  flex: 1; padding: 10px;
+  border: 1px solid var(--border); border-radius: var(--r);
+  background: var(--card); color: var(--fg2);
+  cursor: pointer; font-size: 13px; transition: all 0.18s; text-align: center;
+}
+.currency-btn.selected { border-color: var(--accent); background: var(--accent); color: var(--bg); }
 
-.loading-state{text-align:center;padding:40px 20px}
-.loading-dots span{display:inline-block;width:8px;height:8px;border-radius:50%;background:#C080D8;margin:0 3px;animation:typing 1.2s ease-in-out infinite}
-.loading-dots span:nth-child(2){animation-delay:0.2s}
-.loading-dots span:nth-child(3){animation-delay:0.4s}
-.loading-label{font-family:'Playfair Display',serif;font-style:italic;font-size:14px;color:#8B3FA8;margin-top:12px}
+/* ── Generating ── */
+#screen-generating { justify-content: center; text-align: center; }
+.gen-fairy { font-size: 64px; animation: fairy-float 2s ease-in-out infinite; margin-bottom: 24px; }
+.gen-title { font-family: var(--serif); font-size: 32px; font-weight: 300; margin-bottom: 8px; }
+.gen-sub { font-size: 14px; color: var(--fg2); }
+.gen-dots span {
+  display: inline-block; width: 6px; height: 6px;
+  background: var(--accent); border-radius: 50%; margin: 0 3px;
+  animation: dot-bounce 1.2s infinite;
+}
+.gen-dots span:nth-child(2) { animation-delay: 0.2s; }
+.gen-dots span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes dot-bounce { 0%,80%,100% { transform: scale(0.8); opacity: 0.5; } 40% { transform: scale(1.2); opacity: 1; } }
 
-/* CLOSET */
-.closet-header{background:linear-gradient(135deg,#2A0848,#6B2FA0);padding:24px 16px;text-align:center}
-.closet-title{font-family:'Playfair Display',serif;font-style:italic;font-size:22px;color:#fff}
-.closet-sub{font-size:11px;color:rgba(255,255,255,0.6);margin-top:4px;letter-spacing:1px}
-.add-item-card{background:#fff;border:1.5px dashed #C890E8;border-radius:16px;padding:20px;margin:14px 16px;text-align:center;cursor:pointer}
-.add-item-card:hover{background:#FDE8FF;border-color:#8B3FA8}
-.add-icon{font-size:32px;margin-bottom:8px}
-.add-title{font-family:'Playfair Display',serif;font-style:italic;font-size:14px;color:#3A1060;margin-bottom:3px}
-.add-sub{font-size:11px;color:#C080D8}
-.closet-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:0 16px}
-.closet-item{background:#fff;border:1px solid #F0C0E8;border-radius:12px;overflow:hidden;position:relative}
-.closet-item img{width:100%;height:110px;object-fit:cover}
-.closet-item-label{padding:6px 8px;font-size:11px;color:#3A1060;font-family:'Playfair Display',serif;font-style:italic}
-.closet-item-del{position:absolute;top:6px;right:6px;background:rgba(255,255,255,0.9);border:none;border-radius:50%;width:22px;height:22px;font-size:12px;cursor:pointer}
-.empty-closet{text-align:center;padding:40px 20px;color:#C080D8;font-family:'Playfair Display',serif;font-style:italic;font-size:15px}
+/* ── Results ── */
+#screen-results { max-width: 720px; width: 100%; margin-inline: auto; }
+.results-header { text-align: center; margin-bottom: 40px; }
+.results-ella-note {
+  background: var(--bg2); border-left: 3px solid var(--accent);
+  padding: 16px 20px; border-radius: var(--r); margin-bottom: 32px;
+  font-family: var(--serif); font-size: 17px; font-weight: 300; font-style: italic;
+  color: var(--fg2); line-height: 1.6;
+}
+.outfit-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px; margin-bottom: 32px;
+}
+.outfit-item {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--r-lg); padding: 20px;
+  box-shadow: var(--shadow); transition: box-shadow 0.2s;
+}
+.outfit-item:hover { box-shadow: 0 4px 20px rgba(26,25,22,0.1); }
+.oi-category {
+  font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--fg3); margin-bottom: 8px; font-weight: 500;
+}
+.oi-name {
+  font-family: var(--serif); font-size: 20px; font-weight: 400;
+  color: var(--fg); margin-bottom: 4px; line-height: 1.2;
+}
+.oi-brand { font-size: 13px; color: var(--fg2); margin-bottom: 4px; }
+.oi-price { font-size: 14px; font-weight: 500; color: var(--accent); margin-bottom: 12px; }
+.oi-desc { font-size: 13px; color: var(--fg2); line-height: 1.5; margin-bottom: 16px; }
 
-/* MODAL */
-.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:100;align-items:flex-end;justify-content:center}
-.modal-overlay.open{display:flex}
-.modal{background:#fff;border-radius:24px 24px 0 0;padding:24px 20px;width:100%;max-width:480px}
-.modal-title{font-family:'Playfair Display',serif;font-style:italic;font-size:18px;color:#2A0848;margin-bottom:4px}
-.modal-sub{font-size:12px;color:#C080D8;margin-bottom:20px}
-.camera-preview{width:100%;height:220px;border-radius:14px;object-fit:cover;margin-bottom:14px;display:none}
-.camera-placeholder{width:100%;height:220px;border-radius:14px;background:linear-gradient(135deg,#FDE8FF,#E8D0FF);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;margin-bottom:14px;cursor:pointer}
-.modal-input{width:100%;background:#F8F0FF;border:1px solid #E8C0F0;border-radius:12px;padding:11px 14px;font-size:13px;color:#2A0848;outline:none;margin-bottom:12px;font-family:'DM Sans',sans-serif}
-.modal-btns{display:flex;gap:8px}
-.modal-btn-cancel{flex:1;background:#F8F0FF;border:1px solid #E8C0F0;border-radius:50px;padding:12px;font-size:13px;color:#8B3FA8;cursor:pointer}
-.modal-btn-save{flex:2;background:linear-gradient(135deg,#D4537E,#8B3FA8);border:none;border-radius:50px;padding:12px;font-size:13px;color:#fff;cursor:pointer;font-family:'Playfair Display',serif;font-style:italic}
+/* Pinterest image link */
+.oi-pinterest {
+  display: flex; align-items: center; gap: 6px;
+  text-decoration: none; font-size: 12px; font-weight: 500;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--fg3); transition: color 0.18s; margin-bottom: 10px;
+}
+.oi-pinterest:hover { color: #E60023; }
+.oi-pinterest svg { width: 14px; height: 14px; flex-shrink: 0; }
 
-.back-row{padding:12px 16px 0}
-.back-btn{background:rgba(255,255,255,0.8);border:1px solid #F0C0E8;border-radius:50px;padding:7px 14px;font-size:12px;color:#7040A0;cursor:pointer}
+.oi-shop {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  width: 100%; padding: 11px;
+  background: var(--fg); color: var(--bg);
+  border: none; border-radius: var(--r); cursor: pointer;
+  font-family: var(--sans); font-size: 12px; font-weight: 500;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  text-decoration: none; transition: opacity 0.18s;
+}
+.oi-shop:hover { opacity: 0.82; }
 
-/* SPARKLE BURST */
-.sparkle-burst{position:fixed;pointer-events:none;z-index:999}
-.sparkle-dot{position:absolute;width:8px;height:8px;border-radius:50%;animation:dustFly 0.9s ease-out forwards}
+/* Styling notes */
+.styling-notes {
+  background: var(--bg2); border-radius: var(--r-lg);
+  padding: 24px; margin-bottom: 32px;
+}
+.sn-title {
+  font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--fg3); font-weight: 500; margin-bottom: 16px;
+}
+.sn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.sn-item { font-size: 13px; color: var(--fg2); line-height: 1.5; }
+.sn-item strong { display: block; color: var(--fg); font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 2px; }
 
-/* BOUNCING FAIRY */
-@keyframes trailFade{0%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(0.2)}}
-.bouncy-fairy{position:fixed;font-size:36px;pointer-events:none;z-index:9999;transition:none;will-change:transform;filter:drop-shadow(0 0 8px rgba(200,160,255,0.9))}
-.pixie-dust{position:fixed;pointer-events:none;z-index:9998;font-size:12px;animation:trailFade 1s ease-out forwards}
+/* Actions row */
+.results-actions {
+  display: flex; gap: 10px; flex-wrap: wrap; justify-content: center;
+  margin-bottom: 32px;
+}
+
+/* ── Gallery tab ── */
+.tab-bar {
+  display: flex; border-bottom: 1px solid var(--border);
+  margin-bottom: 28px; gap: 0;
+}
+.tab-btn {
+  flex: 1; padding: 12px 16px;
+  background: none; border: none; border-bottom: 2px solid transparent;
+  font-family: var(--sans); font-size: 13px; font-weight: 500;
+  letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--fg3); cursor: pointer; transition: all 0.18s;
+  margin-bottom: -1px;
+}
+.tab-btn.active { color: var(--fg); border-bottom-color: var(--accent); }
+
+/* Saved looks */
+.gallery-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 14px; width: 100%;
+}
+.gallery-card {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--r-lg); padding: 16px;
+  box-shadow: var(--shadow); cursor: pointer;
+  transition: box-shadow 0.2s;
+}
+.gallery-card:hover { box-shadow: 0 4px 20px rgba(26,25,22,0.1); }
+.gc-date { font-size: 11px; color: var(--fg3); margin-bottom: 6px; }
+.gc-title { font-family: var(--serif); font-size: 18px; font-weight: 400; color: var(--fg); margin-bottom: 4px; }
+.gc-meta { font-size: 12px; color: var(--fg2); }
+.gc-actions { display: flex; gap: 8px; margin-top: 12px; }
+.gc-btn {
+  flex: 1; padding: 8px; background: var(--bg2);
+  border: 1px solid var(--border); border-radius: var(--r);
+  font-size: 11px; font-weight: 500; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--fg2);
+  cursor: pointer; transition: all 0.16s; text-align: center;
+}
+.gc-btn:hover { border-color: var(--accent); color: var(--fg); }
+.empty-state {
+  text-align: center; padding: 60px 24px;
+  font-size: 14px; color: var(--fg3);
+}
+.empty-state .es-icon { font-size: 40px; margin-bottom: 12px; }
+
+/* ── Share card overlay ── */
+.overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(26,25,22,0.6); backdrop-filter: blur(4px);
+  z-index: 100; align-items: center; justify-content: center;
+  padding: 24px;
+}
+.overlay.active { display: flex; }
+.share-card {
+  background: var(--card); border-radius: var(--r-lg);
+  padding: 28px; max-width: 400px; width: 100%;
+  box-shadow: 0 24px 64px rgba(0,0,0,0.2);
+}
+.sc-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 20px;
+}
+.sc-title { font-family: var(--serif); font-size: 22px; font-weight: 400; }
+.sc-close {
+  width: 32px; height: 32px; background: var(--bg2);
+  border: none; border-radius: 50%; cursor: pointer;
+  font-size: 16px; color: var(--fg2); display: flex; align-items: center; justify-content: center;
+}
+.sc-content { margin-bottom: 20px; }
+.sc-occasion { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--fg3); margin-bottom: 4px; }
+.sc-look { font-size: 15px; color: var(--fg2); margin-bottom: 16px; }
+.sc-items { display: flex; flex-direction: column; gap: 8px; }
+.sc-item {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 12px; background: var(--bg2); border-radius: var(--r);
+  font-size: 13px;
+}
+.sc-item-name { color: var(--fg); font-weight: 500; }
+.sc-item-brand { color: var(--fg3); }
+.sc-link-wrap {
+  background: var(--bg2); border-radius: var(--r);
+  padding: 12px 14px; font-size: 12px; color: var(--fg3);
+  margin-bottom: 16px; word-break: break-all;
+}
+.sc-link-wrap strong { display: block; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 4px; color: var(--fg2); }
+.sc-actions { display: flex; gap: 8px; }
+
+/* ── Nav back ── */
+.nav-back {
+  display: flex; align-items: center; gap: 6px;
+  background: none; border: none; cursor: pointer;
+  font-size: 13px; color: var(--fg3);
+  font-family: var(--sans); padding: 0;
+  margin-bottom: 28px; transition: color 0.16s;
+  align-self: flex-start;
+}
+.nav-back:hover { color: var(--fg); }
+
+/* ── Sparkle burst ── */
+.sparkle {
+  position: fixed; pointer-events: none; z-index: 200;
+  font-size: 20px; opacity: 0;
+}
+@keyframes sparkle-out {
+  0% { opacity: 1; transform: translate(-50%,-50%) scale(0.5); }
+  60% { opacity: 1; transform: translate(var(--sx), var(--sy)) scale(1.2); }
+  100% { opacity: 0; transform: translate(calc(var(--sx)*1.5), calc(var(--sy)*1.5)) scale(0); }
+}
+
+/* ── Closet tab ── */
+.closet-area { width: 100%; }
+.closet-upload-zone {
+  border: 2px dashed var(--border); border-radius: var(--r-lg);
+  padding: 32px; text-align: center; margin-bottom: 24px;
+  cursor: pointer; transition: border-color 0.18s;
+}
+.closet-upload-zone:hover { border-color: var(--accent); }
+.closet-upload-zone input { display: none; }
+.upload-icon { font-size: 32px; margin-bottom: 8px; }
+.upload-text { font-size: 14px; color: var(--fg2); }
+.upload-subtext { font-size: 12px; color: var(--fg3); margin-top: 4px; }
+.closet-items-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 10px;
+}
+.closet-item {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--r); overflow: hidden; position: relative;
+}
+.closet-item img { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; }
+.closet-item-name {
+  padding: 8px 10px; font-size: 12px; color: var(--fg2); text-align: center;
+}
+.closet-item-del {
+  position: absolute; top: 6px; right: 6px;
+  width: 22px; height: 22px; background: rgba(0,0,0,0.5);
+  border: none; border-radius: 50%; cursor: pointer;
+  font-size: 12px; color: white;
+  display: flex; align-items: center; justify-content: center;
+}
+
+/* Ella badge */
+.ella-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 99px; padding: 6px 14px;
+  font-size: 12px; color: var(--fg2); margin-bottom: 24px;
+}
+.ella-dot { width: 6px; height: 6px; background: var(--accent); border-radius: 50%; }
+
+/* Utility */
+.w100 { width: 100%; }
+.mt8 { margin-top: 8px; }
+.mt16 { margin-top: 16px; }
+.mb0 { margin-bottom: 0; }
 </style>
-</head>
-<body>
 
-<!-- SPLASH -->
-<div id="splash" class="screen active">
-  <div class="splash" id="splash-bg">
-    
-    <div class="brand"><h1>FashionGPT</h1><p>your style, elevated</p></div>
-    <button class="enter-btn" onclick="enterWorld()">Enter the world</button>
-  </div>
-</div>
-
-<!-- MAIN -->
-<div id="main" class="screen">
-  <div class="world-bg">
-    <div class="flower-bar"></div>
-    <div class="nav">
-      <button class="nav-btn active" onclick="showTab('style-tab',this)">Style me</button>
-      <button class="nav-btn" onclick="showTab('closet-tab',this)">My closet</button>
+<!-- ═══════════════════════════════════════════════════════════════
+     LANDING SCREEN
+═══════════════════════════════════════════════════════════════ -->
+<div id="screen-landing" class="screen active">
+  <div class="landing-inner">
+    <div class="fairy-wrap">
+      <span class="fairy-emoji">🧚‍♀️</span>
+      <span class="pixie-dot" style="--tx:-22px;--ty:-18px;animation-delay:0s"></span>
+      <span class="pixie-dot" style="--tx:20px;--ty:-24px;animation-delay:0.4s"></span>
+      <span class="pixie-dot" style="--tx:26px;--ty:10px;animation-delay:0.8s"></span>
+      <span class="pixie-dot" style="--tx:-14px;--ty:22px;animation-delay:1.2s"></span>
+      <span class="pixie-dot" style="--tx:8px;--ty:26px;animation-delay:1.6s"></span>
     </div>
-
-    <div id="style-tab">
-      <div class="ella-row">
-        <div class="ella-mini-wrap" style="font-size:48px;animation:float 2.5s ease-in-out infinite;filter:drop-shadow(0 0 8px rgba(200,160,255,0.7))">🧚</div>
-        <div class="bubble">
-          <div class="bubble-name">Ella</div>
-          <div class="bubble-text">You are here. Good. Now tell me -- what is the occasion?</div>
-        </div>
-      </div>
-
-      <div class="budget-wrap">
-        <div class="budget-label">Your budget</div>
-        <div class="budget-toggle">
-          <button class="budget-opt normal active" id="btn-normal" onclick="setBudget('normal')">Everyday -- Zara, ASOS, Mango</button>
-          <button class="budget-opt luxury" id="btn-luxury" onclick="setBudget('luxury')">Luxury -- Chanel, Dior, Prada</button>
-        </div>
-        <div class="budget-desc normal" id="budget-desc">Ella curates looks from Zara, ASOS, Mango and more.</div>
-      </div>
-
-      <div class="section" style="padding-top:0">
-        <div class="label">Currency</div>
-        <div style="display:flex;gap:8px;margin-bottom:12px">
-          <button class="budget-opt normal active" id="btn-inr" onclick="setCurrency('INR')" style="flex:1;padding:10px;border:1px solid #F0C0E8;border-radius:50px;background:linear-gradient(135deg,#D4537E,#8B3FA8);color:#fff;font-size:12px;cursor:pointer">🇮🇳 INR</button>
-          <button class="budget-opt" id="btn-usd" onclick="setCurrency('USD')" style="flex:1;padding:10px;border:1px solid #F0C0E8;border-radius:50px;background:#fff;color:#C080D8;font-size:12px;cursor:pointer">🇺🇸 USD</button>
-        </div>
-        <div class="label">Price range per piece</div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <button class="price-btn active" id="price-low" onclick="setPrice('low')" style="flex:1;min-width:80px;padding:9px 8px;border:1px solid #F0C0E8;border-radius:50px;font-size:11px;cursor:pointer;background:linear-gradient(135deg,#D4537E,#8B3FA8);color:#fff">💸 Budget</button>
-          <button class="price-btn" id="price-mid" onclick="setPrice('mid')" style="flex:1;min-width:80px;padding:9px 8px;border:1px solid #F0C0E8;border-radius:50px;font-size:11px;cursor:pointer;background:#fff;color:#C080D8">💰 Mid</button>
-          <button class="price-btn" id="price-high" onclick="setPrice('high')" style="flex:1;min-width:80px;padding:9px 8px;border:1px solid #F0C0E8;border-radius:50px;font-size:11px;cursor:pointer;background:#fff;color:#C080D8">👑 Luxury</button>
-        </div>
-        <div id="price-desc" style="font-size:11px;margin-top:8px;padding:8px 12px;border-radius:10px;background:#FDE8FF;color:#7040A0">Budget: under ₹2,500 per piece</div>
-      </div>
-
-      <div class="section">
-        <div class="label">Tell Ella</div>
-        <textarea class="magic-input" id="occasion" placeholder="Going for brunch. Want to look effortless and chic."></textarea>
-        <button class="primary-btn" onclick="goToStep('celeb-step')">Next</button>
-      </div>
+    <div class="landing-eyebrow">Your AI stylist</div>
+    <h1 class="landing-title">Fashion<em>GPT</em></h1>
+    <p class="landing-sub">Tell Ella your occasion. She'll build you a head-to-toe look, right now.</p>
+    <div class="landing-actions">
+      <button class="btn-primary" onclick="goToQuiz()">Start Styling ✦</button>
+      <button class="btn-secondary" onclick="goToGallery()">My Looks</button>
     </div>
-
-    <div id="closet-tab" style="display:none">
-      <div class="closet-header">
-        <div class="closet-title">My Closet</div>
-        <div class="closet-sub">YOUR WARDROBE -- CURATED</div>
-      </div>
-      <div class="add-item-card" onclick="openCamera()">
-        <div class="add-icon">📸</div>
-        <div class="add-title">Add a piece</div>
-        <div class="add-sub">Take a photo or upload from your camera roll</div>
-      </div>
-      <div class="closet-grid" id="closet-grid">
-        <div class="empty-closet" style="grid-column:1/-1">Your closet is empty.<br>Start adding pieces.</div>
-      </div>
+    <div class="divider-word" style="margin-top:40px;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;">As seen on</div>
+    <div style="display:flex;gap:20px;justify-content:center;opacity:0.35;font-size:12px;letter-spacing:0.1em;text-transform:uppercase;font-weight:500;color:var(--fg2)">
+      <span>4.82 ★ avg</span>
+      <span>100% relevant</span>
+      <span>11 beta users</span>
     </div>
   </div>
 </div>
 
-<!-- CELEB STEP -->
-<div id="celeb-step" class="screen">
-  <div class="world-bg">
-    <div class="flower-bar"></div>
-    <div class="back-row"><button class="back-btn" onclick="goToStep('main')">Back</button></div>
-    <div class="ella-row">
-      <div class="ella-mini-wrap" style="font-size:48px;animation:float 2.5s ease-in-out infinite;filter:drop-shadow(0 0 8px rgba(200,160,255,0.7))">🧚</div>
-      <div class="bubble">
-        <div class="bubble-name">Ella</div>
-        <div class="bubble-text">Any celebrity in mind? Or type a name -- I will channel their energy.</div>
-      </div>
+<!-- ═══════════════════════════════════════════════════════════════
+     STYLE QUIZ SCREEN
+═══════════════════════════════════════════════════════════════ -->
+<div id="screen-quiz" class="screen" style="max-width:560px;width:100%;margin-inline:auto;">
+  <button class="nav-back" onclick="goToLanding()">← Back</button>
+  <div class="progress-bar"><div class="progress-fill" style="width:16%"></div></div>
+  <div class="ella-badge"><span class="ella-dot"></span> Ella is learning your style</div>
+  <div class="section-head">
+    <div class="step-label">Step 1 of 6 — Style Profile</div>
+    <h2 class="section-title">Let's build your <em>style DNA</em></h2>
+    <p class="section-desc">Ella remembers this across sessions. Skip anything you want to decide later.</p>
+  </div>
+
+  <div class="quiz-label">Body type (how you like to dress it)</div>
+  <div class="quiz-grid" id="quiz-body">
+    <div class="quiz-chip" data-group="body" data-val="hourglass" onclick="selectQuiz(this)">Hourglass</div>
+    <div class="quiz-chip" data-group="body" data-val="pear" onclick="selectQuiz(this)">Pear</div>
+    <div class="quiz-chip" data-group="body" data-val="apple" onclick="selectQuiz(this)">Apple</div>
+    <div class="quiz-chip" data-group="body" data-val="rectangle" onclick="selectQuiz(this)">Rectangle</div>
+    <div class="quiz-chip" data-group="body" data-val="inverted-triangle" onclick="selectQuiz(this)">Inverted △</div>
+    <div class="quiz-chip" data-group="body" data-val="petite" onclick="selectQuiz(this)">Petite</div>
+    <div class="quiz-chip" data-group="body" data-val="tall" onclick="selectQuiz(this)">Tall</div>
+    <div class="quiz-chip" data-group="body" data-val="prefer-not-to-say" onclick="selectQuiz(this)">Prefer not to say</div>
+  </div>
+
+  <div class="quiz-label">Skin tone</div>
+  <div class="quiz-grid" id="quiz-skin">
+    <div class="quiz-chip" data-group="skin" data-val="very-fair" onclick="selectQuiz(this)">Very Fair</div>
+    <div class="quiz-chip" data-group="skin" data-val="fair" onclick="selectQuiz(this)">Fair</div>
+    <div class="quiz-chip" data-group="skin" data-val="medium" onclick="selectQuiz(this)">Medium</div>
+    <div class="quiz-chip" data-group="skin" data-val="olive" onclick="selectQuiz(this)">Olive</div>
+    <div class="quiz-chip" data-group="skin" data-val="tan" onclick="selectQuiz(this)">Tan</div>
+    <div class="quiz-chip" data-group="skin" data-val="deep" onclick="selectQuiz(this)">Deep</div>
+  </div>
+
+  <div class="quiz-label">Your everyday lifestyle vibe</div>
+  <div class="quiz-grid" id="quiz-lifestyle">
+    <div class="quiz-chip" data-group="lifestyle" data-val="student" onclick="selectQuiz(this)">Student</div>
+    <div class="quiz-chip" data-group="lifestyle" data-val="creative" onclick="selectQuiz(this)">Creative</div>
+    <div class="quiz-chip" data-group="lifestyle" data-val="corporate" onclick="selectQuiz(this)">Corporate</div>
+    <div class="quiz-chip" data-group="lifestyle" data-val="startup" onclick="selectQuiz(this)">Startup</div>
+    <div class="quiz-chip" data-group="lifestyle" data-val="social" onclick="selectQuiz(this)">Social butterfly</div>
+    <div class="quiz-chip" data-group="lifestyle" data-val="homebody" onclick="selectQuiz(this)">Homebody</div>
+    <div class="quiz-chip" data-group="lifestyle" data-val="traveller" onclick="selectQuiz(this)">Traveller</div>
+    <div class="quiz-chip" data-group="lifestyle" data-val="athlete" onclick="selectQuiz(this)">Athlete</div>
+  </div>
+
+  <div class="quiz-label">Colors you gravitate to</div>
+  <div class="quiz-grid" id="quiz-palette">
+    <div class="quiz-chip" data-group="palette" data-val="neutrals" onclick="selectQuizMulti(this)">Neutrals</div>
+    <div class="quiz-chip" data-group="palette" data-val="black-white" onclick="selectQuizMulti(this)">Black & White</div>
+    <div class="quiz-chip" data-group="palette" data-val="earth-tones" onclick="selectQuizMulti(this)">Earth Tones</div>
+    <div class="quiz-chip" data-group="palette" data-val="pastels" onclick="selectQuizMulti(this)">Pastels</div>
+    <div class="quiz-chip" data-group="palette" data-val="bold-brights" onclick="selectQuizMulti(this)">Bold Brights</div>
+    <div class="quiz-chip" data-group="palette" data-val="jewel-tones" onclick="selectQuizMulti(this)">Jewel Tones</div>
+    <div class="quiz-chip" data-group="palette" data-val="monochromes" onclick="selectQuizMulti(this)">Monochrome</div>
+    <div class="quiz-chip" data-group="palette" data-val="prints" onclick="selectQuizMulti(this)">Prints & Patterns</div>
+  </div>
+
+  <button class="btn-primary w100" style="margin-top:8px" onclick="saveQuizAndContinue()">
+    Save my profile & continue →
+  </button>
+  <button class="btn-secondary w100 mt8" onclick="goToOccasion()">Skip for now →</button>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     OCCASION SCREEN
+═══════════════════════════════════════════════════════════════ -->
+<div id="screen-occasion" class="screen">
+  <button class="nav-back" onclick="backFromOccasion()">← Back</button>
+  <div class="progress-bar"><div class="progress-fill" style="width:33%"></div></div>
+  <div class="ella-badge"><span class="ella-dot"></span> Ella is listening</div>
+  <div class="section-head">
+    <div class="step-label">Step 2 of 6 — Occasion</div>
+    <h2 class="section-title">What are you <em>dressing for?</em></h2>
+  </div>
+
+  <div class="occasion-grid" id="occasion-grid">
+    <div class="occasion-tile" data-val="date night" onclick="selectOccasion(this)">
+      <span class="ot-icon">🌙</span><span class="ot-name">Date Night</span>
     </div>
-    <div class="section">
-      <input type="text" class="text-input" id="celeb-input" placeholder="e.g. Zendaya, Kendall Jenner, Rihanna..."/>
-      <button class="primary-btn" onclick="goToStep('era-step')" style="margin-top:10px">Next</button>
-      <button class="skip-btn" onclick="skipCeleb()">Skip -- no celeb in mind</button>
+    <div class="occasion-tile" data-val="office / work" onclick="selectOccasion(this)">
+      <span class="ot-icon">💼</span><span class="ot-name">Office</span>
+    </div>
+    <div class="occasion-tile" data-val="wedding guest" onclick="selectOccasion(this)">
+      <span class="ot-icon">💍</span><span class="ot-name">Wedding Guest</span>
+    </div>
+    <div class="occasion-tile" data-val="brunch" onclick="selectOccasion(this)">
+      <span class="ot-icon">🥂</span><span class="ot-name">Brunch</span>
+    </div>
+    <div class="occasion-tile" data-val="club / party" onclick="selectOccasion(this)">
+      <span class="ot-icon">🎉</span><span class="ot-name">Club / Party</span>
+    </div>
+    <div class="occasion-tile" data-val="casual day out" onclick="selectOccasion(this)">
+      <span class="ot-icon">☀️</span><span class="ot-name">Casual Day</span>
+    </div>
+    <div class="occasion-tile" data-val="formal / gala" onclick="selectOccasion(this)">
+      <span class="ot-icon">✨</span><span class="ot-name">Gala / Formal</span>
+    </div>
+    <div class="occasion-tile" data-val="vacation / beach" onclick="selectOccasion(this)">
+      <span class="ot-icon">🏖️</span><span class="ot-name">Vacation</span>
+    </div>
+    <div class="occasion-tile" data-val="interview" onclick="selectOccasion(this)">
+      <span class="ot-icon">🎯</span><span class="ot-name">Interview</span>
+    </div>
+    <div class="occasion-tile" data-val="college / campus" onclick="selectOccasion(this)">
+      <span class="ot-icon">📚</span><span class="ot-name">College</span>
+    </div>
+    <div class="occasion-tile" data-val="gym / sport" onclick="selectOccasion(this)">
+      <span class="ot-icon">🏋️</span><span class="ot-name">Gym / Sport</span>
+    </div>
+    <div class="occasion-tile" data-val="travel / airport" onclick="selectOccasion(this)">
+      <span class="ot-icon">✈️</span><span class="ot-name">Airport</span>
+    </div>
+  </div>
+
+  <div class="quiz-label">Or describe it yourself</div>
+  <input class="quiz-input mb0" id="occasion-custom" placeholder="e.g. rooftop birthday dinner, Diwali party..." />
+
+  <div class="quiz-label mt16">Your city</div>
+  <div class="city-weather-row">
+    <input class="quiz-input" id="city-input" placeholder="Mumbai, Delhi, New York..." />
+    <select class="quiz-input" id="season-select" style="appearance:none;cursor:pointer;">
+      <option value="">Season (optional)</option>
+      <option value="summer">Summer / Hot</option>
+      <option value="monsoon">Monsoon / Rainy</option>
+      <option value="winter">Winter / Cold</option>
+      <option value="spring">Spring / Mild</option>
+    </select>
+  </div>
+
+  <div class="quiz-label">Indoor or outdoor?</div>
+  <div class="detail-chips" id="chips-venue">
+    <div class="detail-chip" data-group="venue" data-val="indoor" onclick="selectChip(this)">🏠 Indoor</div>
+    <div class="detail-chip" data-group="venue" data-val="outdoor" onclick="selectChip(this)">🌳 Outdoor</div>
+    <div class="detail-chip" data-group="venue" data-val="both" onclick="selectChip(this)">Both</div>
+  </div>
+
+  <div class="quiz-label">Dress code</div>
+  <div class="detail-chips" id="chips-dresscode">
+    <div class="detail-chip" data-group="dresscode" data-val="no dress code" onclick="selectChip(this)">No dress code</div>
+    <div class="detail-chip" data-group="dresscode" data-val="smart casual" onclick="selectChip(this)">Smart Casual</div>
+    <div class="detail-chip" data-group="dresscode" data-val="business casual" onclick="selectChip(this)">Business Casual</div>
+    <div class="detail-chip" data-group="dresscode" data-val="cocktail" onclick="selectChip(this)">Cocktail</div>
+    <div class="detail-chip" data-group="dresscode" data-val="black tie" onclick="selectChip(this)">Black Tie</div>
+    <div class="detail-chip" data-group="dresscode" data-val="traditional / ethnic" onclick="selectChip(this)">Traditional / Ethnic</div>
+  </div>
+
+  <button class="btn-primary w100" onclick="goToCeleb()">Next: Pick your muse →</button>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     CELEB SCREEN
+═══════════════════════════════════════════════════════════════ -->
+<div id="screen-celeb" class="screen">
+  <button class="nav-back" onclick="goTo('screen-occasion')">← Back</button>
+  <div class="progress-bar"><div class="progress-fill" style="width:50%"></div></div>
+  <div class="section-head">
+    <div class="step-label">Step 3 of 6 — Your Muse</div>
+    <h2 class="section-title">Who's your <em>style icon?</em></h2>
+    <p class="section-desc">Ella will channel their signature energy into your look.</p>
+  </div>
+
+  <div class="celeb-input-wrap">
+    <input id="celeb-input" placeholder="Type a celebrity name..." oninput="filterSuggestions(this.value)" />
+  </div>
+  <div class="celeb-suggestions" id="celeb-suggestions">
+    <div class="celeb-sug" onclick="setCeleb('Zendaya')">Zendaya</div>
+    <div class="celeb-sug" onclick="setCeleb('Kendall Jenner')">Kendall Jenner</div>
+    <div class="celeb-sug" onclick="setCeleb('Deepika Padukone')">Deepika Padukone</div>
+    <div class="celeb-sug" onclick="setCeleb('Alia Bhatt')">Alia Bhatt</div>
+    <div class="celeb-sug" onclick="setCeleb('Ananya Panday')">Ananya Panday</div>
+    <div class="celeb-sug" onclick="setCeleb('Janhvi Kapoor')">Janhvi Kapoor</div>
+    <div class="celeb-sug" onclick="setCeleb('Kiara Advani')">Kiara Advani</div>
+    <div class="celeb-sug" onclick="setCeleb('Hailey Bieber')">Hailey Bieber</div>
+    <div class="celeb-sug" onclick="setCeleb('Bella Hadid')">Bella Hadid</div>
+    <div class="celeb-sug" onclick="setCeleb('Dua Lipa')">Dua Lipa</div>
+    <div class="celeb-sug" onclick="setCeleb('Rihanna')">Rihanna</div>
+    <div class="celeb-sug" onclick="setCeleb('Olivia Rodrigo')">Olivia Rodrigo</div>
+    <div class="celeb-sug" onclick="setCeleb('Sydney Sweeney')">Sydney Sweeney</div>
+    <div class="celeb-sug" onclick="setCeleb('Audrey Hepburn')">Audrey Hepburn</div>
+    <div class="celeb-sug" onclick="setCeleb('No specific muse')">No specific muse</div>
+  </div>
+
+  <button class="btn-primary w100" onclick="goToEra()">Next: Choose an era →</button>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     ERA SCREEN
+═══════════════════════════════════════════════════════════════ -->
+<div id="screen-era" class="screen">
+  <button class="nav-back" onclick="goTo('screen-celeb')">← Back</button>
+  <div class="progress-bar"><div class="progress-fill" style="width:66%"></div></div>
+  <div class="section-head">
+    <div class="step-label">Step 4 of 6 — Era</div>
+    <h2 class="section-title">Pick your <em>aesthetic era</em></h2>
+  </div>
+
+  <div class="era-grid" id="era-grid">
+    <div class="era-tile" data-val="1900s Edwardian" onclick="selectEra(this)"><div class="era-decade">1900s</div><div class="era-name">Edwardian</div></div>
+    <div class="era-tile" data-val="1920s Flapper" onclick="selectEra(this)"><div class="era-decade">1920s</div><div class="era-name">Flapper</div></div>
+    <div class="era-tile" data-val="1950s Old Hollywood" onclick="selectEra(this)"><div class="era-decade">1950s</div><div class="era-name">Old Hollywood</div></div>
+    <div class="era-tile" data-val="1960s Mod" onclick="selectEra(this)"><div class="era-decade">1960s</div><div class="era-name">Mod</div></div>
+    <div class="era-tile" data-val="1970s Disco" onclick="selectEra(this)"><div class="era-decade">1970s</div><div class="era-name">Disco</div></div>
+    <div class="era-tile" data-val="1980s Power Dressing" onclick="selectEra(this)"><div class="era-decade">1980s</div><div class="era-name">Power Dressing</div></div>
+    <div class="era-tile" data-val="1990s Grunge" onclick="selectEra(this)"><div class="era-decade">1990s</div><div class="era-name">Grunge</div></div>
+    <div class="era-tile" data-val="2000s Y2K" onclick="selectEra(this)"><div class="era-decade">2000s</div><div class="era-name">Y2K</div></div>
+    <div class="era-tile" data-val="2010s Tumblr Aesthetic" onclick="selectEra(this)"><div class="era-decade">2010s</div><div class="era-name">Tumblr Aesthetic</div></div>
+    <div class="era-tile" data-val="Dark Academia" onclick="selectEra(this)"><div class="era-decade">2015s</div><div class="era-name">Dark Academia</div></div>
+    <div class="era-tile" data-val="Clean Girl Aesthetic" onclick="selectEra(this)"><div class="era-decade">Now</div><div class="era-name">Clean Girl</div></div>
+    <div class="era-tile" data-val="Quiet Luxury" onclick="selectEra(this)"><div class="era-decade">Now</div><div class="era-name">Quiet Luxury</div></div>
+    <div class="era-tile" data-val="Goth" onclick="selectEra(this)"><div class="era-decade">Alt</div><div class="era-name">Goth</div></div>
+    <div class="era-tile" data-val="Cottagecore" onclick="selectEra(this)"><div class="era-decade">Alt</div><div class="era-name">Cottagecore</div></div>
+  </div>
+
+  <button class="btn-primary w100" onclick="goToMode()">Next: Closet or Discover →</button>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     MODE + BUDGET SCREEN
+═══════════════════════════════════════════════════════════════ -->
+<div id="screen-mode" class="screen">
+  <button class="nav-back" onclick="goTo('screen-era')">← Back</button>
+  <div class="progress-bar"><div class="progress-fill" style="width:83%"></div></div>
+  <div class="section-head">
+    <div class="step-label">Step 5 of 6 — Mode & Budget</div>
+    <h2 class="section-title">How do you want <em>Ella to style you?</em></h2>
+  </div>
+
+  <div class="mode-cards">
+    <div class="mode-card" id="mode-discover" onclick="selectMode('discover')">
+      <div class="mc-icon">🛍️</div>
+      <div class="mc-title">Discover</div>
+      <div class="mc-desc">Ella picks the best brands & pieces for you</div>
+    </div>
+    <div class="mode-card" id="mode-closet" onclick="selectMode('closet')">
+      <div class="mc-icon">🧺</div>
+      <div class="mc-title">My Closet</div>
+      <div class="mc-desc">Ella styles from what you already own</div>
+    </div>
+  </div>
+
+  <div class="quiz-label">Budget</div>
+  <div class="budget-toggles">
+    <button class="budget-btn" id="budget-everyday" onclick="selectBudget('everyday')">Everyday<br><span style="font-size:11px;opacity:0.7">Zara · ASOS · Mango</span></button>
+    <button class="budget-btn" id="budget-midrange" onclick="selectBudget('midrange')">Mid-Range<br><span style="font-size:11px;opacity:0.7">COS · Reformation · &Other Stories</span></button>
+    <button class="budget-btn" id="budget-luxury" onclick="selectBudget('luxury')">Luxury<br><span style="font-size:11px;opacity:0.7">Chanel · Dior · Prada</span></button>
+  </div>
+
+  <div class="quiz-label">Currency</div>
+  <div class="currency-row">
+    <button class="currency-btn" id="curr-inr" onclick="selectCurrency('INR')">🇮🇳 INR ₹</button>
+    <button class="currency-btn" id="curr-usd" onclick="selectCurrency('USD')">🇺🇸 USD $</button>
+  </div>
+
+  <button class="btn-primary w100" onclick="generateOutfit()">✦ Let Ella style me</button>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     GENERATING SCREEN
+═══════════════════════════════════════════════════════════════ -->
+<div id="screen-generating" class="screen">
+  <div class="gen-fairy">🧚‍♀️</div>
+  <h2 class="gen-title">Ella is working her magic</h2>
+  <p class="gen-sub" id="gen-message">Building your look for <span id="gen-occasion-label"></span>…</p>
+  <div class="gen-dots mt16"><span></span><span></span><span></span></div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     RESULTS SCREEN
+═══════════════════════════════════════════════════════════════ -->
+<div id="screen-results" class="screen">
+  <button class="nav-back" onclick="goToLanding()">← Start over</button>
+
+  <div class="tab-bar">
+    <button class="tab-btn active" id="tab-outfit" onclick="switchTab('outfit')">This Look</button>
+    <button class="tab-btn" id="tab-gallery" onclick="switchTab('gallery')">Saved Looks</button>
+    <button class="tab-btn" id="tab-closet" onclick="switchTab('closet')">My Closet</button>
+  </div>
+
+  <!-- OUTFIT TAB -->
+  <div id="tab-content-outfit">
+    <div class="results-header">
+      <div class="ella-badge"><span class="ella-dot"></span> Ella's pick for you</div>
+      <h2 class="section-title" id="result-title">Your Look</h2>
+      <p class="section-desc" id="result-meta"></p>
+    </div>
+    <div class="results-ella-note" id="ella-note"></div>
+    <div class="outfit-grid" id="outfit-grid"></div>
+    <div class="styling-notes" id="styling-notes"></div>
+    <div class="results-actions">
+      <button class="btn-primary" onclick="saveLook()">♡ Save this look</button>
+      <button class="btn-secondary" onclick="openShareCard()">↗ Share</button>
+      <button class="btn-secondary" onclick="generateOutfit()">↺ Refresh</button>
+      <button class="btn-secondary" onclick="goToLanding()">New look</button>
+    </div>
+  </div>
+
+  <!-- GALLERY TAB -->
+  <div id="tab-content-gallery" hidden>
+    <div id="gallery-grid" class="gallery-grid"></div>
+  </div>
+
+  <!-- CLOSET TAB -->
+  <div id="tab-content-closet" hidden>
+    <div class="closet-area">
+      <label class="closet-upload-zone" for="closet-upload">
+        <input type="file" id="closet-upload" accept="image/*" multiple onchange="handleClosetUpload(event)">
+        <div class="upload-icon">📷</div>
+        <div class="upload-text">Add items to your closet</div>
+        <div class="upload-subtext">Tap to upload photos of your clothes</div>
+      </label>
+      <div class="closet-items-grid" id="closet-items-grid"></div>
     </div>
   </div>
 </div>
 
-<!-- ERA STEP -->
-<div id="era-step" class="screen">
-  <div class="world-bg">
-    <div class="flower-bar"></div>
-    <div class="back-row"><button class="back-btn" onclick="goToStep('celeb-step')">Back</button></div>
-    <div class="ella-row">
-      <div class="ella-mini-wrap" style="font-size:48px;animation:float 2.5s ease-in-out infinite;filter:drop-shadow(0 0 8px rgba(200,160,255,0.7))">🧚</div>
-      <div class="bubble">
-        <div class="bubble-name">Ella</div>
-        <div class="bubble-text">Which era are we dressing from? Scroll and pick your timeline.</div>
-      </div>
-    </div>
-    <div class="section" style="padding-bottom:0">
-      <div class="label">Choose your era</div>
-    </div>
-    <div class="era-scroll" id="era-scroll"></div>
-    <div class="section">
-      <button class="primary-btn" onclick="goToStep('path-step')">Next</button>
-      <button class="skip-btn" onclick="skipEra()">Skip -- no specific era</button>
-    </div>
+<!-- ═══════════════════════════════════════════════════════════════
+     GALLERY SCREEN (standalone)
+═══════════════════════════════════════════════════════════════ -->
+<div id="screen-gallery" class="screen" style="max-width:720px;width:100%;margin-inline:auto;">
+  <button class="nav-back" onclick="goToLanding()">← Home</button>
+  <div class="section-head">
+    <h2 class="section-title">Your <em>Saved Looks</em></h2>
+    <p class="section-desc">All the outfits Ella has built for you.</p>
+  </div>
+  <div id="main-gallery-grid" class="gallery-grid"></div>
+  <div style="text-align:center;margin-top:32px">
+    <button class="btn-primary" onclick="goToQuiz()">✦ New Look</button>
   </div>
 </div>
 
-<!-- PATH STEP -->
-<div id="path-step" class="screen">
-  <div class="world-bg">
-    <div class="flower-bar"></div>
-    <div class="back-row"><button class="back-btn" onclick="goToStep('era-step')">Back</button></div>
-    <div class="ella-row">
-      <div class="ella-mini-wrap" style="font-size:48px;animation:float 2.5s ease-in-out infinite;filter:drop-shadow(0 0 8px rgba(200,160,255,0.7))">🧚</div>
-      <div class="bubble">
-        <div class="bubble-name">Ella</div>
-        <div class="bubble-text" id="path-says">How are we building this look?</div>
-      </div>
+<!-- ═══════════════════════════════════════════════════════════════
+     SHARE CARD OVERLAY
+═══════════════════════════════════════════════════════════════ -->
+<div class="overlay" id="share-overlay">
+  <div class="share-card">
+    <div class="sc-header">
+      <div class="sc-title">Share this look ✦</div>
+      <button class="sc-close" onclick="closeShareCard()">✕</button>
     </div>
-    <div class="section">
-      <div class="path-grid">
-        <div class="path-card" onclick="getOutfit('closet')">
-          <div class="path-icon">👗</div>
-          <div class="path-title">My closet</div>
-          <div class="path-sub">style what I own</div>
-        </div>
-        <div class="path-card" onclick="getOutfit('discover')">
-          <div class="path-icon">🔍</div>
-          <div class="path-title">Discover looks</div>
-          <div class="path-sub">Ella finds the outfit</div>
-        </div>
-      </div>
+    <div class="sc-content">
+      <div class="sc-occasion" id="sc-occasion-label"></div>
+      <div class="sc-look" id="sc-look-desc"></div>
+      <div class="sc-items" id="sc-items-list"></div>
     </div>
-  </div>
-</div>
-
-<!-- OUTFIT -->
-<div id="outfit" class="screen">
-  <div class="outfit-hero normal" id="outfit-hero">
-    <div class="outfit-hero-tag">Ella's pick</div>
-    <div class="outfit-hero-title" id="outfit-title">Your look</div>
-    <div class="outfit-hero-sub" id="outfit-sub"></div>
-    <div class="budget-badge normal" id="outfit-budget-badge">Everyday</div>
-  </div>
-  <div id="outfit-body">
-    <div class="loading-state">
-      <div class="loading-dots"><span></span><span></span><span></span></div>
-      <div class="loading-label">Ella is putting it together.</div>
+    <div class="sc-link-wrap">
+      <strong>Share link</strong>
+      <span id="sc-link">fashiongpt-f0vi.onrender.com</span>
     </div>
-  </div>
-</div>
-
-<!-- CAMERA MODAL -->
-<div class="modal-overlay" id="camera-modal">
-  <div class="modal">
-    <div class="modal-title">Add to your closet</div>
-    <div class="modal-sub">Take a photo or choose from your gallery</div>
-    <div class="camera-placeholder" id="cam-placeholder" onclick="triggerCamera()">
-      <div style="font-size:36px">📸</div>
-      <div style="font-size:13px;color:#C080D8;font-family:'Playfair Display',serif;font-style:italic">Tap to take photo</div>
-    </div>
-    <img id="cam-preview" class="camera-preview" src="" alt="preview"/>
-    <input type="file" id="cam-input" accept="image/*" capture="environment" style="display:none" onchange="previewPhoto(this)"/>
-    <input type="text" class="modal-input" id="item-label" placeholder="What is this? e.g. White ribbed tee"/>
-    <div class="modal-btns">
-      <button class="modal-btn-cancel" onclick="closeCamera()">Cancel</button>
-      <button class="modal-btn-save" onclick="saveToCloset()">Add to closet</button>
+    <div class="sc-actions">
+      <button class="btn-primary" style="flex:1" onclick="copyShareLink()">Copy link</button>
+      <button class="btn-secondary" style="flex:1" onclick="closeShareCard()">Done</button>
     </div>
   </div>
 </div>
 
 <script>
-var occasion = '';
-var celeb = '';
-var era = '';
-var currentPath = '';
-var budget = 'normal';
-var currency = 'INR';
-var priceRange = 'low';
-var closetItems = [];
-
-var PRICE_RANGES = {
-  INR: {
-    low: { label: 'Budget', desc: 'under ₹2,500 per piece', range: 'under ₹2,500 per piece (approx 0)' },
-    mid: { label: 'Mid range', desc: '₹2,500 - ₹10,000 per piece', range: '₹2,500-10,000 per piece (approx 0-120)' },
-    high: { label: 'Luxury', desc: '₹10,000+ per piece', range: 'above ₹10,000 per piece (approx 20+)' }
-  },
-  USD: {
-    low: { label: 'Budget', desc: 'under 0 per piece', range: 'under 0 per piece' },
-    mid: { label: 'Mid range', desc: '0 - 20 per piece', range: '0-120 per piece' },
-    high: { label: 'Luxury', desc: '20+ per piece', range: 'above 20 per piece' }
-  }
+// ── State ──
+const state = {
+  quiz: { body: '', skin: '', lifestyle: '', palette: [] },
+  occasion: '', city: '', season: '', venue: '', dresscode: '',
+  celeb: '', era: '', mode: 'discover', budget: 'everyday', currency: 'INR',
+  currentOutfit: null,
+  savedLooks: [],
+  closetItems: []
 };
 
-function setCurrency(c) {
-  currency = c;
-  document.getElementById('btn-inr').style.background = c === 'INR' ? 'linear-gradient(135deg,#D4537E,#8B3FA8)' : '#fff';
-  document.getElementById('btn-inr').style.color = c === 'INR' ? '#fff' : '#C080D8';
-  document.getElementById('btn-usd').style.background = c === 'USD' ? 'linear-gradient(135deg,#D4537E,#8B3FA8)' : '#fff';
-  document.getElementById('btn-usd').style.color = c === 'USD' ? '#fff' : '#C080D8';
-  updatePriceDesc();
-}
-
-function setPrice(p) {
-  priceRange = p;
-  var btns = ['price-low','price-mid','price-high'];
-  var vals = ['low','mid','high'];
-  for (var i = 0; i < btns.length; i++) {
-    var active = vals[i] === p;
-    document.getElementById(btns[i]).style.background = active ? 'linear-gradient(135deg,#D4537E,#8B3FA8)' : '#fff';
-    document.getElementById(btns[i]).style.color = active ? '#fff' : '#C080D8';
-  }
-  updatePriceDesc();
-}
-
-function updatePriceDesc() {
-  var desc = document.getElementById('price-desc');
-  if (desc) {
-    var info = PRICE_RANGES[currency][priceRange];
-    desc.textContent = info.label + ': ' + info.desc;
-  }
-}
-
-var ERAS = [
-  {year:'1900s', name:'Edwardian', emoji:'🎩', bg:'#F5EDE0', color:'#6B4C2A'},
-  {year:'1920s', name:'Flapper', emoji:'💃', bg:'#1A1A2E', color:'#C9A84C'},
-  {year:'1950s', name:'Old Hollywood', emoji:'🌟', bg:'#FFF0E0', color:'#C4407A'},
-  {year:'1960s', name:'Mod', emoji:'🔵', bg:'#E0F0FF', color:'#185FA5'},
-  {year:'1970s', name:'Disco', emoji:'🪩', bg:'#2A0848', color:'#E0A0FF'},
-  {year:'1980s', name:'Power Dress', emoji:'💼', bg:'#FFE0E0', color:'#993C1D'},
-  {year:'1990s', name:'Grunge', emoji:'🖤', bg:'#1A1A1A', color:'#888'},
-  {year:'2000s', name:'Y2K', emoji:'💿', bg:'#E0F8FF', color:'#185FA5'},
-  {year:'2010s', name:'Tumblr', emoji:'🌸', bg:'#FFE4F5', color:'#C4407A'},
-  {year:'2015s', name:'Dark Academia', emoji:'📚', bg:'#2C1A0E', color:'#C4A882'},
-  {year:'Now', name:'Clean Girl', emoji:'✨', bg:'#F5F5F0', color:'#5A5A50'},
-  {year:'Now', name:'Quiet Luxury', emoji:'🤍', bg:'#F0EDE8', color:'#3A3530'},
-  {year:'Now', name:'Goth', emoji:'🖤', bg:'#0A0A0A', color:'#666'},
-  {year:'Now', name:'Cottagecore', emoji:'🌿', bg:'#E8F5E0', color:'#3A6B2A'}
-];
-
-var STORE_LINKS = {
-  'Chanel':'https://www.chanel.com','Dior':'https://www.dior.com','Prada':'https://www.prada.com',
-  'The Row':'https://www.therow.com','Loro Piana':'https://www.loropiana.com',
-  'Brunello Cucinelli':'https://www.brunellocucinelli.com','Bottega Veneta':'https://www.bottegaveneta.com',
-  'Valentino':'https://www.valentino.com','Zimmermann':'https://www.zimmermannwear.com',
-  'Jacquemus':'https://www.jacquemus.com','Manolo Blahnik':'https://www.manoloblahnik.com',
-  'Christian Louboutin':'https://www.christianlouboutin.com','Hermes':'https://www.hermes.com',
-  'Louis Vuitton':'https://www.louisvuitton.com','Celine':'https://www.celine.com',
-  'Cartier':'https://www.cartier.com','Charlotte Tilbury':'https://www.charlottetilbury.com',
-  'Zara':'https://www.zara.com','ASOS':'https://www.asos.com','Mango':'https://www.mango.com',
-  'NYX':'https://www.nyxcosmetics.com','Maybelline':'https://www.maybelline.com',
-  'NARS':'https://www.narscosmetics.com','Olaplex':'https://olaplex.com'
-};
-
-function buildEras() {
-  var scroll = document.getElementById('era-scroll');
-  var html = '';
-  for (var i = 0; i < ERAS.length; i++) {
-    var e = ERAS[i];
-    html += '<div class="era-card" id="era-'+i+'" onclick="selectEra('+i+')">';
-    html += '<div class="era-bg" style="background:'+e.bg+';font-size:32px;display:flex;align-items:center;justify-content:center">'+e.emoji+'</div>';
-    html += '<div class="era-label"><div class="era-year">'+e.year+'</div><div class="era-name">'+e.name+'</div></div>';
-    html += '</div>';
-  }
-  scroll.innerHTML = html;
-}
-
-function selectEra(i) {
-  var cards = document.querySelectorAll('.era-card');
-  for (var j = 0; j < cards.length; j++) cards[j].classList.remove('selected');
-  document.getElementById('era-'+i).classList.add('selected');
-  era = ERAS[i].year + ' ' + ERAS[i].name;
-}
-
-function enterWorld() {
-  fairyActive = false;
-  showBarbieEntry();
-}
-
-function showBarbieEntry() {
-  var entry = document.getElementById('barbie-entry');
-  entry.style.display = 'block';
-
-  // spawn sparkles continuously
-  var sparkInterval = setInterval(function() {
-    var s = document.createElement('div');
-    s.style.cssText = 'position:absolute;font-size:'+(12+Math.random()*20)+'px;left:'+(Math.random()*100)+'%;top:'+(Math.random()*100)+'%;z-index:4;pointer-events:none;animation:trailFade 1.2s ease-out forwards';
-    s.textContent = ['✨','💫','⭐','🌟','✦'][Math.floor(Math.random()*5)];
-    document.getElementById('entry-sparkles').appendChild(s);
-    setTimeout(function(){ if(s.parentNode) s.parentNode.removeChild(s); }, 1200);
-  }, 80);
-
-  // step 1 - fly clothes in from sides
-  setTimeout(function() {
-    document.getElementById('fly1').style.left = '5%';
-    document.getElementById('fly2').style.right = '5%';
-    document.getElementById('fly3').style.left = '8%';
-    document.getElementById('fly4').style.right = '8%';
-    document.getElementById('fly5').style.left = '6%';
-    document.getElementById('fly6').style.right = '6%';
-  }, 100);
-
-  // step 2 - open curtains
-  setTimeout(function() {
-    document.getElementById('curtain-l').style.transform = 'translateX(-100%)';
-    document.getElementById('curtain-r').style.transform = 'translateX(100%)';
-    document.getElementById('entry-reveal').style.opacity = '1';
-  }, 600);
-
-  // step 3 - go to main
-  setTimeout(function() {
-    clearInterval(sparkInterval);
-    entry.style.opacity = '0';
-    entry.style.transition = 'opacity 0.5s ease';
-    // remove bouncing fairy completely
-    var bf = document.querySelector('.bouncy-fairy');
-    if (bf) bf.remove();
-    // remove any leftover pixie dust
-    var dusts = document.querySelectorAll('.pixie-dust');
-    for (var i = 0; i < dusts.length; i++) dusts[i].remove();
-    setTimeout(function() {
-      entry.style.display = 'none';
-      entry.style.opacity = '1';
-      goTo('main');
-    }, 500);
-  }, 3200);
-}
-
-
-
-function sparkleReveal() {
-  var colors = ['#FFD700','#E0A0FF','#FFB0E0','#C8A0FF','#B0D0FF'];
-  for (var i = 0; i < 30; i++) {
-    var dot = document.createElement('div');
-    dot.className = 'sparkle-dot';
-    var x = Math.random() * window.innerWidth;
-    var y = Math.random() * 300;
-    var angle = Math.random() * Math.PI * 2;
-    var dist = 40 + Math.random() * 100;
-    dot.style.cssText = 'left:'+x+'px;top:'+y+'px;background:'+colors[i%colors.length]+';--tx:'+Math.cos(angle)*dist+'px;--ty:'+Math.sin(angle)*dist+'px;animation-delay:'+(Math.random()*0.5)+'s;width:'+(4+Math.random()*8)+'px;height:'+(4+Math.random()*8)+'px';
-    document.body.appendChild(dot);
-    setTimeout(function(d){ d.remove(); }, 1400);
-  }
-}
-
-function goTo(id) {
-  var screens = document.querySelectorAll('.screen');
-  for (var i = 0; i < screens.length; i++) {
-    if (screens[i] && screens[i].classList) screens[i].classList.remove('active');
-  }
-  var el = document.getElementById(id);
-  if (el) { el.classList.add('active'); window.scrollTo(0, 0); }
-}
-
-function goToStep(id) {
-  if (id === 'celeb-step') {
-    var occ = document.getElementById('occasion').value.trim();
-    if (!occ) { document.getElementById('occasion').focus(); return; }
-    occasion = occ;
-  }
-  goTo(id);
-}
-
-function showTab(tabId, btn) {
-  document.getElementById('style-tab').style.display = tabId === 'style-tab' ? 'block' : 'none';
-  document.getElementById('closet-tab').style.display = tabId === 'closet-tab' ? 'block' : 'none';
-  var btns = document.querySelectorAll('.nav-btn');
-  for (var i = 0; i < btns.length; i++) { if (btns[i] && btns[i].classList) btns[i].classList.remove('active'); }
-  btn.classList.add('active');
-  if (tabId === 'closet-tab') renderCloset();
-}
-
-function setBudget(b) {
-  budget = b;
-  document.getElementById('btn-normal').className = 'budget-opt normal' + (b === 'normal' ? ' active' : '');
-  document.getElementById('btn-luxury').className = 'budget-opt luxury' + (b === 'luxury' ? ' active' : '');
-  var desc = document.getElementById('budget-desc');
-  if (b === 'luxury') {
-    desc.className = 'budget-desc luxury';
-    desc.textContent = 'Ella selects from Chanel, Dior, Prada, The Row, Bottega Veneta with direct links.';
-  } else {
-    desc.className = 'budget-desc normal';
-    desc.textContent = 'Ella curates looks from Zara, ASOS, Mango and more.';
-  }
-}
-
-function skipCeleb() { celeb = ''; goTo('era-step'); }
-function skipEra() { era = ''; goTo('path-step'); }
-
-function getOutfit(p) {
-  celeb = document.getElementById('celeb-input') ? document.getElementById('celeb-input').value.trim() : celeb;
-  currentPath = p;
-  var hero = document.getElementById('outfit-hero');
-  var badge = document.getElementById('outfit-budget-badge');
-  hero.className = 'outfit-hero ' + (budget === 'luxury' ? 'luxury' : 'normal');
-  badge.className = 'budget-badge ' + (budget === 'luxury' ? 'luxury' : 'normal');
-  badge.textContent = budget === 'luxury' ? 'Luxury' : 'Everyday';
-  var title = celeb ? celeb + "'s energy" : (era ? era + ' vibes' : 'Your look');
-  document.getElementById('outfit-title').textContent = title;
-  document.getElementById('outfit-sub').textContent = occasion;
-  var loadMsg = budget === 'luxury' ? 'Ella is selecting from the finest houses.' : 'Ella is putting it together.';
-  document.getElementById('outfit-body').innerHTML = '<div class="loading-state"><div class="loading-dots"><span></span><span></span><span></span></div><div class="loading-label">' + loadMsg + '</div></div>';
-  goTo('outfit');
-  fetchOutfit();
-}
-
-function fetchOutfit() {
-  var closetDesc = '';
-  if (currentPath === 'closet' && closetItems.length > 0) {
-    var labels = [];
-    for (var i = 0; i < closetItems.length; i++) labels.push(closetItems[i].label);
-    closetDesc = 'IMPORTANT: The user owns these specific pieces in their closet: ' + labels.join(', ') + '. You MUST build the outfit using these exact pieces as the foundation. Only suggest additional items if something essential is missing.';
-  }
-
-  var brandGuide = budget === 'luxury'
-    ? 'Use ONLY luxury brands: Chanel, Dior, Prada, The Row, Loro Piana, Brunello Cucinelli, Bottega Veneta, Valentino, Zimmermann, Jacquemus, Manolo Blahnik, Christian Louboutin, Hermes, Louis Vuitton, Celine, Cartier, Charlotte Tilbury.'
-    : 'Use ONLY accessible brands: Zara, ASOS, Mango, HM, Other Stories, NYX, Maybelline, NARS, Olaplex.';
-
-  var celebLine = celeb ? 'Channel the style of: ' + celeb : 'Pick the most fitting celebrity aesthetic.';
-  var eraLine = era ? 'Era/aesthetic: ' + era + '. Incorporate key elements of this era into the look.' : '';
-  var pathLine = currentPath === 'closet' ? 'CLOSET MODE: Use the users own pieces listed above.' : 'DISCOVER MODE: Find a complete new look.';
-  var budgetLine = budget === 'luxury' ? 'LUXURY' : 'EVERYDAY';
-
-  var priceInfo = PRICE_RANGES[currency][priceRange];
-  var currencyLine = 'Currency: ' + currency + '. Price range: ' + priceInfo.range + '. Include the price of each item in ' + currency + ' next to the item name. Keep all prices within this range.';
-
-  var promptText = [
-    'You are Ella, a razor-sharp fashion stylist. Gossip Girl energy. No fluff, no exclamation marks. Precise, elegant, authoritative.',
-    '',
-    'Occasion: ' + occasion,
-    celebLine,
-    eraLine,
-    'Path: ' + pathLine,
-    closetDesc,
-    'Budget mode: ' + budgetLine,
-    brandGuide,
-    currencyLine,
-    '',
-    'Respond ONLY in this exact JSON format, nothing else:',
-    '{',
-    '  "celeb_vibe": "who they are channeling plus 4 word vibe",',
-    '  "occasion_note": "one elegant sentence about this look",',
-    '  "items": [',
-    '    {',
-    '      "category": "Top",',
-    '      "name": "specific item name",',
-    '      "brand": "brand name",',
-    '      "detail": "color, fit, one styling tip",',
-    '      "emoji": "👕",',
-    '      "price": "price in the chosen currency e.g. ₹1,999 or 5",',
-    '      "owned": true or false',
-    '    }',
-    '  ],',
-    '  "ella_note": "one Gossip Girl coded closing line, no exclamation mark"',
-    '}',
-    '',
-    'Categories: Top, Bottom, Shoes, Bag, Accessories, Hair, Makeup.',
-    'If using closet pieces, set owned to true for those items.',
-    'Keep the era aesthetic throughout all choices.'
-  ].join('\n');
-
-  fetch('/api/outfit', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ prompt: promptText })
-  }).then(function(r) {
-    return r.json();
-  }).then(function(data) {
-    renderOutfit(data.outfit);
-    sparkleReveal();
-  }).catch(function() {
-    document.getElementById('outfit-body').innerHTML = '<div style="padding:20px;text-align:center;color:#C080D8;font-family:serif;font-style:italic">Ella stepped out. Try again.</div>';
-  });
-}
-
-function renderOutfit(raw) {
+// ── Load from localStorage ──
+function loadState() {
   try {
-    var clean = raw.replace(/```json|```/g, '').trim();
-    var data = JSON.parse(clean);
-    document.getElementById('outfit-title').textContent = data.celeb_vibe || 'Your look';
-    document.getElementById('outfit-sub').textContent = data.occasion_note || '';
-    var isLux = budget === 'luxury';
-    var html = '<div class="outfit-items">';
-    for (var i = 0; i < data.items.length; i++) {
-      var item = data.items[i];
-      var searchQuery = encodeURIComponent(item.name);
-      var brandSearchLinks = {
-        'Zara':'https://www.zara.com/us/en/search?searchTerm='+searchQuery,
-        'ASOS':'https://www.asos.com/search/?q='+searchQuery,
-        'Mango':'https://shop.mango.com/us/search?q='+searchQuery,
-        'Chanel':'https://www.chanel.com/us/search/?q='+searchQuery,
-        'Dior':'https://www.dior.com/en_us/search#q='+searchQuery,
-        'Prada':'https://www.prada.com/us/en/search.html?q='+searchQuery,
-        'The Row':'https://www.therow.com/en-us/search?q='+searchQuery,
-        'Bottega Veneta':'https://www.bottegaveneta.com/en-us/search?q='+searchQuery,
-        'Louis Vuitton':'https://us.louisvuitton.com/eng-us/search/'+searchQuery,
-        'Hermes':'https://www.hermes.com/us/en/search/?q='+searchQuery,
-        'Celine':'https://www.celine.com/en-us/search?q='+searchQuery,
-        'Valentino':'https://www.valentino.com/en-us/search?q='+searchQuery,
-        'Jacquemus':'https://www.jacquemus.com/search?q='+searchQuery,
-        'Zimmermann':'https://www.zimmermannwear.com/search?q='+searchQuery,
-        'Charlotte Tilbury':'https://www.charlottetilbury.com/us/search?q='+searchQuery,
-        'NYX':'https://www.nyxcosmetics.com/search?q='+searchQuery,
-        'Maybelline':'https://www.maybelline.com/search#q='+searchQuery,
-        'NARS':'https://www.narscosmetics.com/USA/search?q='+searchQuery,
-        'Olaplex':'https://olaplex.com/search?q='+searchQuery
-      };
-      var brandLink = brandSearchLinks[item.brand] || ('https://www.google.com/search?q='+encodeURIComponent(item.brand+' '+item.name));
-      var isOwned = item.owned === true;
-      html += '<div class="outfit-item'+(isLux?' luxury':'')+'" style="animation-delay:'+(i*0.08)+'s">';
-      html += '<a href="'+brandLink+'" target="_blank" class="item-thumb '+(isLux?'luxury':'normal')+'">';
-      html += '<span>'+item.emoji+'</span>';
-      html += '<span class="item-thumb-label">'+(isOwned ? 'yours' : (isLux?'shop':'view'))+'</span>';
-      html += '</a>';
-      html += '<div class="item-info">';
-      html += '<div class="item-cat'+(isLux?' luxury':'')+'">'+item.category+(isOwned?' -- from your closet':'')+'</div>';
-      html += '<div class="item-name">'+item.name+'</div>';
-      html += '<div class="item-brand'+(isLux?' luxury':'')+'">'+item.brand+'</div>';
-      html += '<div class="item-detail">'+item.detail+'</div>';
-      if (item.price) { html += '<div style="font-size:12px;font-weight:600;color:'+(isLux?'#C9A84C':'#8B3FA8')+';margin-top:3px">'+item.price+'</div>'; }
-      if (!isOwned) {
-        html += '<a href="'+brandLink+'" target="_blank" style="display:block;margin-top:8px;background:'+(isLux?'linear-gradient(135deg,#1A1A2E,#2D1B4E)':'linear-gradient(135deg,#D4537E,#8B3FA8)')+';color:#fff;text-align:center;padding:8px 12px;border-radius:50px;font-size:12px;text-decoration:none;font-family:DM Sans,sans-serif;font-weight:500;letter-spacing:0.5px">'+(isLux?'🛍️ Shop on '+item.brand:'🛒 Shop on '+item.brand)+'</a>';
-      }
-      html += '</div></div>';
+    const saved = localStorage.getItem('fashiongpt_state');
+    if (saved) {
+      const s = JSON.parse(saved);
+      state.quiz = s.quiz || state.quiz;
+      state.savedLooks = s.savedLooks || [];
+      state.closetItems = s.closetItems || [];
+      restoreQuizUI();
     }
-    html += '</div>';
-    if (data.ella_note) {
-      html += '<div class="ella-note-box'+(isLux?' luxury':'')+'"><div class="ella-note-label">ELLA SAYS</div><div class="ella-note-text">'+data.ella_note+'</div></div>';
-    }
-    html += '<div class="action-row"><button class="action-btn" onclick="getOutfit(\''+currentPath+'\')">Redo</button><button class="action-btn" onclick="goTo(\'main\')">Start over</button></div>';
-    document.getElementById('outfit-body').innerHTML = html;
-  } catch(e) {
-    document.getElementById('outfit-body').innerHTML = '<div style="padding:20px;text-align:center;color:#C080D8;font-family:serif;font-style:italic">Something went wrong. Try again.</div>';
+  } catch(e) {}
+}
+
+function saveStateToStorage() {
+  try {
+    localStorage.setItem('fashiongpt_state', JSON.stringify({
+      quiz: state.quiz,
+      savedLooks: state.savedLooks,
+      closetItems: state.closetItems
+    }));
+  } catch(e) {}
+}
+
+function restoreQuizUI() {
+  if (state.quiz.body) {
+    const el = document.querySelector(`[data-group="body"][data-val="${state.quiz.body}"]`);
+    if (el) el.classList.add('selected');
+  }
+  if (state.quiz.skin) {
+    const el = document.querySelector(`[data-group="skin"][data-val="${state.quiz.skin}"]`);
+    if (el) el.classList.add('selected');
+  }
+  if (state.quiz.lifestyle) {
+    const el = document.querySelector(`[data-group="lifestyle"][data-val="${state.quiz.lifestyle}"]`);
+    if (el) el.classList.add('selected');
+  }
+  if (state.quiz.palette && state.quiz.palette.length) {
+    state.quiz.palette.forEach(v => {
+      const el = document.querySelector(`[data-group="palette"][data-val="${v}"]`);
+      if (el) el.classList.add('selected');
+    });
   }
 }
 
-function openCamera() {
-  document.getElementById('camera-modal').classList.add('open');
-  document.getElementById('cam-preview').style.display = 'none';
-  document.getElementById('cam-placeholder').style.display = 'flex';
-  document.getElementById('item-label').value = '';
+// ── Navigation ──
+function goTo(screenId) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(screenId).classList.add('active');
+  window.scrollTo(0, 0);
 }
-function closeCamera() { document.getElementById('camera-modal').classList.remove('open'); }
-function triggerCamera() { document.getElementById('cam-input').click(); }
-
-function previewPhoto(input) {
-  if (input.files && input.files[0]) {
-    var reader = new FileReader();
-    reader.onload = function(e) {
-      var p = document.getElementById('cam-preview');
-      p.src = e.target.result;
-      p.style.display = 'block';
-      document.getElementById('cam-placeholder').style.display = 'none';
-    };
-    reader.readAsDataURL(input.files[0]);
-  }
+function goToLanding() { goTo('screen-landing'); }
+function goToQuiz() { goTo('screen-quiz'); }
+function goToOccasion() { goTo('screen-occasion'); }
+function backFromOccasion() {
+  if (state.quiz.body || state.quiz.skin) goTo('screen-quiz');
+  else goTo('screen-landing');
+}
+function goToCeleb() {
+  const custom = document.getElementById('occasion-custom').value.trim();
+  const selected = document.querySelector('.occasion-tile.selected');
+  state.occasion = custom || (selected ? selected.dataset.val : '');
+  state.city = document.getElementById('city-input').value.trim();
+  state.season = document.getElementById('season-select').value;
+  if (!state.occasion) { alert('Please pick or describe an occasion.'); return; }
+  goTo('screen-celeb');
+}
+function goToEra() {
+  state.celeb = document.getElementById('celeb-input').value.trim() || 'No specific muse';
+  goTo('screen-era');
+}
+function goToMode() {
+  const sel = document.querySelector('.era-tile.selected');
+  if (!sel) { alert('Pick an era to continue.'); return; }
+  state.era = sel.dataset.val;
+  selectMode('discover');
+  selectBudget('everyday');
+  selectCurrency('INR');
+  goTo('screen-mode');
+}
+function goToGallery() {
+  renderMainGallery();
+  goTo('screen-gallery');
 }
 
-function saveToCloset() {
-  var label = document.getElementById('item-label').value.trim();
-  var preview = document.getElementById('cam-preview');
-  if (!label) { document.getElementById('item-label').focus(); return; }
-  var imgSrc = preview.style.display !== 'none' ? preview.src : null;
-  closetItems.push({ label: label, img: imgSrc, id: Date.now() });
-  fetch('/api/closet/save', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ items: closetItems })
+// ── Quiz logic ──
+function selectQuiz(el) {
+  const group = el.dataset.group;
+  document.querySelectorAll(`[data-group="${group}"]`).forEach(e => e.classList.remove('selected'));
+  el.classList.add('selected');
+  state.quiz[group] = el.dataset.val;
+}
+function selectQuizMulti(el) {
+  el.classList.toggle('selected');
+  const val = el.dataset.val;
+  const idx = state.quiz.palette.indexOf(val);
+  if (idx > -1) state.quiz.palette.splice(idx, 1);
+  else state.quiz.palette.push(val);
+}
+function saveQuizAndContinue() {
+  saveStateToStorage();
+  goToOccasion();
+}
+
+// ── Occasion logic ──
+function selectOccasion(el) {
+  document.querySelectorAll('.occasion-tile').forEach(t => t.classList.remove('selected'));
+  el.classList.add('selected');
+  document.getElementById('occasion-custom').value = '';
+}
+function selectChip(el) {
+  const group = el.dataset.group;
+  document.querySelectorAll(`[data-group="${group}"]`).forEach(e => e.classList.remove('selected'));
+  el.classList.add('selected');
+  state[group] = el.dataset.val;
+}
+
+// ── Celeb suggestions ──
+const celebList = ['Zendaya','Kendall Jenner','Deepika Padukone','Alia Bhatt','Ananya Panday',
+  'Janhvi Kapoor','Kiara Advani','Hailey Bieber','Bella Hadid','Dua Lipa',
+  'Rihanna','Olivia Rodrigo','Sydney Sweeney','Audrey Hepburn','Taylor Swift',
+  'Billie Eilish','Harry Styles','Priyanka Chopra','Sonam Kapoor','No specific muse'];
+
+function filterSuggestions(val) {
+  const wrap = document.getElementById('celeb-suggestions');
+  const lower = val.toLowerCase();
+  wrap.querySelectorAll('.celeb-sug').forEach(el => {
+    el.style.display = el.textContent.toLowerCase().includes(lower) ? '' : 'none';
   });
-  closeCamera();
-  renderCloset();
-  showTab('closet-tab', document.querySelectorAll('.nav-btn')[1]);
+}
+function setCeleb(name) {
+  document.getElementById('celeb-input').value = name;
+  state.celeb = name;
 }
 
-function deleteClosetItem(id) {
-  var newItems = [];
-  for (var i = 0; i < closetItems.length; i++) {
-    if (closetItems[i].id !== id) newItems.push(closetItems[i]);
-  }
-  closetItems = newItems;
-  fetch('/api/closet/save', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ items: closetItems })
+// ── Era ──
+function selectEra(el) {
+  document.querySelectorAll('.era-tile').forEach(t => t.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
+// ── Mode / Budget / Currency ──
+function selectMode(mode) {
+  state.mode = mode;
+  document.getElementById('mode-discover').classList.toggle('selected', mode === 'discover');
+  document.getElementById('mode-closet').classList.toggle('selected', mode === 'closet');
+}
+function selectBudget(b) {
+  state.budget = b;
+  ['everyday','midrange','luxury'].forEach(x => {
+    document.getElementById('budget-' + x).classList.toggle('selected', x === b);
   });
-  renderCloset();
+}
+function selectCurrency(c) {
+  state.currency = c;
+  document.getElementById('curr-inr').classList.toggle('selected', c === 'INR');
+  document.getElementById('curr-usd').classList.toggle('selected', c === 'USD');
 }
 
-function renderCloset() {
-  var grid = document.getElementById('closet-grid');
-  if (closetItems.length === 0) {
-    grid.innerHTML = '<div class="empty-closet" style="grid-column:1/-1">Your closet is empty.<br>Start adding pieces.</div>';
+// ── Generate outfit ──
+async function generateOutfit() {
+  const selectedMode = state.mode || 'discover';
+  document.getElementById('gen-occasion-label').textContent = state.occasion;
+  goTo('screen-generating');
+
+  // Build context string
+  let quizContext = '';
+  if (state.quiz.body) quizContext += `Body type: ${state.quiz.body}. `;
+  if (state.quiz.skin) quizContext += `Skin tone: ${state.quiz.skin}. `;
+  if (state.quiz.lifestyle) quizContext += `Lifestyle: ${state.quiz.lifestyle}. `;
+  if (state.quiz.palette.length) quizContext += `Preferred colors: ${state.quiz.palette.join(', ')}. `;
+
+  let occasionContext = state.occasion;
+  if (state.city) occasionContext += ` in ${state.city}`;
+  if (state.season) occasionContext += ` (${state.season})`;
+  if (state.venue) occasionContext += `, ${state.venue}`;
+  if (state.dresscode && state.dresscode !== 'no dress code') occasionContext += `, dress code: ${state.dresscode}`;
+
+  let closetContext = '';
+  if (selectedMode === 'closet' && state.closetItems.length) {
+    closetContext = `The user has these items in their closet: ${state.closetItems.map(i => i.name).join(', ')}. Style them using these items.`;
+  }
+
+  try {
+    const res = await fetch('/api/outfit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        occasion: occasionContext,
+        celebrity: state.celeb || 'No specific muse',
+        era: state.era || 'Clean Girl Aesthetic',
+        mode: selectedMode,
+        budget: state.budget,
+        currency: state.currency,
+        style_profile: quizContext,
+        closet_context: closetContext
+      })
+    });
+
+    if (!res.ok) throw new Error('API error');
+    const data = await res.json();
+    renderResults(data);
+    goTo('screen-results');
+    switchTab('outfit');
+    spawnSparkles();
+  } catch(err) {
+    console.error(err);
+    goTo('screen-mode');
+    alert('Ella hit a snag — please try again! ✨');
+  }
+}
+
+// ── Render results ──
+function renderResults(data) {
+  state.currentOutfit = data;
+  document.getElementById('result-title').textContent = data.look_name || 'Your Look';
+  document.getElementById('result-meta').textContent =
+    `${state.occasion} · ${state.celeb} energy · ${state.era}`;
+  document.getElementById('ella-note').textContent = data.ella_note || '';
+
+  // Outfit items
+  const grid = document.getElementById('outfit-grid');
+  grid.innerHTML = '';
+  (data.items || []).forEach(item => {
+    const pinterestQuery = encodeURIComponent(`${item.name} ${item.brand} fashion`);
+    const pinterestUrl = `https://pinterest.com/search/pins/?q=${pinterestQuery}`;
+    const shopUrl = buildShopUrl(item.brand, item.name);
+
+    const div = document.createElement('div');
+    div.className = 'outfit-item';
+    div.innerHTML = `
+      <div class="oi-category">${item.category || ''}</div>
+      <div class="oi-name">${item.name}</div>
+      <div class="oi-brand">${item.brand}</div>
+      <div class="oi-price">${item.price}</div>
+      <div class="oi-desc">${item.description || ''}</div>
+      <a class="oi-pinterest" href="${pinterestUrl}" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.373 0 0 5.373 0 12c0 5.084 3.163 9.426 7.627 11.174-.105-.949-.2-2.405.042-3.441.218-.937 1.407-5.965 1.407-5.965s-.359-.719-.359-1.782c0-1.668.967-2.914 2.171-2.914 1.023 0 1.518.769 1.518 1.69 0 1.029-.655 2.568-.994 3.995-.283 1.194.599 2.169 1.777 2.169 2.133 0 3.772-2.249 3.772-5.495 0-2.873-2.064-4.882-5.012-4.882-3.414 0-5.418 2.561-5.418 5.207 0 1.031.397 2.138.893 2.738a.36.36 0 0 1 .083.345l-.333 1.36c-.053.22-.174.267-.402.161-1.499-.698-2.436-2.889-2.436-4.649 0-3.785 2.75-7.262 7.929-7.262 4.163 0 7.398 2.967 7.398 6.931 0 4.136-2.607 7.464-6.227 7.464-1.216 0-2.359-.632-2.75-1.378l-.748 2.853c-.271 1.043-1.002 2.35-1.492 3.146C9.57 23.812 10.763 24 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0z"/></svg>
+        See on Pinterest
+      </a>
+      <a class="oi-shop" href="${shopUrl}" target="_blank" rel="noopener">
+        🛒 Shop on ${item.brand}
+      </a>
+    `;
+    grid.appendChild(div);
+  });
+
+  // Styling notes
+  const sn = document.getElementById('styling-notes');
+  if (data.styling_notes) {
+    sn.innerHTML = `
+      <div class="sn-title">Ella's styling notes</div>
+      <div class="sn-grid">
+        ${data.styling_notes.accessories ? `<div class="sn-item"><strong>Accessories</strong>${data.styling_notes.accessories}</div>` : ''}
+        ${data.styling_notes.hair ? `<div class="sn-item"><strong>Hair</strong>${data.styling_notes.hair}</div>` : ''}
+        ${data.styling_notes.makeup ? `<div class="sn-item"><strong>Makeup</strong>${data.styling_notes.makeup}</div>` : ''}
+        ${data.styling_notes.fragrance ? `<div class="sn-item"><strong>Fragrance</strong>${data.styling_notes.fragrance}</div>` : ''}
+      </div>
+    `;
+    sn.style.display = '';
+  } else {
+    sn.style.display = 'none';
+  }
+}
+
+function buildShopUrl(brand, item) {
+  const b = (brand || '').toLowerCase();
+  const q = encodeURIComponent(item);
+  const map = {
+    'zara': `https://www.zara.com/in/en/search?searchTerm=${q}`,
+    'asos': `https://www.asos.com/search/?q=${q}`,
+    'mango': `https://shop.mango.com/search?q=${q}`,
+    'h&m': `https://www2.hm.com/en_in/search-results.html?q=${q}`,
+    'chanel': `https://www.chanel.com/en_US/fashion/search/result/?q=${q}`,
+    'dior': `https://www.dior.com/en_int/search?q=${q}`,
+    'prada': `https://www.prada.com/en/int/search.html?q=${q}`,
+    'gucci': `https://www.gucci.com/search.html?q=${q}`,
+    'versace': `https://www.versace.com/search/?q=${q}`,
+    'cos': `https://www.cos.com/search?q=${q}`,
+    'reformation': `https://www.thereformation.com/search?q=${q}`,
+    '& other stories': `https://www.stories.com/search?q=${q}`,
+    'massimo dutti': `https://www.massimodutti.com/in/search?searchTerm=${q}`,
+    'nykaa fashion': `https://www.nykaafashion.com/search?q=${q}`,
+    'myntra': `https://www.myntra.com/${q.replace(/%20/g,'-')}`,
+    'ajio': `https://www.ajio.com/search/?text=${q}`,
+  };
+  for (const [k, v] of Object.entries(map)) {
+    if (b.includes(k)) return v;
+  }
+  return `https://www.google.com/search?q=${encodeURIComponent(brand + ' ' + item + ' buy')}`;
+}
+
+// ── Tab switching ──
+function switchTab(tab) {
+  ['outfit','gallery','closet'].forEach(t => {
+    document.getElementById(`tab-${t}`).classList.toggle('active', t === tab);
+    document.getElementById(`tab-content-${t}`).hidden = t !== tab;
+  });
+  if (tab === 'gallery') renderGalleryTab();
+  if (tab === 'closet') renderClosetTab();
+}
+
+// ── Save look ──
+function saveLook() {
+  if (!state.currentOutfit) return;
+  const look = {
+    id: Date.now(),
+    date: new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }),
+    title: state.currentOutfit.look_name || 'Untitled Look',
+    occasion: state.occasion,
+    celeb: state.celeb,
+    era: state.era,
+    ella_note: state.currentOutfit.ella_note,
+    items: state.currentOutfit.items
+  };
+  state.savedLooks.unshift(look);
+  saveStateToStorage();
+  // Sparkle feedback
+  const btn = event.currentTarget;
+  btn.textContent = '✓ Saved!';
+  setTimeout(() => { btn.innerHTML = '♡ Save this look'; }, 2000);
+  spawnSparkles();
+}
+
+// ── Render gallery tab ──
+function renderGalleryTab() {
+  const grid = document.getElementById('gallery-grid');
+  renderGalleryInto(grid);
+}
+function renderMainGallery() {
+  const grid = document.getElementById('main-gallery-grid');
+  renderGalleryInto(grid);
+}
+function renderGalleryInto(grid) {
+  if (!state.savedLooks.length) {
+    grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><div class="es-icon">🪞</div>No saved looks yet.<br>Generate an outfit and save it!</div>`;
     return;
   }
-  var html = '';
-  for (var i = 0; i < closetItems.length; i++) {
-    var item = closetItems[i];
-    html += '<div class="closet-item">';
-    if (item.img) {
-      html += '<img src="'+item.img+'" alt="'+item.label+'"/>';
-    } else {
-      html += '<div style="height:110px;background:linear-gradient(135deg,#FDE8FF,#E8D0FF);display:flex;align-items:center;justify-content:center;font-size:28px">👗</div>';
-    }
-    html += '<div class="closet-item-label">'+item.label+'</div>';
-    html += '<button class="closet-item-del" onclick="deleteClosetItem('+item.id+')">x</button>';
-    html += '</div>';
-  }
-  grid.innerHTML = html;
+  grid.innerHTML = state.savedLooks.map((look, i) => `
+    <div class="gallery-card" onclick="viewLook(${i})">
+      <div class="gc-date">${look.date}</div>
+      <div class="gc-title">${look.look_name || look.title}</div>
+      <div class="gc-meta">${look.occasion} · ${look.era}</div>
+      <div class="gc-meta" style="margin-top:2px;color:var(--fg3)">${look.celeb}</div>
+      <div class="gc-actions">
+        <div class="gc-btn" onclick="event.stopPropagation();viewLook(${i})">View</div>
+        <div class="gc-btn" onclick="event.stopPropagation();deleteLook(${i})">Remove</div>
+      </div>
+    </div>
+  `).join('');
 }
 
-buildEras();
-fetch('/api/closet/load').then(function(r) {
-  return r.json();
-}).then(function(data) {
-  if (data.items) closetItems = data.items;
-});
+function viewLook(i) {
+  const look = state.savedLooks[i];
+  if (!look) return;
+  state.currentOutfit = look;
+  state.occasion = look.occasion;
+  state.celeb = look.celeb;
+  state.era = look.era;
+  renderResults(look);
+  goTo('screen-results');
+  switchTab('outfit');
+}
+function deleteLook(i) {
+  state.savedLooks.splice(i, 1);
+  saveStateToStorage();
+  renderGalleryTab();
+  renderMainGallery();
+}
 
-// BOUNCING FAIRY
-(function(){
-  var fairy = document.createElement('div');
-  fairy.className = 'bouncy-fairy';
-  fairy.textContent = '🧚‍♀️';
-  document.body.appendChild(fairy);
-
-  var x = Math.random() * (window.innerWidth - 60) + 20;
-  var y = Math.random() * (window.innerHeight - 60) + 20;
-  var vx = (Math.random() * 3 + 2) * (Math.random() > 0.5 ? 1 : -1);
-  var vy = (Math.random() * 3 + 2) * (Math.random() > 0.5 ? 1 : -1);
-  var dustTimer = 0;
-  var dustEmojis = ['✨','💫','⭐','🌟','✦','·'];
-
-  function spawnDustAt(px, py) {
-    var d = document.createElement('div');
-    d.className = 'pixie-dust';
-    d.textContent = dustEmojis[Math.floor(Math.random() * dustEmojis.length)];
-    d.style.left = (px + Math.random()*20-10) + 'px';
-    d.style.top = (py + Math.random()*20-10) + 'px';
-    d.style.color = ['#FFD700','#E0A0FF','#FFB0E0','#B0E0FF','#FFFFFF'][Math.floor(Math.random()*5)];
-    d.style.fontSize = (8 + Math.random()*14) + 'px';
-    document.body.appendChild(d);
-    setTimeout(function(){ if(d.parentNode) d.parentNode.removeChild(d); }, 1000);
-  }
-
-  function loop() {
-    x += vx;
-    y += vy;
-    var w = window.innerWidth - 50;
-    var h = window.innerHeight - 50;
-    if (x < 10) { x = 10; vx = Math.abs(vx) + Math.random()*0.5; }
-    if (x > w) { x = w; vx = -(Math.abs(vx) + Math.random()*0.5); }
-    if (y < 10) { y = 10; vy = Math.abs(vy) + Math.random()*0.5; }
-    if (y > h) { y = h; vy = -(Math.abs(vy) + Math.random()*0.5); }
-    // cap speed
-    var speed = Math.sqrt(vx*vx + vy*vy);
-    if (speed > 6) { vx = vx/speed*6; vy = vy/speed*6; }
-    if (speed < 1.5) { vx *= 1.1; vy *= 1.1; }
-    // random direction nudge
-    if (Math.random() < 0.015) { vx += (Math.random()-0.5)*2; vy += (Math.random()-0.5)*2; }
-    fairy.style.left = x + 'px';
-    fairy.style.top = y + 'px';
-    // flip based on direction
-    fairy.style.transform = vx < 0 ? 'scaleX(-1)' : 'scaleX(1)';
-    dustTimer++;
-    if (dustTimer % 3 === 0 && document.getElementById('splash').classList.contains('active')) spawnDustAt(x + 18, y + 18);
-    requestAnimationFrame(loop);
-  }
-  loop();
-})();
-</script>
-
-<!-- BARBIE ENTRY SCREEN -->
-<div id="barbie-entry" style="display:none;position:fixed;inset:0;z-index:500;background:#FFF0F8;overflow:hidden">
-
-  <!-- animated background shimmer -->
-  <div style="position:absolute;inset:0;background:linear-gradient(160deg,#FFE4F5,#F0D4FF,#D4E8FF,#C8F5EE);animation:shimmer 2s linear infinite;background-size:400% auto"></div>
-
-  <!-- curtain left -->
-  <div id="curtain-l" style="position:absolute;left:0;top:0;width:50%;height:100%;background:linear-gradient(135deg,#F0C0FF,#D4A0FF,#B880FF);z-index:2;transform:translateX(0);transition:transform 1.2s cubic-bezier(0.77,0,0.175,1);display:flex;align-items:center;justify-content:flex-end;padding-right:20px">
-    <div style="font-size:60px;opacity:0.3">👗</div>
-  </div>
-  <!-- curtain right -->
-  <div id="curtain-r" style="position:absolute;right:0;top:0;width:50%;height:100%;background:linear-gradient(225deg,#FFB8D8,#FF90C0,#E060A0);z-index:2;transform:translateX(0);transition:transform 1.2s cubic-bezier(0.77,0,0.175,1);display:flex;align-items:center;justify-content:flex-start;padding-left:20px">
-    <div style="font-size:60px;opacity:0.3">👠</div>
-  </div>
-
-  <!-- center content that reveals -->
-  <div id="entry-reveal" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:1;opacity:0;transition:opacity 0.8s ease 0.8s">
-    <div style="font-size:80px;margin-bottom:16px;animation:float 2s ease-in-out infinite">✨</div>
-    <div style="font-family:'Playfair Display',serif;font-style:italic;font-size:36px;color:#8B3FA8;letter-spacing:-1px;margin-bottom:8px">Welcome</div>
-    <div style="font-family:'Playfair Display',serif;font-style:italic;font-size:22px;color:#E891C0">to your world</div>
-    <div style="margin-top:24px;display:flex;gap:16px;font-size:32px">
-      <span style="animation:float 2s ease-in-out infinite">👗</span>
-      <span style="animation:float 2.3s ease-in-out infinite 0.2s">👠</span>
-      <span style="animation:float 2.1s ease-in-out infinite 0.4s">👜</span>
-      <span style="animation:float 2.4s ease-in-out infinite 0.6s">💄</span>
-      <span style="animation:float 2.2s ease-in-out infinite 0.8s">💍</span>
+// ── Closet ──
+function renderClosetTab() {
+  const grid = document.getElementById('closet-items-grid');
+  grid.innerHTML = state.closetItems.map((item, i) => `
+    <div class="closet-item">
+      <img src="${item.data}" alt="${item.name}">
+      <div class="closet-item-name">${item.name}</div>
+      <button class="closet-item-del" onclick="removeClosetItem(${i})">✕</button>
     </div>
-    <!-- flying clothes from sides -->
-    <div id="fly1" style="position:absolute;font-size:40px;left:-80px;top:20%;transition:left 1s ease 0.4s">👗</div>
-    <div id="fly2" style="position:absolute;font-size:36px;right:-80px;top:35%;transition:right 1s ease 0.5s">👠</div>
-    <div id="fly3" style="position:absolute;font-size:38px;left:-80px;top:60%;transition:left 1s ease 0.6s">👜</div>
-    <div id="fly4" style="position:absolute;font-size:34px;right:-80px;top:70%;transition:right 1s ease 0.7s">💄</div>
-    <div id="fly5" style="position:absolute;font-size:36px;left:-80px;top:80%;transition:left 1s ease 0.8s">👒</div>
-    <div id="fly6" style="position:absolute;font-size:34px;right:-80px;top:15%;transition:right 1s ease 0.5s">💎</div>
-  </div>
+  `).join('');
+}
+function handleClosetUpload(event) {
+  const files = Array.from(event.target.files);
+  files.forEach(file => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      state.closetItems.push({
+        name: file.name.replace(/\.[^.]+$/, ''),
+        data: e.target.result
+      });
+      saveStateToStorage();
+      renderClosetTab();
+    };
+    reader.readAsDataURL(file);
+  });
+}
+function removeClosetItem(i) {
+  state.closetItems.splice(i, 1);
+  saveStateToStorage();
+  renderClosetTab();
+}
 
-  <!-- sparkle overlay -->
-  <div id="entry-sparkles" style="position:absolute;inset:0;z-index:3;pointer-events:none"></div>
-</div>
-</body>
-</html>
+// ── Share card ──
+function openShareCard() {
+  if (!state.currentOutfit) return;
+  document.getElementById('sc-occasion-label').textContent = state.occasion.toUpperCase();
+  document.getElementById('sc-look-desc').textContent =
+    `${state.currentOutfit.look_name || 'Your Look'} · ${state.celeb} × ${state.era}`;
+  const list = document.getElementById('sc-items-list');
+  list.innerHTML = (state.currentOutfit.items || []).slice(0, 4).map(item => `
+    <div class="sc-item">
+      <span class="sc-item-name">${item.name}</span>
+      <span class="sc-item-brand">${item.brand}</span>
+    </div>
+  `).join('');
+  document.getElementById('share-overlay').classList.add('active');
+}
+function closeShareCard() {
+  document.getElementById('share-overlay').classList.remove('active');
+}
+function copyShareLink() {
+  const url = 'https://fashiongpt-f0vi.onrender.com';
+  try {
+    navigator.clipboard.writeText(url).then(() => {
+      const btn = document.querySelector('.sc-actions .btn-primary');
+      btn.textContent = '✓ Copied!';
+      setTimeout(() => { btn.textContent = 'Copy link'; }, 2000);
+    }).catch(() => selectText('sc-link'));
+  } catch(e) { selectText('sc-link'); }
+}
+function selectText(id) {
+  const el = document.getElementById(id);
+  const range = document.createRange();
+  range.selectNodeContents(el);
+  window.getSelection().removeAllRanges();
+  window.getSelection().addRange(range);
+}
+
+// ── Sparkles ──
+function spawnSparkles() {
+  const emojis = ['✦','✧','✨','⋆','◇'];
+  for (let i = 0; i < 12; i++) {
+    setTimeout(() => {
+      const el = document.createElement('div');
+      el.className = 'sparkle';
+      el.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+      const x = 20 + Math.random() * 60;
+      const sx = (Math.random() - 0.5) * 120 + 'px';
+      const sy = -(40 + Math.random() * 80) + 'px';
+      el.style.cssText = `left:${x}vw;top:50vh;--sx:${sx};--sy:${sy};`;
+      el.style.animation = 'sparkle-out 0.8s ease-out forwards';
+      document.body.appendChild(el);
+      setTimeout(() => el.remove(), 900);
+    }, i * 60);
+  }
+}
+
+// ── Init ──
+loadState();
+// Close share overlay on outside click
+document.getElementById('share-overlay').addEventListener('click', function(e) {
+  if (e.target === this) closeShareCard();
+});
+</script>
