@@ -1,4 +1,4 @@
-<!-- FashionGPT Phase 1 — Clean Minimal Redesign -->
+<!-- FashionGPT Phase 2 — Male, Couple, Indian Celebs & Occasions -->
 <!-- Layout: Full-screen flow: Landing → Quiz → Occasion → Celeb → Era → Results + Gallery -->
 <title>FashionGPT</title>
 <meta name="claude:viewport-fit-sides" content="cover">
@@ -255,6 +255,20 @@ body {
 .era-tile.selected .era-name, .era-tile.selected .era-decade { color: var(--bg); }
 .era-decade { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--fg3); margin-bottom: 4px; }
 .era-name { font-size: 14px; font-weight: 500; color: var(--fg); }
+
+/* ── Gender / Couple toggle ── */
+.gender-row {
+  display: flex; gap: 8px; margin-bottom: 28px; width: 100%;
+}
+.gender-btn {
+  flex: 1; padding: 14px 10px; border: 1px solid var(--border);
+  border-radius: var(--r); background: var(--card); color: var(--fg2);
+  cursor: pointer; font-size: 13px; font-weight: 500;
+  transition: all 0.18s; text-align: center; font-family: var(--sans);
+}
+.gender-btn .gb-icon { font-size: 20px; display: block; margin-bottom: 4px; }
+.gender-btn:hover { border-color: var(--accent); }
+.gender-btn.selected { border-color: var(--accent); background: var(--accent); color: var(--bg); }
 
 /* ── Mode + Budget ── */
 #screen-mode { max-width: 560px; width: 100%; margin-inline: auto; }
@@ -609,6 +623,19 @@ body {
     <div class="quiz-chip" data-group="lifestyle" data-val="athlete" onclick="selectQuiz(this)">Athlete</div>
   </div>
 
+  <div class="quiz-label">Who are you styling?</div>
+  <div class="gender-row">
+    <button class="gender-btn selected" id="gender-women" onclick="selectGender('women')">
+      <span class="gb-icon">👗</span>Women
+    </button>
+    <button class="gender-btn" id="gender-men" onclick="selectGender('men')">
+      <span class="gb-icon">🧥</span>Men
+    </button>
+    <button class="gender-btn" id="gender-couple" onclick="selectGender('couple')">
+      <span class="gb-icon">👫</span>Couple
+    </button>
+  </div>
+
   <div class="quiz-label">Colors you gravitate to</div>
   <div class="quiz-grid" id="quiz-palette">
     <div class="quiz-chip" data-group="palette" data-val="neutrals" onclick="selectQuizMulti(this)">Neutrals</div>
@@ -676,6 +703,24 @@ body {
     <div class="occasion-tile" data-val="travel / airport" onclick="selectOccasion(this)">
       <span class="ot-icon">✈️</span><span class="ot-name">Airport</span>
     </div>
+    <div class="occasion-tile" data-val="sangeet ceremony" onclick="selectOccasion(this)">
+      <span class="ot-icon">💃</span><span class="ot-name">Sangeet</span>
+    </div>
+    <div class="occasion-tile" data-val="mehendi ceremony" onclick="selectOccasion(this)">
+      <span class="ot-icon">🌿</span><span class="ot-name">Mehendi</span>
+    </div>
+    <div class="occasion-tile" data-val="Indian festive — Diwali / Navratri / Eid" onclick="selectOccasion(this)">
+      <span class="ot-icon">🪔</span><span class="ot-name">Festive</span>
+    </div>
+    <div class="occasion-tile" data-val="college fest / cultural event" onclick="selectOccasion(this)">
+      <span class="ot-icon">🎭</span><span class="ot-name">College Fest</span>
+    </div>
+    <div class="occasion-tile" data-val="haldi ceremony" onclick="selectOccasion(this)">
+      <span class="ot-icon">💛</span><span class="ot-name">Haldi</span>
+    </div>
+    <div class="occasion-tile" data-val="Indian wedding reception" onclick="selectOccasion(this)">
+      <span class="ot-icon">🌸</span><span class="ot-name">Reception</span>
+    </div>
   </div>
 
   <div class="quiz-label">Or describe it yourself</div>
@@ -728,22 +773,44 @@ body {
   <div class="celeb-input-wrap">
     <input id="celeb-input" placeholder="Type a celebrity name..." oninput="filterSuggestions(this.value)" />
   </div>
+  <div id="celeb-category-tabs" style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
+    <button class="detail-chip selected" onclick="filterCelebCategory('all',this)">All</button>
+    <button class="detail-chip" onclick="filterCelebCategory('indian-women',this)">🇮🇳 Indian Women</button>
+    <button class="detail-chip" onclick="filterCelebCategory('global-women',this)">🌍 Global Women</button>
+    <button class="detail-chip" onclick="filterCelebCategory('men',this)">Men</button>
+  </div>
   <div class="celeb-suggestions" id="celeb-suggestions">
-    <div class="celeb-sug" onclick="setCeleb('Zendaya')">Zendaya</div>
-    <div class="celeb-sug" onclick="setCeleb('Kendall Jenner')">Kendall Jenner</div>
-    <div class="celeb-sug" onclick="setCeleb('Deepika Padukone')">Deepika Padukone</div>
-    <div class="celeb-sug" onclick="setCeleb('Alia Bhatt')">Alia Bhatt</div>
-    <div class="celeb-sug" onclick="setCeleb('Ananya Panday')">Ananya Panday</div>
-    <div class="celeb-sug" onclick="setCeleb('Janhvi Kapoor')">Janhvi Kapoor</div>
-    <div class="celeb-sug" onclick="setCeleb('Kiara Advani')">Kiara Advani</div>
-    <div class="celeb-sug" onclick="setCeleb('Hailey Bieber')">Hailey Bieber</div>
-    <div class="celeb-sug" onclick="setCeleb('Bella Hadid')">Bella Hadid</div>
-    <div class="celeb-sug" onclick="setCeleb('Dua Lipa')">Dua Lipa</div>
-    <div class="celeb-sug" onclick="setCeleb('Rihanna')">Rihanna</div>
-    <div class="celeb-sug" onclick="setCeleb('Olivia Rodrigo')">Olivia Rodrigo</div>
-    <div class="celeb-sug" onclick="setCeleb('Sydney Sweeney')">Sydney Sweeney</div>
-    <div class="celeb-sug" onclick="setCeleb('Audrey Hepburn')">Audrey Hepburn</div>
-    <div class="celeb-sug" onclick="setCeleb('No specific muse')">No specific muse</div>
+    <!-- Indian Women -->
+    <div class="celeb-sug" data-cat="indian-women" onclick="setCeleb('Deepika Padukone')">Deepika Padukone</div>
+    <div class="celeb-sug" data-cat="indian-women" onclick="setCeleb('Alia Bhatt')">Alia Bhatt</div>
+    <div class="celeb-sug" data-cat="indian-women" onclick="setCeleb('Ananya Panday')">Ananya Panday</div>
+    <div class="celeb-sug" data-cat="indian-women" onclick="setCeleb('Janhvi Kapoor')">Janhvi Kapoor</div>
+    <div class="celeb-sug" data-cat="indian-women" onclick="setCeleb('Kiara Advani')">Kiara Advani</div>
+    <div class="celeb-sug" data-cat="indian-women" onclick="setCeleb('Sonam Kapoor')">Sonam Kapoor</div>
+    <div class="celeb-sug" data-cat="indian-women" onclick="setCeleb('Priyanka Chopra')">Priyanka Chopra</div>
+    <div class="celeb-sug" data-cat="indian-women" onclick="setCeleb('Sara Ali Khan')">Sara Ali Khan</div>
+    <div class="celeb-sug" data-cat="indian-women" onclick="setCeleb('Shanaya Kapoor')">Shanaya Kapoor</div>
+    <!-- Global Women -->
+    <div class="celeb-sug" data-cat="global-women" onclick="setCeleb('Zendaya')">Zendaya</div>
+    <div class="celeb-sug" data-cat="global-women" onclick="setCeleb('Kendall Jenner')">Kendall Jenner</div>
+    <div class="celeb-sug" data-cat="global-women" onclick="setCeleb('Hailey Bieber')">Hailey Bieber</div>
+    <div class="celeb-sug" data-cat="global-women" onclick="setCeleb('Bella Hadid')">Bella Hadid</div>
+    <div class="celeb-sug" data-cat="global-women" onclick="setCeleb('Dua Lipa')">Dua Lipa</div>
+    <div class="celeb-sug" data-cat="global-women" onclick="setCeleb('Rihanna')">Rihanna</div>
+    <div class="celeb-sug" data-cat="global-women" onclick="setCeleb('Olivia Rodrigo')">Olivia Rodrigo</div>
+    <div class="celeb-sug" data-cat="global-women" onclick="setCeleb('Sydney Sweeney')">Sydney Sweeney</div>
+    <div class="celeb-sug" data-cat="global-women" onclick="setCeleb('Audrey Hepburn')">Audrey Hepburn</div>
+    <div class="celeb-sug" data-cat="global-women" onclick="setCeleb('Taylor Swift')">Taylor Swift</div>
+    <!-- Men -->
+    <div class="celeb-sug" data-cat="men" onclick="setCeleb('Ranveer Singh')">Ranveer Singh</div>
+    <div class="celeb-sug" data-cat="men" onclick="setCeleb('Vijay Deverakonda')">Vijay Deverakonda</div>
+    <div class="celeb-sug" data-cat="men" onclick="setCeleb('Siddhant Chaturvedi')">Siddhant Chaturvedi</div>
+    <div class="celeb-sug" data-cat="men" onclick="setCeleb('Kartik Aaryan')">Kartik Aaryan</div>
+    <div class="celeb-sug" data-cat="men" onclick="setCeleb('Harry Styles')">Harry Styles</div>
+    <div class="celeb-sug" data-cat="men" onclick="setCeleb('Timothée Chalamet')">Timothée Chalamet</div>
+    <div class="celeb-sug" data-cat="men" onclick="setCeleb('A$AP Rocky')">A$AP Rocky</div>
+    <div class="celeb-sug" data-cat="men" onclick="setCeleb('Zayn Malik')">Zayn Malik</div>
+    <div class="celeb-sug" data-cat="men" onclick="setCeleb('No specific muse')">No specific muse</div>
   </div>
 
   <button class="btn-primary w100" onclick="goToEra()">Next: Choose an era →</button>
@@ -923,6 +990,7 @@ body {
 // ── State ──
 const state = {
   quiz: { body: '', skin: '', lifestyle: '', palette: [] },
+  gender: 'women',
   occasion: '', city: '', season: '', venue: '', dresscode: '',
   celeb: '', era: '', mode: 'discover', budget: 'everyday', currency: 'INR',
   currentOutfit: null,
@@ -1065,6 +1133,33 @@ function setCeleb(name) {
   state.celeb = name;
 }
 
+// ── Celeb category filter ──
+function filterCelebCategory(cat, btn) {
+  document.querySelectorAll('#celeb-category-tabs .detail-chip').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+  document.querySelectorAll('#celeb-suggestions .celeb-sug').forEach(el => {
+    if (cat === 'all') {
+      el.style.display = '';
+    } else {
+      el.style.display = (el.dataset.cat === cat) ? '' : 'none';
+    }
+  });
+}
+
+// ── Gender / Couple ──
+function selectGender(g) {
+  state.gender = g;
+  ['women','men','couple'].forEach(id => {
+    const btn = document.getElementById('gender-' + id);
+    if (btn) btn.classList.toggle('selected', id === g);
+  });
+  // Nudge celeb tab to match if Men is selected
+  if (g === 'men') {
+    const menBtn = document.querySelector('#celeb-category-tabs .detail-chip:nth-child(4)');
+    // Don't auto-filter — just surface the tab hint
+  }
+}
+
 // ── Era ──
 function selectEra(el) {
   document.querySelectorAll('.era-tile').forEach(t => t.classList.remove('selected'));
@@ -1124,6 +1219,7 @@ async function generateOutfit() {
         mode: selectedMode,
         budget: state.budget,
         currency: state.currency,
+        gender: state.gender || 'women',
         style_profile: quizContext,
         closet_context: closetContext
       })
