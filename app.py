@@ -92,7 +92,7 @@ Build a complete head-to-toe outfit. Return ONLY valid JSON in exactly this stru
 
 {{
   "look_name": "a poetic 3-5 word name for this look",
-  "ella_note": "Ella's opening 2-sentence note — sharp, warm, slightly Gossip Girl. Reference the occasion, the muse, and one specific styling insight. No filler.",
+  "ella_note": "Ella's opening 2-sentence note — sharp, warm, slightly Gossip Girl. MUST name the specific occasion AND the city (if provided) AND one specific detail about the muse's style applied here. No filler, no generic lines.",
   "items": [
     {{
       "category": "category name (see gender-specific guidance above)",

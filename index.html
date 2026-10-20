@@ -540,6 +540,76 @@ body {
 }
 .ella-dot { width: 6px; height: 6px; background: var(--accent); border-radius: 50%; }
 
+/* ── Thumbs rating ── */
+.rating-row {
+  display: flex; gap: 8px; margin-top: 12px;
+}
+.thumb-btn {
+  flex: 1; padding: 9px; background: var(--bg2);
+  border: 1px solid var(--border); border-radius: var(--r);
+  font-size: 16px; cursor: pointer; transition: all 0.18s;
+  text-align: center;
+}
+.thumb-btn:hover { border-color: var(--accent); }
+.thumb-btn.rated-up { background: #e8f5e9; border-color: #4caf50; }
+.thumb-btn.rated-down { background: #fce4ec; border-color: #e91e63; }
+
+/* ── Budget slider ── */
+.budget-slider-wrap { margin-bottom: 12px; }
+.budget-slider {
+  width: 100%; appearance: none; height: 4px;
+  background: linear-gradient(to right, var(--accent) 0%, var(--accent) 33%, var(--border) 33%);
+  border-radius: 99px; outline: none; cursor: pointer; margin: 8px 0;
+}
+.budget-slider::-webkit-slider-thumb {
+  appearance: none; width: 20px; height: 20px;
+  border-radius: 50%; background: var(--fg); cursor: pointer;
+  border: 3px solid var(--bg); box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+}
+.budget-slider::-moz-range-thumb {
+  width: 20px; height: 20px; border-radius: 50%;
+  background: var(--fg); cursor: pointer;
+  border: 3px solid var(--bg); box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+}
+.budget-labels {
+  display: flex; justify-content: space-between;
+  font-size: 11px; color: var(--fg3); letter-spacing: 0.06em; text-transform: uppercase;
+  margin-bottom: 4px;
+}
+.budget-current {
+  text-align: center; font-size: 13px; font-weight: 500;
+  color: var(--fg); margin-top: 4px;
+}
+.budget-current span { color: var(--accent); }
+
+/* ── Recent looks strip ── */
+.recent-strip {
+  margin-top: 32px; padding-top: 24px; border-top: 1px solid var(--border);
+  width: 100%;
+}
+.recent-strip-title {
+  font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--fg3); font-weight: 500; margin-bottom: 12px;
+}
+.recent-looks-row {
+  display: flex; gap: 10px; overflow-x: auto;
+  padding-bottom: 8px; scrollbar-width: none;
+}
+.recent-looks-row::-webkit-scrollbar { display: none; }
+.recent-look-chip {
+  flex-shrink: 0; padding: 10px 14px;
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--r-lg); cursor: pointer;
+  transition: border-color 0.18s; min-width: 140px;
+}
+.recent-look-chip:hover { border-color: var(--accent); }
+.rlc-title {
+  font-family: var(--serif); font-size: 14px; font-weight: 400;
+  color: var(--fg); white-space: nowrap; overflow: hidden;
+  text-overflow: ellipsis; max-width: 160px;
+}
+.rlc-meta { font-size: 11px; color: var(--fg3); margin-top: 2px; }
+
 /* Utility */
 .w100 { width: 100%; }
 .mt8 { margin-top: 8px; }
@@ -651,7 +721,7 @@ body {
   <button class="btn-primary w100" style="margin-top:8px" onclick="saveQuizAndContinue()">
     Save my profile & continue →
   </button>
-  <button class="btn-secondary w100 mt8" onclick="goToOccasion()">Skip for now →</button>
+  <button class="btn-secondary w100 mt8" onclick="goToOccasion()">Skip quiz, just vibe →</button>
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════════
@@ -865,10 +935,17 @@ body {
   </div>
 
   <div class="quiz-label">Budget</div>
-  <div class="budget-toggles">
-    <button class="budget-btn" id="budget-everyday" onclick="selectBudget('everyday')">Everyday<br><span style="font-size:11px;opacity:0.7">Zara · ASOS · Mango</span></button>
-    <button class="budget-btn" id="budget-midrange" onclick="selectBudget('midrange')">Mid-Range<br><span style="font-size:11px;opacity:0.7">COS · Reformation · &Other Stories</span></button>
-    <button class="budget-btn" id="budget-luxury" onclick="selectBudget('luxury')">Luxury<br><span style="font-size:11px;opacity:0.7">Chanel · Dior · Prada</span></button>
+  <div class="budget-slider-wrap">
+    <div class="budget-labels">
+      <span>Everyday</span>
+      <span>Mid-Range</span>
+      <span>Luxury</span>
+    </div>
+    <input type="range" class="budget-slider" id="budget-slider" min="0" max="2" step="1" value="0"
+      oninput="onBudgetSlider(this.value)" />
+    <div class="budget-current" id="budget-display">
+      <span>Everyday</span> — Zara · ASOS · Mango
+    </div>
   </div>
 
   <div class="quiz-label">Currency</div>
@@ -894,7 +971,10 @@ body {
      RESULTS SCREEN
 ═══════════════════════════════════════════════════════════════ -->
 <div id="screen-results" class="screen">
-  <button class="nav-back" onclick="goToLanding()">← Start over</button>
+  <div style="display:flex;gap:12px;align-self:flex-start;margin-bottom:28px;">
+    <button class="nav-back" style="margin-bottom:0" onclick="goTo('screen-mode')">← Settings</button>
+    <button class="nav-back" style="margin-bottom:0" onclick="goToLanding()">Start over</button>
+  </div>
 
   <div class="tab-bar">
     <button class="tab-btn active" id="tab-outfit" onclick="switchTab('outfit')">This Look</button>
@@ -915,9 +995,15 @@ body {
     <div class="results-actions">
       <button class="btn-primary" onclick="saveLook()">♡ Save this look</button>
       <button class="btn-secondary" onclick="openShareCard()">↗ Share</button>
+      <button class="btn-secondary" onclick="shareAsImage()">⬇ Save as image</button>
       <button class="btn-secondary" onclick="generateOutfit()">↺ Refresh</button>
       <button class="btn-secondary" onclick="goToLanding()">New look</button>
     </div>
+    <div class="rating-row" id="rating-row">
+      <button class="thumb-btn" id="thumb-up" onclick="rateLook('up')">👍 Love it</button>
+      <button class="thumb-btn" id="thumb-down" onclick="rateLook('down')">👎 Not quite</button>
+    </div>
+    <div id="recent-looks-section"></div>
   </div>
 
   <!-- GALLERY TAB -->
@@ -974,6 +1060,7 @@ body {
     </div>
     <div class="sc-actions">
       <button class="btn-primary" style="flex:1" onclick="copyShareLink()">Copy link</button>
+      <button class="btn-secondary" style="flex:1" onclick="shareAsImage();closeShareCard()">Save PNG</button>
       <button class="btn-secondary" style="flex:1" onclick="closeShareCard()">Done</button>
     </div>
   </div>
@@ -988,7 +1075,8 @@ const state = {
   celeb: '', era: '', mode: 'discover', budget: 'everyday', currency: 'INR',
   currentOutfit: null,
   savedLooks: [],
-  closetItems: []
+  closetItems: [],
+  recentLooks: []
 };
 
 // ── Load from localStorage ──
@@ -1000,6 +1088,7 @@ function loadState() {
       state.quiz = s.quiz || state.quiz;
       state.savedLooks = s.savedLooks || [];
       state.closetItems = s.closetItems || [];
+      state.recentLooks = s.recentLooks || [];
       restoreQuizUI();
     }
   } catch(e) {}
@@ -1010,7 +1099,8 @@ function saveStateToStorage() {
     localStorage.setItem('fashiongpt_state', JSON.stringify({
       quiz: state.quiz,
       savedLooks: state.savedLooks,
-      closetItems: state.closetItems
+      closetItems: state.closetItems,
+      recentLooks: state.recentLooks
     }));
   } catch(e) {}
 }
@@ -1168,11 +1258,31 @@ function selectMode(mode) {
   document.getElementById('mode-discover').classList.toggle('selected', mode === 'discover');
   document.getElementById('mode-closet').classList.toggle('selected', mode === 'closet');
 }
+const BUDGET_DATA = {
+  0: { key: 'everyday', label: 'Everyday', brands: 'Zara · ASOS · Mango', sliderBg: '33%' },
+  1: { key: 'midrange', label: 'Mid-Range', brands: 'COS · Reformation · &Other Stories', sliderBg: '50%' },
+  2: { key: 'luxury',   label: 'Luxury',   brands: 'Chanel · Dior · Prada', sliderBg: '100%' }
+};
+function onBudgetSlider(val) {
+  const d = BUDGET_DATA[val];
+  state.budget = d.key;
+  const pct = val === '0' ? '0%' : val === '1' ? '50%' : '100%';
+  const slider = document.getElementById('budget-slider');
+  if (slider) slider.style.background =
+    `linear-gradient(to right, var(--accent) 0%, var(--accent) ${pct}, var(--border) ${pct})`;
+  const disp = document.getElementById('budget-display');
+  if (disp) disp.innerHTML = `<span>${d.label}</span> — ${d.brands}`;
+}
 function selectBudget(b) {
-  state.budget = b;
-  ['everyday','midrange','luxury'].forEach(x => {
-    document.getElementById('budget-' + x).classList.toggle('selected', x === b);
-  });
+  // legacy compat — called from goToMode init
+  const valMap = { everyday: '0', midrange: '1', luxury: '2' };
+  const slider = document.getElementById('budget-slider');
+  if (slider) {
+    slider.value = valMap[b] || '0';
+    onBudgetSlider(slider.value);
+  } else {
+    state.budget = b;
+  }
 }
 function selectCurrency(c) {
   state.currency = c;
@@ -1242,6 +1352,12 @@ function renderResults(data) {
     `${state.occasion} · ${state.celeb} energy · ${state.era}`;
   document.getElementById('ella-note').textContent = data.ella_note || '';
 
+  // Reset rating UI
+  const tu = document.getElementById('thumb-up');
+  const td = document.getElementById('thumb-down');
+  if (tu) { tu.className = 'thumb-btn'; tu.textContent = '👍 Love it'; }
+  if (td) { td.className = 'thumb-btn'; td.textContent = '👎 Not quite'; }
+
   // Outfit items
   const grid = document.getElementById('outfit-grid');
   grid.innerHTML = '';
@@ -1249,6 +1365,8 @@ function renderResults(data) {
     const pinterestQuery = encodeURIComponent(`${item.name} ${item.brand} fashion`);
     const pinterestUrl = `https://pinterest.com/search/pins/?q=${pinterestQuery}`;
     const shopUrl = buildShopUrl(item.brand, item.name);
+    // Pinterest label: "Shop [item name] on Pinterest"
+    const pinterestLabel = `Shop ${item.name} on Pinterest`;
 
     const div = document.createElement('div');
     div.className = 'outfit-item';
@@ -1260,7 +1378,7 @@ function renderResults(data) {
       <div class="oi-desc">${item.description || ''}</div>
       <a class="oi-pinterest" href="${pinterestUrl}" target="_blank" rel="noopener">
         <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.373 0 0 5.373 0 12c0 5.084 3.163 9.426 7.627 11.174-.105-.949-.2-2.405.042-3.441.218-.937 1.407-5.965 1.407-5.965s-.359-.719-.359-1.782c0-1.668.967-2.914 2.171-2.914 1.023 0 1.518.769 1.518 1.69 0 1.029-.655 2.568-.994 3.995-.283 1.194.599 2.169 1.777 2.169 2.133 0 3.772-2.249 3.772-5.495 0-2.873-2.064-4.882-5.012-4.882-3.414 0-5.418 2.561-5.418 5.207 0 1.031.397 2.138.893 2.738a.36.36 0 0 1 .083.345l-.333 1.36c-.053.22-.174.267-.402.161-1.499-.698-2.436-2.889-2.436-4.649 0-3.785 2.75-7.262 7.929-7.262 4.163 0 7.398 2.967 7.398 6.931 0 4.136-2.607 7.464-6.227 7.464-1.216 0-2.359-.632-2.75-1.378l-.748 2.853c-.271 1.043-1.002 2.35-1.492 3.146C9.57 23.812 10.763 24 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0z"/></svg>
-        See on Pinterest
+        ${pinterestLabel}
       </a>
       <a class="oi-shop" href="${shopUrl}" target="_blank" rel="noopener">
         🛒 Shop on ${item.brand}
@@ -1268,6 +1386,22 @@ function renderResults(data) {
     `;
     grid.appendChild(div);
   });
+
+  // Auto-log to recentLooks (max 5)
+  const recentEntry = {
+    id: Date.now(),
+    look_name: data.look_name || 'Your Look',
+    occasion: state.occasion,
+    celeb: state.celeb,
+    era: state.era,
+    ella_note: data.ella_note,
+    items: data.items,
+    styling_notes: data.styling_notes
+  };
+  state.recentLooks.unshift(recentEntry);
+  if (state.recentLooks.length > 5) state.recentLooks = state.recentLooks.slice(0, 5);
+  saveStateToStorage();
+  renderRecentLooks();
 
   // Styling notes
   const sn = document.getElementById('styling-notes');
@@ -1460,6 +1594,170 @@ function selectText(id) {
   window.getSelection().addRange(range);
 }
 
+// ── Thumbs rating ──
+function rateLook(dir) {
+  if (!state.currentOutfit) return;
+  const up = document.getElementById('thumb-up');
+  const down = document.getElementById('thumb-down');
+  if (dir === 'up') {
+    up.className = 'thumb-btn rated-up';
+    up.textContent = '👍 Loved!';
+    down.className = 'thumb-btn';
+    down.textContent = '👎 Not quite';
+    if (state.recentLooks[0]) state.recentLooks[0].rating = 'up';
+  } else {
+    down.className = 'thumb-btn rated-down';
+    down.textContent = '👎 Noted!';
+    up.className = 'thumb-btn';
+    up.textContent = '👍 Love it';
+    if (state.recentLooks[0]) state.recentLooks[0].rating = 'down';
+    // Auto-generate a new one after a moment
+    setTimeout(() => {
+      if (confirm('Ella will try a different look for you — regenerate?')) generateOutfit();
+    }, 800);
+  }
+  saveStateToStorage();
+}
+
+// ── Share as image (canvas) ──
+async function shareAsImage() {
+  if (!state.currentOutfit) return;
+  const outfit = state.currentOutfit;
+  const items = (outfit.items || []).slice(0, 6);
+
+  const W = 600, ROW_H = 54, HEADER_H = 120, FOOTER_H = 52;
+  const H = HEADER_H + items.length * ROW_H + FOOTER_H;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = W * 2; canvas.height = H * 2;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(2, 2);
+
+  // Detect dark mode
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark' ||
+    (window.matchMedia('(prefers-color-scheme: dark)').matches &&
+     document.documentElement.getAttribute('data-theme') !== 'light');
+
+  const BG   = isDark ? '#18181A' : '#FAFAF8';
+  const CARD = isDark ? '#222224' : '#FFFFFF';
+  const FG   = isDark ? '#F0EDE8' : '#1A1916';
+  const FG2  = isDark ? '#A09C94' : '#6B6860';
+  const FG3  = isDark ? '#6A675F' : '#9E9C96';
+  const ACC  = isDark ? '#C9A88A' : '#B8977E';
+  const BRD  = isDark ? '#2E2E30' : '#E5E3DF';
+
+  // Background
+  ctx.fillStyle = BG;
+  ctx.fillRect(0, 0, W, H);
+
+  // Header accent bar
+  ctx.fillStyle = ACC;
+  ctx.fillRect(0, 0, W, 4);
+
+  // FashionGPT label
+  ctx.fillStyle = FG3;
+  ctx.font = '500 10px DM Sans, system-ui, sans-serif';
+  ctx.letterSpacing = '1.4px';
+  ctx.fillText('FASHIONGPT · ELLA\'S PICK', 24, 26);
+
+  // Look name
+  ctx.fillStyle = FG;
+  ctx.font = '300 26px Cormorant Garamond, Georgia, serif';
+  ctx.letterSpacing = '0px';
+  ctx.fillText(outfit.look_name || 'Your Look', 24, 58);
+
+  // Meta
+  ctx.fillStyle = FG2;
+  ctx.font = '300 12px DM Sans, system-ui, sans-serif';
+  const meta = `${state.occasion}  ·  ${state.celeb}  ·  ${state.era}`;
+  ctx.fillText(meta, 24, 78);
+
+  // Ella note (truncated)
+  if (outfit.ella_note) {
+    ctx.fillStyle = ACC;
+    ctx.font = 'italic 300 12px Cormorant Garamond, Georgia, serif';
+    const note = outfit.ella_note.length > 90 ? outfit.ella_note.slice(0, 87) + '…' : outfit.ella_note;
+    ctx.fillText(note, 24, 104);
+  }
+
+  // Items
+  items.forEach((item, i) => {
+    const y = HEADER_H + i * ROW_H;
+    // Row bg (alternating subtle)
+    ctx.fillStyle = i % 2 === 0 ? CARD : BG;
+    ctx.fillRect(0, y, W, ROW_H);
+    // Category label
+    ctx.fillStyle = FG3;
+    ctx.font = '500 9px DM Sans, system-ui, sans-serif';
+    ctx.letterSpacing = '1.2px';
+    ctx.fillText((item.category || '').toUpperCase(), 24, y + 17);
+    // Item name
+    ctx.fillStyle = FG;
+    ctx.font = '400 16px Cormorant Garamond, Georgia, serif';
+    ctx.letterSpacing = '0px';
+    ctx.fillText(item.name, 24, y + 35);
+    // Brand
+    ctx.fillStyle = FG2;
+    ctx.font = '300 11px DM Sans, system-ui, sans-serif';
+    ctx.fillText(item.brand, 24, y + 49);
+    // Price right-aligned
+    ctx.fillStyle = ACC;
+    ctx.font = '500 13px DM Sans, system-ui, sans-serif';
+    const priceW = ctx.measureText(item.price).width;
+    ctx.fillText(item.price, W - 24 - priceW, y + 35);
+  });
+
+  // Footer
+  const fy = HEADER_H + items.length * ROW_H;
+  ctx.fillStyle = BRD;
+  ctx.fillRect(0, fy, W, 1);
+  ctx.fillStyle = FG3;
+  ctx.font = '300 10px DM Sans, system-ui, sans-serif';
+  ctx.letterSpacing = '0.5px';
+  ctx.fillText('fashiongpt-f0vi.onrender.com', 24, fy + 30);
+  ctx.fillStyle = ACC;
+  ctx.font = '400 10px DM Sans, system-ui, sans-serif';
+  ctx.fillText('✦ Styled by Ella', W - 140, fy + 30);
+
+  // Download
+  const link = document.createElement('a');
+  const slug = (outfit.look_name || 'fashiongpt-look').toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+  link.download = `${slug}.png`;
+  link.href = canvas.toDataURL('image/png');
+  link.click();
+  spawnSparkles();
+}
+
+// ── Recent looks strip ──
+function renderRecentLooks() {
+  const section = document.getElementById('recent-looks-section');
+  if (!section || state.recentLooks.length < 2) { if(section) section.innerHTML=''; return; }
+  section.innerHTML = `
+    <div class="recent-strip">
+      <div class="recent-strip-title">Recent Looks</div>
+      <div class="recent-looks-row">
+        ${state.recentLooks.map((look, i) => `
+          <div class="recent-look-chip" onclick="loadRecentLook(${i})">
+            <div class="rlc-title">${look.look_name || 'Look'}</div>
+            <div class="rlc-meta">${look.occasion || ''}</div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `;
+}
+function loadRecentLook(i) {
+  const look = state.recentLooks[i];
+  if (!look) return;
+  state.currentOutfit = look;
+  state.occasion = look.occasion || state.occasion;
+  state.celeb = look.celeb || state.celeb;
+  state.era = look.era || state.era;
+  renderResults(look);
+  goTo('screen-results');
+  switchTab('outfit');
+}
+
 // ── Sparkles ──
 function spawnSparkles() {
   const emojis = ['✦','✧','✨','⋆','◇'];
@@ -1481,6 +1779,14 @@ function spawnSparkles() {
 
 // ── Init ──
 loadState();
+// Init slider to saved budget or default
+(function initBudgetSlider() {
+  const slider = document.getElementById('budget-slider');
+  if (!slider) return;
+  const valMap = { everyday: '0', midrange: '1', luxury: '2' };
+  slider.value = valMap[state.budget] || '0';
+  onBudgetSlider(slider.value);
+})();
 // Close share overlay on outside click
 document.getElementById('share-overlay').addEventListener('click', function(e) {
   if (e.target === this) closeShareCard();
