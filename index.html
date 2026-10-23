@@ -429,6 +429,7 @@ body {
   cursor: pointer; transition: all 0.16s; text-align: center;
 }
 .gc-btn:hover { border-color: var(--accent); color: var(--fg); }
+.gc-btn-posted { border-color: var(--accent); color: var(--accent); background: var(--bg2); }
 .empty-state {
   text-align: center; padding: 60px 24px;
   font-size: 14px; color: var(--fg3);
@@ -637,6 +638,13 @@ body {
       <button class="btn-primary" onclick="goToQuiz()">Start Styling ✦</button>
       <button class="btn-secondary" onclick="goToGallery()">My Looks</button>
     </div>
+    <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:12px;">
+      <button class="btn-secondary" style="font-size:11px;padding:9px 16px" onclick="openClosetShortcut()">🧺 My Closet</button>
+      <button class="btn-secondary" style="font-size:11px;padding:9px 16px" onclick="openPlanDay()">📅 Plan My Day</button>
+      <button class="btn-secondary" style="font-size:11px;padding:9px 16px" onclick="openDupeLook()">🪞 Dupe a Look</button>
+      <button class="btn-secondary" style="font-size:11px;padding:9px 16px" onclick="openCompleteLook()">✨ Complete an Outfit</button>
+      <button class="btn-secondary" style="font-size:11px;padding:9px 16px" onclick="openBrandMatch()">💎 Brand Match</button>
+    </div>
     <div class="divider-word" style="margin-top:40px;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;">As seen on</div>
     <div style="display:flex;gap:20px;justify-content:center;opacity:0.35;font-size:12px;letter-spacing:0.1em;text-transform:uppercase;font-weight:500;color:var(--fg2)">
       <span>4.82 ★ avg</span>
@@ -718,6 +726,9 @@ body {
     <div class="quiz-chip" data-group="palette" data-val="prints" onclick="selectQuizMulti(this)">Prints & Patterns</div>
   </div>
 
+  <div class="quiz-label">Your size & fit preferences <span style="color:var(--fg3);font-size:11px;text-transform:none;letter-spacing:0">(optional — helps Ella suggest the right cut)</span></div>
+  <input class="quiz-input" id="quiz-size" placeholder="e.g. UK 10, US 6, fits XS–S tops, size 28 jeans, petite-friendly fits..." />
+
   <button class="btn-primary w100" style="margin-top:8px" onclick="saveQuizAndContinue()">
     Save my profile & continue →
   </button>
@@ -790,6 +801,9 @@ body {
     </div>
     <div class="occasion-tile" data-val="Indian wedding reception" onclick="selectOccasion(this)">
       <span class="ot-icon">🌸</span><span class="ot-name">Reception</span>
+    </div>
+    <div class="occasion-tile" data-val="Content Creator" onclick="selectOccasion(this)">
+      <span class="ot-icon">📸</span><span class="ot-name">Content Creator</span>
     </div>
   </div>
 
@@ -1066,17 +1080,109 @@ body {
   </div>
 </div>
 
+<!-- ═══════════════════════════════════════════════════════════════
+     PLAN MY DAY OVERLAY
+═══════════════════════════════════════════════════════════════ -->
+<div class="overlay" id="plan-day-overlay">
+  <div class="share-card">
+    <div class="sc-header">
+      <div class="sc-title">📅 Plan My Day</div>
+      <button class="sc-close" onclick="closePlanDay()">✕</button>
+    </div>
+    <p style="font-size:14px;color:var(--fg2);margin-bottom:16px">Describe your day and Ella will plan 3 coordinated looks that transition seamlessly.</p>
+    <textarea id="plan-day-input" class="quiz-input" style="height:90px;resize:vertical" placeholder="e.g. morning gym, office lunch meeting, rooftop cocktails tonight in Mumbai..."></textarea>
+    <div class="sc-actions" style="margin-top:16px">
+      <button class="btn-primary" style="flex:1" onclick="submitPlanDay()">✦ Plan my day</button>
+      <button class="btn-secondary" style="flex:1" onclick="closePlanDay()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     DUPE A LOOK OVERLAY
+═══════════════════════════════════════════════════════════════ -->
+<div class="overlay" id="dupe-overlay">
+  <div class="share-card">
+    <div class="sc-header">
+      <div class="sc-title">🪞 Dupe a Look</div>
+      <button class="sc-close" onclick="closeDupeLook()">✕</button>
+    </div>
+    <p style="font-size:14px;color:var(--fg2);margin-bottom:16px">Describe a celeb look, editorial, or outfit you love. Ella will build an affordable version for you.</p>
+    <input id="dupe-input" class="quiz-input" placeholder="e.g. Zendaya's red carpet Valentino look, Hailey Bieber's quiet luxury street style..." />
+    <div class="sc-actions" style="margin-top:16px">
+      <button class="btn-primary" style="flex:1" onclick="submitDupeLook()">✦ Dupe it</button>
+      <button class="btn-secondary" style="flex:1" onclick="closeDupeLook()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     COMPLETE AN OUTFIT OVERLAY
+═══════════════════════════════════════════════════════════════ -->
+<div class="overlay" id="complete-overlay">
+  <div class="share-card">
+    <div class="sc-header">
+      <div class="sc-title">✨ Complete an Outfit</div>
+      <button class="sc-close" onclick="closeCompleteLook()">✕</button>
+    </div>
+    <p style="font-size:14px;color:var(--fg2);margin-bottom:16px">Tell Ella one piece you have and she'll build the rest of the look around it.</p>
+    <div class="quiz-label">Your anchor piece</div>
+    <input id="complete-input" class="quiz-input" placeholder="e.g. wide-leg beige trousers, leather biker jacket, printed silk midi dress..." />
+    <div class="quiz-label mt16">For what occasion? <span style="color:var(--fg3);font-size:11px;text-transform:none;letter-spacing:0">(optional)</span></div>
+    <input id="complete-occasion" class="quiz-input" placeholder="e.g. dinner date, office, brunch..." />
+    <div class="sc-actions" style="margin-top:16px">
+      <button class="btn-primary" style="flex:1" onclick="submitCompleteLook()">✦ Complete it</button>
+      <button class="btn-secondary" style="flex:1" onclick="closeCompleteLook()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     PLAN MY DAY RESULTS SCREEN
+═══════════════════════════════════════════════════════════════ -->
+<div id="screen-plan-day-results" class="screen" style="max-width:720px;width:100%;margin-inline:auto;">
+  <div style="display:flex;gap:12px;align-self:flex-start;margin-bottom:28px;">
+    <button class="nav-back" style="margin-bottom:0" onclick="goToLanding()">← Home</button>
+    <button class="nav-back" style="margin-bottom:0" onclick="openPlanDay()">↺ Redo</button>
+  </div>
+  <div class="section-head">
+    <div class="ella-badge"><span class="ella-dot"></span> Ella's day plan</div>
+    <h2 class="section-title" id="plan-day-title">Your Day</h2>
+  </div>
+  <div id="plan-day-looks"></div>
+  <div style="text-align:center;margin-top:24px">
+    <button class="btn-primary" onclick="goToQuiz()">✦ Style a single look</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     BRAND MATCH SCREEN
+═══════════════════════════════════════════════════════════════ -->
+<div id="screen-brand-match" class="screen" style="max-width:720px;width:100%;margin-inline:auto;">
+  <button class="nav-back" onclick="goToLanding()">← Home</button>
+  <div class="section-head">
+    <div class="ella-badge"><span class="ella-dot"></span> Your brand DNA</div>
+    <h2 class="section-title">Brands built for <em>your style</em></h2>
+    <p class="section-desc" id="brand-match-intro"></p>
+  </div>
+  <div id="brand-match-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;width:100%"></div>
+  <div style="text-align:center;margin-top:32px">
+    <button class="btn-secondary" onclick="openBrandMatch()">↺ Refresh my brand list</button>
+  </div>
+</div>
+
 <script>
 // ── State ──
 const state = {
-  quiz: { body: '', skin: '', lifestyle: '', palette: [] },
+  quiz: { body: '', skin: '', lifestyle: '', palette: [], styleSize: '' },
   gender: 'women',
   occasion: '', city: '', season: '', venue: '', dresscode: '',
   celeb: '', era: '', mode: 'discover', budget: 'everyday', currency: 'INR',
   currentOutfit: null,
   savedLooks: [],
   closetItems: [],
-  recentLooks: []
+  recentLooks: [],
+  postedLooks: new Set()
 };
 
 // ── Load from localStorage ──
@@ -1089,6 +1195,7 @@ function loadState() {
       state.savedLooks = s.savedLooks || [];
       state.closetItems = s.closetItems || [];
       state.recentLooks = s.recentLooks || [];
+      state.postedLooks = new Set(s.postedLooks || []);
       restoreQuizUI();
     }
   } catch(e) {}
@@ -1100,7 +1207,8 @@ function saveStateToStorage() {
       quiz: state.quiz,
       savedLooks: state.savedLooks,
       closetItems: state.closetItems,
-      recentLooks: state.recentLooks
+      recentLooks: state.recentLooks,
+      postedLooks: [...state.postedLooks]
     }));
   } catch(e) {}
 }
@@ -1124,6 +1232,9 @@ function restoreQuizUI() {
       if (el) el.classList.add('selected');
     });
   }
+  // Restore size input on quiz screen
+  const sizeEl = document.getElementById('quiz-size');
+  if (sizeEl && state.quiz.styleSize) sizeEl.value = state.quiz.styleSize;
 }
 
 // ── Navigation ──
@@ -1181,6 +1292,8 @@ function selectQuizMulti(el) {
   else state.quiz.palette.push(val);
 }
 function saveQuizAndContinue() {
+  const sizeEl = document.getElementById('quiz-size');
+  if (sizeEl) state.quiz.styleSize = sizeEl.value.trim();
   saveStateToStorage();
   goToOccasion();
 }
@@ -1314,6 +1427,9 @@ async function generateOutfit() {
     closetContext = `The user has these items in their closet: ${state.closetItems.map(i => i.name).join(', ')}. Style them using these items.`;
   }
 
+  // No-repeat radar: pass last 5 recent look names to avoid repetition
+  const recentNames = state.recentLooks.slice(0, 5).map(l => l.look_name).filter(Boolean);
+
   try {
     const res = await fetch('/api/outfit', {
       method: 'POST',
@@ -1327,7 +1443,9 @@ async function generateOutfit() {
         currency: state.currency,
         gender: state.gender || 'women',
         style_profile: quizContext,
-        closet_context: closetContext
+        closet_context: closetContext,
+        recent_look_names: recentNames,
+        body_profile: state.quiz.styleSize || ''
       })
     });
 
@@ -1414,6 +1532,7 @@ function renderResults(data) {
         ${data.styling_notes.makeup ? `<div class="sn-item"><strong>Makeup</strong>${data.styling_notes.makeup}</div>` : ''}
         ${data.styling_notes.fragrance ? `<div class="sn-item"><strong>Fragrance</strong>${data.styling_notes.fragrance}</div>` : ''}
       </div>
+      ${data.photo_tip ? `<div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)"><div class="sn-title">📸 Content tip</div><div style="font-size:13px;color:var(--fg2)">${data.photo_tip}</div></div>` : ''}
     `;
     sn.style.display = '';
   } else {
@@ -1465,11 +1584,13 @@ function saveLook() {
     id: Date.now(),
     date: new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }),
     title: state.currentOutfit.look_name || 'Untitled Look',
+    look_name: state.currentOutfit.look_name || 'Untitled Look',
     occasion: state.occasion,
     celeb: state.celeb,
     era: state.era,
     ella_note: state.currentOutfit.ella_note,
-    items: state.currentOutfit.items
+    items: state.currentOutfit.items,
+    styling_notes: state.currentOutfit.styling_notes
   };
   state.savedLooks.unshift(look);
   saveStateToStorage();
@@ -1494,7 +1615,9 @@ function renderGalleryInto(grid) {
     grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><div class="es-icon">🪞</div>No saved looks yet.<br>Generate an outfit and save it!</div>`;
     return;
   }
-  grid.innerHTML = state.savedLooks.map((look, i) => `
+  grid.innerHTML = state.savedLooks.map((look, i) => {
+    const isPosted = state.postedLooks.has(look.id);
+    return `
     <div class="gallery-card" onclick="viewLook(${i})">
       <div class="gc-date">${look.date}</div>
       <div class="gc-title">${look.look_name || look.title}</div>
@@ -1502,10 +1625,12 @@ function renderGalleryInto(grid) {
       <div class="gc-meta" style="margin-top:2px;color:var(--fg3)">${look.celeb}</div>
       <div class="gc-actions">
         <div class="gc-btn" onclick="event.stopPropagation();viewLook(${i})">View</div>
+        <div class="gc-btn" onclick="event.stopPropagation();restyleLook(${i})">Re-style</div>
+        <div class="gc-btn ${isPosted ? 'gc-btn-posted' : ''}" onclick="event.stopPropagation();togglePosted(${look.id})" id="posted-btn-${look.id}">${isPosted ? '✓ Posted' : 'Posted?'}</div>
         <div class="gc-btn" onclick="event.stopPropagation();deleteLook(${i})">Remove</div>
       </div>
     </div>
-  `).join('');
+  `;}).join('');
 }
 
 function viewLook(i) {
@@ -1777,6 +1902,268 @@ function spawnSparkles() {
   }
 }
 
+// ── Toggle Posted ──
+function togglePosted(lookId) {
+  if (state.postedLooks.has(lookId)) {
+    state.postedLooks.delete(lookId);
+  } else {
+    state.postedLooks.add(lookId);
+  }
+  saveStateToStorage();
+  renderGalleryTab();
+  renderMainGallery();
+}
+
+// ── Closet shortcut from landing ──
+function openClosetShortcut() {
+  goTo('screen-results');
+  switchTab('closet');
+}
+
+// ── Re-style This ──
+function restyleLook(i) {
+  const look = state.savedLooks[i];
+  if (!look) return;
+  const newOccasion = prompt(`Re-style "${look.look_name || look.title}" for what occasion?`, 'cocktail hour');
+  if (!newOccasion) return;
+  openRestyleModal(look, newOccasion);
+}
+
+async function openRestyleModal(look, newOccasion) {
+  document.getElementById('gen-occasion-label').textContent = newOccasion;
+  document.getElementById('gen-message').innerHTML = `Re-styling <em>${look.look_name || look.title}</em> for ${newOccasion}…`;
+  goTo('screen-generating');
+  try {
+    const res = await fetch('/api/restyle', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        look,
+        new_occasion: newOccasion,
+        gender: state.gender,
+        budget: state.budget,
+        currency: state.currency
+      })
+    });
+    if (!res.ok) throw new Error('API error');
+    const data = await res.json();
+    state.occasion = newOccasion;
+    renderResults(data);
+    goTo('screen-results');
+    switchTab('outfit');
+    spawnSparkles();
+  } catch(err) {
+    goTo('screen-results');
+    alert('Ella hit a snag re-styling — try again!');
+  }
+}
+
+// ── Plan My Day ──
+function openPlanDay() {
+  document.getElementById('plan-day-overlay').classList.add('active');
+}
+function closePlanDay() {
+  document.getElementById('plan-day-overlay').classList.remove('active');
+}
+async function submitPlanDay() {
+  const schedule = document.getElementById('plan-day-input').value.trim();
+  if (!schedule) { alert('Describe your day first!'); return; }
+  closePlanDay();
+  document.getElementById('gen-occasion-label').textContent = 'your day';
+  document.getElementById('gen-message').textContent = 'Planning your full-day looks…';
+  goTo('screen-generating');
+  try {
+    const res = await fetch('/api/plan-day', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        schedule,
+        gender: state.gender,
+        budget: state.budget,
+        currency: state.currency,
+        style_profile: buildQuizContext(),
+        celebrity: state.celeb || 'No specific muse'
+      })
+    });
+    if (!res.ok) throw new Error('API error');
+    const data = await res.json();
+    renderPlanDay(data);
+    goTo('screen-plan-day-results');
+    spawnSparkles();
+  } catch(err) {
+    goTo('screen-landing');
+    alert('Ella hit a snag — try again!');
+  }
+}
+function buildQuizContext() {
+  let ctx = '';
+  if (state.quiz.body) ctx += `Body type: ${state.quiz.body}. `;
+  if (state.quiz.skin) ctx += `Skin: ${state.quiz.skin}. `;
+  if (state.quiz.lifestyle) ctx += `Lifestyle: ${state.quiz.lifestyle}. `;
+  if (state.quiz.palette.length) ctx += `Colors: ${state.quiz.palette.join(', ')}.`;
+  return ctx;
+}
+function renderPlanDay(data) {
+  const title = document.getElementById('plan-day-title');
+  if (title) title.textContent = data.day_title || 'Your Day';
+  const container = document.getElementById('plan-day-looks');
+  if (!container) return;
+  container.innerHTML = (data.looks || []).map((look, i) => `
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r-lg);padding:20px;margin-bottom:16px">
+      <div style="font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:var(--fg3);margin-bottom:4px">${look.slot || `Look ${i+1}`}</div>
+      <div style="font-family:var(--serif);font-size:22px;font-weight:400;color:var(--fg);margin-bottom:8px">${look.look_name}</div>
+      <div style="font-size:13px;color:var(--fg2);font-style:italic;margin-bottom:16px">${look.ella_note || ''}</div>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        ${(look.items || []).map(item => `
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;padding:10px;background:var(--bg2);border-radius:var(--r)">
+            <div>
+              <div style="font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:var(--fg3)">${item.category}</div>
+              <div style="font-family:var(--serif);font-size:16px">${item.name}</div>
+              <div style="font-size:12px;color:var(--fg2)">${item.brand}</div>
+            </div>
+            <div style="font-size:13px;font-weight:500;color:var(--accent);flex-shrink:0;margin-left:12px">${item.price}</div>
+          </div>
+        `).join('')}
+      </div>
+      ${look.transition_tip ? `<div style="margin-top:12px;padding:10px 14px;background:var(--bg2);border-left:3px solid var(--accent);border-radius:var(--r);font-size:12px;color:var(--fg2)">💡 ${look.transition_tip}</div>` : ''}
+    </div>
+  `).join('');
+}
+
+// ── Dupe a Look ──
+function openDupeLook() {
+  document.getElementById('dupe-overlay').classList.add('active');
+}
+function closeDupeLook() {
+  document.getElementById('dupe-overlay').classList.remove('active');
+}
+async function submitDupeLook() {
+  const inspoLook = document.getElementById('dupe-input').value.trim();
+  if (!inspoLook) { alert('Describe the look you want duped!'); return; }
+  closeDupeLook();
+  document.getElementById('gen-occasion-label').textContent = 'the dupe';
+  document.getElementById('gen-message').textContent = 'Finding affordable dupes…';
+  goTo('screen-generating');
+  try {
+    const res = await fetch('/api/outfit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        mode: 'dupe',
+        inspo_look: inspoLook,
+        gender: state.gender,
+        budget: state.budget,
+        currency: state.currency,
+        occasion: 'Dupe look'
+      })
+    });
+    if (!res.ok) throw new Error('API error');
+    const data = await res.json();
+    state.occasion = `Dupe: ${inspoLook.slice(0, 40)}`;
+    renderResults(data);
+    goTo('screen-results');
+    switchTab('outfit');
+    spawnSparkles();
+  } catch(err) {
+    goTo('screen-landing');
+    alert('Ella hit a snag — try again!');
+  }
+}
+
+// ── Complete an Outfit ──
+function openCompleteLook() {
+  document.getElementById('complete-overlay').classList.add('active');
+}
+function closeCompleteLook() {
+  document.getElementById('complete-overlay').classList.remove('active');
+}
+async function submitCompleteLook() {
+  const anchorItem = document.getElementById('complete-input').value.trim();
+  if (!anchorItem) { alert('Describe your anchor piece first!'); return; }
+  const occasionHint = document.getElementById('complete-occasion').value.trim();
+  closeCompleteLook();
+  document.getElementById('gen-occasion-label').textContent = 'your outfit';
+  document.getElementById('gen-message').textContent = 'Building around your piece…';
+  goTo('screen-generating');
+  try {
+    const res = await fetch('/api/outfit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        mode: 'complete',
+        anchor_item: anchorItem,
+        occasion: occasionHint || 'versatile everyday',
+        celebrity: state.celeb || 'No specific muse',
+        era: state.era || 'Clean Girl Aesthetic',
+        gender: state.gender,
+        budget: state.budget,
+        currency: state.currency,
+        style_profile: buildQuizContext()
+      })
+    });
+    if (!res.ok) throw new Error('API error');
+    const data = await res.json();
+    state.occasion = occasionHint || 'Complete the outfit';
+    renderResults(data);
+    goTo('screen-results');
+    switchTab('outfit');
+    spawnSparkles();
+  } catch(err) {
+    goTo('screen-landing');
+    alert('Ella hit a snag — try again!');
+  }
+}
+
+// ── Brand Match ──
+async function openBrandMatch() {
+  document.getElementById('gen-occasion-label').textContent = 'your style';
+  document.getElementById('gen-message').textContent = 'Matching your style DNA to the right brands…';
+  goTo('screen-generating');
+  try {
+    const res = await fetch('/api/brand-match', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        style_profile: buildQuizContext(),
+        quiz: state.quiz,
+        gender: state.gender,
+        budget: state.budget,
+        currency: state.currency,
+        celeb: state.celeb || '',
+        era: state.era || ''
+      })
+    });
+    if (!res.ok) throw new Error('API error');
+    const data = await res.json();
+    renderBrandMatch(data);
+    goTo('screen-brand-match');
+  } catch(err) {
+    goTo('screen-landing');
+    alert('Ella hit a snag — try again!');
+  }
+}
+function renderBrandMatch(data) {
+  const intro = document.getElementById('brand-match-intro');
+  if (intro) intro.textContent = data.intro || '';
+  const grid = document.getElementById('brand-match-grid');
+  if (!grid) return;
+  const tierEmoji = { everyday: '🛍️', investment: '💎', 'under-the-radar': '🔍', platform: '📱' };
+  grid.innerHTML = (data.brands || []).map(b => `
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r-lg);padding:20px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <span style="font-size:18px">${tierEmoji[b.tier] || '✦'}</span>
+        <div>
+          <div style="font-family:var(--serif);font-size:20px;font-weight:400">${b.name}</div>
+          <div style="font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:var(--fg3)">${b.tier}</div>
+        </div>
+      </div>
+      <div style="font-size:13px;color:var(--fg2);margin-bottom:8px">${b.why}</div>
+      <div style="font-size:12px;color:var(--fg3);font-style:italic;margin-bottom:6px">${b.signature}</div>
+      <div style="font-size:12px;color:var(--accent)">${b.shop_hint}</div>
+    </div>
+  `).join('');
+}
+
 // ── Init ──
 loadState();
 // Init slider to saved budget or default
@@ -1787,8 +2174,23 @@ loadState();
   slider.value = valMap[state.budget] || '0';
   onBudgetSlider(slider.value);
 })();
-// Close share overlay on outside click
+// Close overlays on outside click
 document.getElementById('share-overlay').addEventListener('click', function(e) {
   if (e.target === this) closeShareCard();
 });
+document.getElementById('plan-day-overlay').addEventListener('click', function(e) {
+  if (e.target === this) closePlanDay();
+});
+document.getElementById('dupe-overlay').addEventListener('click', function(e) {
+  if (e.target === this) closeDupeLook();
+});
+document.getElementById('complete-overlay').addEventListener('click', function(e) {
+  if (e.target === this) closeCompleteLook();
+});
+
+// Restore size in quiz input if profile has it
+(function restoreSizeInput() {
+  const el = document.getElementById('quiz-size');
+  if (el && state.quiz.styleSize) el.value = state.quiz.styleSize;
+})();
 </script>
