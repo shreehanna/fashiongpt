@@ -2613,7 +2613,7 @@ async function generateOutfitFromState() {
 // ── Ella speaks ──
 // ── ElevenLabs voice (Rachel — warm, young, American) ──
 const ELLA_XI_KEY   = 'sk_bfdb6cd9c2eb572cb2abbeb4d4b62e285d3040cdbfb67af7';
-const ELLA_XI_VOICE = '21m00Tcm4TlvDq8ikWAM'; // Rachel
+const ELLA_XI_VOICE = 'EXAVITQu4vr4xnSDxMaL'; // Bella — soft, warm, feminine
 
 async function ellaSpeak(text) {
   if (!text) return;
@@ -2628,9 +2628,9 @@ async function ellaSpeak(text) {
         text,
         model_id: 'eleven_turbo_v2',
         voice_settings: {
-          stability: 0.45,        // slight natural variation — sounds human
-          similarity_boost: 0.82, // stays true to Rachel's voice
-          style: 0.35,            // expressive but not overdone
+          stability: 0.55,        // softer, more consistent tone
+          similarity_boost: 0.90, // stay true to Bella's voice
+          style: 0.20,            // gentle, not overdone
           use_speaker_boost: true
         }
       })
