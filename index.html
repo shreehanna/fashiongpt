@@ -2613,7 +2613,7 @@ async function generateOutfitFromState() {
 // ── Ella speaks ──
 // ── ElevenLabs voice (Rachel — warm, young, American) ──
 const ELLA_XI_KEY   = 'sk_bfdb6cd9c2eb572cb2abbeb4d4b62e285d3040cdbfb67af7';
-const ELLA_XI_VOICE = 'EXAVITQu4vr4xnSDxMaL'; // Bella — soft, warm, feminine
+const ELLA_XI_VOICE = 'XrExE9yKIg1WjnnlVkGX'; // Matilda — bubbly, bright, Blair Waldorf energy
 
 async function ellaSpeak(text) {
   if (!text) return;
@@ -2628,9 +2628,9 @@ async function ellaSpeak(text) {
         text,
         model_id: 'eleven_turbo_v2',
         voice_settings: {
-          stability: 0.55,        // softer, more consistent tone
-          similarity_boost: 0.90, // stay true to Bella's voice
-          style: 0.20,            // gentle, not overdone
+          stability: 0.38,        // more lively, playful variation
+          similarity_boost: 0.88,
+          style: 0.55,            // expressive — Blair would never be boring
           use_speaker_boost: true
         }
       })
@@ -2647,7 +2647,7 @@ async function ellaSpeak(text) {
     if (!window.speechSynthesis) return;
     window.speechSynthesis.cancel();
     const utter = new SpeechSynthesisUtterance(text);
-    utter.rate = 0.88; utter.pitch = 1.0; utter.volume = 1;
+    utter.rate = 1.05; utter.pitch = 1.25; utter.volume = 1; // perkier fallback
     const voices = window.speechSynthesis.getVoices();
     const fallback = voices.find(v => v.name === 'Samantha')
       || voices.find(v => v.name.includes('Google UK English Female'))
