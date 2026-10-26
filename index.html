@@ -1384,6 +1384,15 @@ function goTo(screenId) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById(screenId).classList.add('active');
   window.scrollTo(0, 0);
+  if (screenId === 'screen-generating') {
+    const lines = [
+      "Dressing you for the occasion. And the attention.",
+      "Give me a moment — I'm building something gorgeous.",
+      "Your look is coming together. Trust the process.",
+      "Curating every detail just for you."
+    ];
+    ellaSpeak(lines[Math.floor(Math.random() * lines.length)]);
+  }
 }
 function goToLanding() { goTo('screen-landing'); }
 function goToQuiz() { goTo('screen-quiz'); }
@@ -2611,9 +2620,9 @@ async function generateOutfitFromState() {
 }
 
 // ── Ella speaks ──
-// ── ElevenLabs voice (Rachel — warm, young, American) ──
+// ── ElevenLabs voice ──
 const ELLA_XI_KEY   = 'sk_bfdb6cd9c2eb572cb2abbeb4d4b62e285d3040cdbfb67af7';
-const ELLA_XI_VOICE = 'piTKgcLEGmPE4e6mEKli'; // Nicole — intimate, knowing, Gossip Girl narrator energy
+const ELLA_XI_VOICE = 'r1KmysJdVYZjJCm4mL3b'; // conversational, attitude, Gossip Girl power
 
 async function ellaSpeak(text) {
   if (!text) return;
