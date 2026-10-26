@@ -2613,7 +2613,7 @@ async function generateOutfitFromState() {
 // ── Ella speaks ──
 // ── ElevenLabs voice (Rachel — warm, young, American) ──
 const ELLA_XI_KEY   = 'sk_bfdb6cd9c2eb572cb2abbeb4d4b62e285d3040cdbfb67af7';
-const ELLA_XI_VOICE = 'EXAVITQu4vr4xnSDxMaL'; // Bella — natural, human, warm
+const ELLA_XI_VOICE = 'piTKgcLEGmPE4e6mEKli'; // Nicole — intimate, knowing, Gossip Girl narrator energy
 
 async function ellaSpeak(text) {
   if (!text) return;
@@ -2628,9 +2628,9 @@ async function ellaSpeak(text) {
         text,
         model_id: 'eleven_turbo_v2',
         voice_settings: {
-          stability: 0.38,        // more lively, playful variation
-          similarity_boost: 0.88,
-          style: 0.55,            // expressive — Blair would never be boring
+          stability: 0.60,        // smooth and controlled like a narrator
+          similarity_boost: 0.85,
+          style: 0.45,            // slightly dramatic, never robotic
           use_speaker_boost: true
         }
       })
