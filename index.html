@@ -17,32 +17,22 @@
 <style>
 /* ── Token system ── */
 :root {
-  --bg: #FAFAF8;
-  --bg2: #F2F1EE;
-  --fg: #1A1916;
-  --fg2: #6B6860;
-  --fg3: #9E9C96;
-  --accent: #B8977E;
-  --accent-dk: #9E7D65;
-  --border: #E5E3DF;
-  --card: #FFFFFF;
+  /* E&L is always dark grey */
+  --bg: #262628;
+  --bg2: #303033;
+  --fg: #F0EDE8;
+  --fg2: #ABA69E;
+  --fg3: #7F7B74;
+  --accent: #C9A88A;
+  --accent-dk: #B8977E;
+  --border: #3C3C40;
+  --card: #2F2F32;
+  color-scheme: dark;
   --serif: 'Cormorant Garamond', Georgia, serif;
   --sans: 'DM Sans', system-ui, sans-serif;
   --r: 2px;
   --r-lg: 6px;
-  --shadow: 0 1px 3px rgba(26,25,22,0.06), 0 4px 12px rgba(26,25,22,0.04);
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --bg: #18181A; --bg2: #222224; --fg: #F0EDE8; --fg2: #A09C94;
-    --fg3: #6A675F; --accent: #C9A88A; --accent-dk: #B8977E;
-    --border: #2E2E30; --card: #222224; color-scheme: dark;
-  }
-}
-:root[data-theme="dark"] {
-  --bg: #18181A; --bg2: #222224; --fg: #F0EDE8; --fg2: #A09C94;
-  --fg3: #6A675F; --accent: #C9A88A; --accent-dk: #B8977E;
-  --border: #2E2E30; --card: #222224; color-scheme: dark;
+  --shadow: 0 1px 3px rgba(0,0,0,0.25), 0 4px 12px rgba(0,0,0,0.2);
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -832,9 +822,7 @@ body {
 }
 
 /* ── E&L Pro ── */
-:root { --gold: #c9a96e; --gold-ink: #8a6934; }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --gold-ink: #dcc08a; } }
-:root[data-theme="dark"] { --gold-ink: #dcc08a; }
+:root { --gold: #c9a96e; --gold-ink: #dcc08a; }
 #screen-landing { position: relative; }
 .pro-pill {
   position: absolute; top: calc(16px + env(safe-area-inset-top, 0px)); right: 0;
@@ -942,7 +930,7 @@ body {
   <div class="landing-inner">
     <div class="landing-eyebrow">Two stylists. One look.</div>
     <h1 class="landing-title">E&L</h1>
-    <p class="landing-sub" id="landing-sub-text">She sees what you can't. He knows before you ask.</p>
+    <p class="landing-sub" id="landing-sub-text">Spotted: you, in the best look in the room. Courtesy of Ella and Léon.</p>
 
     <div class="stylist-picker">
       <div class="stylist-card active" id="card-ella" onclick="chooseStylist('ella')">
@@ -2196,17 +2184,13 @@ async function shareAsImage() {
   ctx.scale(2, 2);
 
   // Detect dark mode
-  const isDark = document.documentElement.getAttribute('data-theme') === 'dark' ||
-    (window.matchMedia('(prefers-color-scheme: dark)').matches &&
-     document.documentElement.getAttribute('data-theme') !== 'light');
-
-  const BG   = isDark ? '#18181A' : '#FAFAF8';
-  const CARD = isDark ? '#222224' : '#FFFFFF';
-  const FG   = isDark ? '#F0EDE8' : '#1A1916';
-  const FG2  = isDark ? '#A09C94' : '#6B6860';
-  const FG3  = isDark ? '#6A675F' : '#9E9C96';
-  const ACC  = isDark ? '#C9A88A' : '#B8977E';
-  const BRD  = isDark ? '#2E2E30' : '#E5E3DF';
+  const BG   = '#262628';
+  const CARD = '#2F2F32';
+  const FG   = '#F0EDE8';
+  const FG2  = '#ABA69E';
+  const FG3  = '#7F7B74';
+  const ACC  = '#C9A88A';
+  const BRD  = '#3C3C40';
 
   // Background
   ctx.fillStyle = BG;
@@ -2875,9 +2859,6 @@ function chooseStylist(name) {
   activeStylist = name;
   document.getElementById('card-ella').classList.toggle('active', name === 'ella');
   document.getElementById('card-leon').classList.toggle('active', name === 'leon');
-  const sub = document.getElementById('landing-sub-text');
-  if (name === 'ella') sub.textContent = "She sees what you can\'t. He knows before you ask.";
-  else sub.textContent = "Sharp eye. Zero hesitation. Léon has your look.";
   const btn = document.getElementById('start-btn');
   btn.textContent = name === 'ella' ? 'Style me ✦' : 'Let Léon style me ✦';
   if (name === 'ella') launchEllaEntrance();
