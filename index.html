@@ -1647,8 +1647,6 @@ function goTo(screenId) {
     document.getElementById('gen-rig-ella').hidden = leon;
     document.getElementById('gen-rig-leon').hidden = !leon;
     document.getElementById('gen-title').textContent = leon ? 'Léon is on it' : 'Ella is working her magic';
-    const lines = STYLISTS[activeStylist].lines;
-    ellaSpeak(lines[Math.floor(Math.random() * lines.length)]);
   }
 }
 function goToLanding() { goTo('screen-landing'); }
@@ -1865,10 +1863,6 @@ async function generateOutfit() {
     goTo('screen-results');
     switchTab('outfit');
     spawnSparkles();
-    // Ella speaks her note aloud
-    if (data.ella_note) {
-      setTimeout(() => ellaSpeak(data.ella_note), 800);
-    }
   } catch(err) {
     console.error(err);
     goTo('screen-mode');
@@ -2867,10 +2861,6 @@ async function generateOutfitFromState() {
     goTo('screen-results');
     switchTab('outfit');
     spawnSparkles();
-    // Ella speaks her note after results render
-    if (data.ella_note) {
-      setTimeout(() => ellaSpeak(data.ella_note), 800);
-    }
   } catch(err) {
     console.error(err);
     goTo('screen-mode');
@@ -2878,28 +2868,7 @@ async function generateOutfitFromState() {
   }
 }
 
-// ── Dual stylist voice system ──
-const XI_KEY = 'sk_bfdb6cd9c2eb572cb2abbeb4d4b62e285d3040cdbfb67af7';
-const STYLISTS = {
-  ella: {
-    voice: 'QfWjuNNKOSFRi8u4L3Ue',
-    lines: [
-      "Dressing you for the occasion. And the attention.",
-      "Give me a moment — I'm building something gorgeous.",
-      "Your look is coming together. Trust the process.",
-      "Curating every detail just for you."
-    ]
-  },
-  leon: {
-    voice: null, // set when user picks a male voice
-    lines: [
-      "Consider it done. You're going to look incredible.",
-      "Leave it to me. I know exactly what works.",
-      "This is going to be good. Trust.",
-      "I've got you. Stand by."
-    ]
-  }
-};
+// ── Stylists ──
 let activeStylist = 'ella';
 
 function chooseStylist(name) {
@@ -3064,7 +3033,6 @@ function hoverAndGreet(f, cx, cy, big, line) {
     { transform: `translate(${bx}px, ${by}px) scale(1.08)`, opacity: 1, offset: 0.7 },
     { transform: `translate(${bx}px, ${by}px) scale(1)`, opacity: 1 }
   ], { duration: 380, easing: 'ease-out', fill: 'forwards' });
-  ellaSpeak(line);
   f.later(() => {
     bubble.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 250, fill: 'forwards' });
     f.rig.classList.replace('is-hovering', 'is-flying');
@@ -3081,7 +3049,7 @@ function hoverAndGreet(f, cx, cy, big, line) {
 
 // Ella: mirrors Léon's swoop from the other side, same timing, then says hi.
 function launchEllaEntrance() {
-  if (!motionOK()) { ellaSpeak('Hi babe.'); return; }
+  if (!motionOK()) return;
   const f = takeOff('ella');
   const vw = innerWidth, vh = innerHeight;
   const cx = vw / 2, cy = vh * 0.46;
@@ -3096,7 +3064,7 @@ function launchEllaEntrance() {
 
 // Léon: swoops up to the centre of the page, hovers, says hello, then heads back.
 function launchLeonEntrance() {
-  if (!motionOK()) { ellaSpeak('Howdy, mate!'); return; }
+  if (!motionOK()) return;
   const f = takeOff('leon');
   const vw = innerWidth, vh = innerHeight;
   const cx = vw / 2, cy = vh * 0.46;
@@ -3110,54 +3078,6 @@ function launchLeonEntrance() {
 }
 
 function stylistName() { return activeStylist === 'leon' ? 'Léon' : 'Ella'; }
-
-async function ellaSpeak(text) {
-  if (!text) return;
-  try {
-    const voiceId = STYLISTS[activeStylist].voice; if (!voiceId) { console.warn('No voice for', activeStylist); return; }
-    const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}/stream`, {
-      method: 'POST',
-      headers: {
-        'xi-api-key': XI_KEY,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        text,
-        model_id: 'eleven_multilingual_v2',
-        voice_settings: {
-          stability: 0.35,        // lower = more expressive, human variation
-          similarity_boost: 0.90,
-          style: 0.75,            // dramatic, personality-forward
-          use_speaker_boost: true
-        }
-      })
-    });
-    if (!res.ok) {
-      const errText = await res.text();
-      console.error('ElevenLabs error:', res.status, errText);
-      throw new Error('ElevenLabs error ' + res.status);
-    }
-    console.log('ElevenLabs OK — playing audio');
-    const blob = await res.blob();
-    const url  = URL.createObjectURL(blob);
-    const audio = new Audio(url);
-    audio.onended = () => URL.revokeObjectURL(url);
-    audio.play();
-  } catch(err) {
-    // Fallback to browser TTS if ElevenLabs fails
-    console.warn('ElevenLabs fallback to browser TTS:', err);
-    if (!window.speechSynthesis) return;
-    window.speechSynthesis.cancel();
-    const utter = new SpeechSynthesisUtterance(text);
-    utter.rate = 1.05; utter.pitch = 1.25; utter.volume = 1; // perkier fallback
-    const voices = window.speechSynthesis.getVoices();
-    const fallback = voices.find(v => v.name === 'Samantha')
-      || voices.find(v => v.name.includes('Google UK English Female'))
-      || voices.find(v => v.lang.startsWith('en'));
-    if (fallback) utter.voice = fallback;
-    window.speechSynthesis.speak(utter);
-  }
-}
 
 // Close voice overlay on outside click
 document.getElementById('voice-overlay').addEventListener('click', function(e) {
