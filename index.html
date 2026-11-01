@@ -1798,6 +1798,27 @@ function selectCurrency(c) {
 }
 
 // ── Generate outfit ──
+// ── Indian occasions get real ethnic wear ──
+// Festive and wedding-function occasions (or the Traditional / Ethnic dress code) send the
+// stylist an explicit brief, so it stops dressing Diwali in high-street western brands.
+const ETHNIC_OCCASIONS = ['diwali','deepavali','navratri','garba','dandiya','durga puja','puja','pooja','eid',
+  'holi','pongal','onam','ugadi','vishu','lohri','baisakhi','karva chauth','teej','rakhi','raksha bandhan',
+  'ganesh chaturthi','janmashtami','sangeet','mehendi','mehndi','haldi','shaadi','indian wedding',
+  'indian festive','temple','ethnic','traditional'];
+function wantsEthnic(occasion, dresscode) {
+  const dc = (dresscode || '').toLowerCase();
+  if (dc && dc !== 'no dress code') return /ethnic|traditional/.test(dc);
+  const o = (occasion || '').toLowerCase();
+  return ETHNIC_OCCASIONS.some(w => new RegExp('\\b' + w + '\\b').test(o));
+}
+function ethnicBrief(gender) {
+  const women = 'For her: a saree, lehenga, anarkali, sharara or kurta set with dupatta, juttis or kolhapuris and traditional jewellery, from Indian labels that really sell these, such as FabIndia, Biba, W, Libas, Global Desi, Taneira, Aurelia, Kalki Fashion or House of Masaba.';
+  const men = 'For him: a kurta-pyjama, bandhgala, Nehru jacket or sherwani with mojaris or juttis, from Indian labels that really sell these, such as Manyavar, FabIndia, Tasva, Jaypore or House of Pataudi.';
+  const who = gender === 'men' ? men : gender === 'couple' ? women + ' ' + men : women;
+  return ' DRESS CODE: INDIAN ETHNIC WEAR. This is an Indian traditional occasion, so build a proper Indian ethnic outfit, not western or Indo-western high-street wear. '
+    + who + ' Never use Zara, H&M, Mango, Vero Moda, AND, Only or other western high-street brands for this look.';
+}
+
 async function generateOutfit() {
   if (!lookAllowed(() => generateOutfit())) return;
   const selectedMode = state.mode || 'discover';
@@ -1832,12 +1853,12 @@ async function generateOutfit() {
       body: JSON.stringify({
         occasion: occasionContext,
         celebrity: state.celeb || 'No specific muse',
-        era: state.era || 'Clean Girl Aesthetic',
+        era: state.era || (wantsEthnic(state.occasion, state.dresscode) ? 'Contemporary Indian festive' : 'Clean Girl Aesthetic'),
         mode: selectedMode,
         budget: state.budget,
         currency: state.currency,
         gender: state.gender || 'women',
-        style_profile: quizContext,
+        style_profile: quizContext + (wantsEthnic(state.occasion, state.dresscode) ? ethnicBrief(state.gender || 'women') : ''),
         closet_context: closetContext,
         recent_look_names: recentNames,
         body_profile: state.quiz.styleSize || ''
@@ -2360,7 +2381,7 @@ async function openRestyleModal(look, newOccasion) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         look,
-        new_occasion: newOccasion,
+        new_occasion: newOccasion + (wantsEthnic(newOccasion) ? ethnicBrief(state.gender || 'women') : ''),
         gender: state.gender,
         budget: state.budget,
         currency: state.currency
@@ -2516,11 +2537,11 @@ async function submitCompleteLook() {
         anchor_item: anchorItem,
         occasion: occasionHint || 'versatile everyday',
         celebrity: state.celeb || 'No specific muse',
-        era: state.era || 'Clean Girl Aesthetic',
+        era: state.era || (wantsEthnic(occasionHint) ? 'Contemporary Indian festive' : 'Clean Girl Aesthetic'),
         gender: state.gender,
         budget: state.budget,
         currency: state.currency,
-        style_profile: buildQuizContext()
+        style_profile: buildQuizContext() + (wantsEthnic(occasionHint) ? ethnicBrief(state.gender || 'women') : '')
       })
     });
     if (!res.ok) throw new Error('API error');
@@ -2827,12 +2848,12 @@ async function generateOutfitFromState() {
       body: JSON.stringify({
         occasion: occasionContext,
         celebrity: state.celeb || 'No specific muse',
-        era: state.era || 'Clean Girl Aesthetic',
+        era: state.era || (wantsEthnic(state.occasion, state.dresscode) ? 'Contemporary Indian festive' : 'Clean Girl Aesthetic'),
         mode: selectedMode,
         budget: state.budget,
         currency: state.currency,
         gender: state.gender || 'women',
-        style_profile: quizContext,
+        style_profile: quizContext + (wantsEthnic(state.occasion, state.dresscode) ? ethnicBrief(state.gender || 'women') : ''),
         closet_context: closetContext,
         recent_look_names: recentNames,
         body_profile: state.quiz.styleSize || ''
