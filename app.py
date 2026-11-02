@@ -600,8 +600,14 @@ def load_closet():
         return jsonify({"error": str(e)}), 500
 
 # ── Ella's voice ─────────────────────────────────────────────────────────────
-# The ElevenLabs key and Ella's voice ID live in Render's environment variables
-# (ELEVENLABS_API_KEY, ELLA_VOICE_ID), never in index.html.
+# The ElevenLabs key lives in Render's environment (ELEVENLABS_API_KEY), never in index.html.
+# Voice IDs aren't secret; ELLA_VOICE_ID / LEON_VOICE_ID on Render override these defaults.
+VOICES = {
+    'ella': {'env': 'ELLA_VOICE_ID', 'default': '2xzAoajJn3wvwyztUU52',
+             'settings': {'stability': 0.35, 'similarity_boost': 0.9, 'style': 0.75, 'use_speaker_boost': True}},
+    'leon': {'env': 'LEON_VOICE_ID', 'default': 'cIMwmTggaef4oj037F51',
+             'settings': {'stability': 0.45, 'similarity_boost': 0.9, 'style': 0.55, 'use_speaker_boost': True}},
+}
 import time
 from collections import deque
 
@@ -625,14 +631,18 @@ def _tts_allowed(ip):
 @app.route('/api/tts', methods=['POST'])
 def tts():
     key = os.environ.get('ELEVENLABS_API_KEY')
-    voice_id = os.environ.get('ELLA_VOICE_ID')
-    if not key or not voice_id:
+    body = request.get_json(silent=True) or {}
+    who = body.get('stylist') if body.get('stylist') in VOICES else 'ella'
+    voice = VOICES[who]
+    voice_id = os.environ.get(voice['env']) or voice['default']
+    if not key:
         return jsonify({'error': 'voice not configured'}), 503
-    text = ((request.get_json(silent=True) or {}).get('text') or '').strip()[:TTS_MAX_CHARS]
+    text = (body.get('text') or '').strip()[:TTS_MAX_CHARS]
     if not text:
         return jsonify({'error': 'no text'}), 400
-    if text in _tts_cache:
-        return Response(_tts_cache[text], mimetype='audio/mpeg')
+    cache_key = f'{who}:{text}'
+    if cache_key in _tts_cache:
+        return Response(_tts_cache[cache_key], mimetype='audio/mpeg')
     ip = (request.headers.get('X-Forwarded-For') or request.remote_addr or '').split(',')[0].strip()
     if not _tts_allowed(ip):
         return jsonify({'error': 'slow down'}), 429
@@ -643,7 +653,7 @@ def tts():
             json={
                 'text': text,
                 'model_id': 'eleven_multilingual_v2',
-                'voice_settings': {'stability': 0.35, 'similarity_boost': 0.9, 'style': 0.75, 'use_speaker_boost': True}
+                'voice_settings': voice['settings']
             },
             timeout=30
         )
@@ -652,7 +662,7 @@ def tts():
     if r.status_code != 200:
         return jsonify({'error': 'voice service error', 'status': r.status_code}), 502
     if len(text) <= 120 and len(_tts_cache) < 64:
-        _tts_cache[text] = r.content
+        _tts_cache[cache_key] = r.content
     return Response(r.content, mimetype='audio/mpeg')
 
 

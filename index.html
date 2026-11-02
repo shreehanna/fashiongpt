@@ -1667,7 +1667,8 @@ function goTo(screenId) {
     document.getElementById('gen-rig-ella').hidden = leon;
     document.getElementById('gen-rig-leon').hidden = !leon;
     document.getElementById('gen-title').textContent = leon ? 'Léon is on it' : 'Ella is working her magic';
-    ellaSpeak(ELLA_LOADING_LINES[Math.floor(Math.random() * ELLA_LOADING_LINES.length)]);
+    const lines = LOADING_LINES[activeStylist] || LOADING_LINES.ella;
+    stylistSpeak(lines[Math.floor(Math.random() * lines.length)]);
   }
 }
 function goToLanding() { goTo('screen-landing'); }
@@ -1905,7 +1906,7 @@ async function generateOutfit() {
     goTo('screen-results');
     switchTab('outfit');
     spawnSparkles();
-    if (data.ella_note) setTimeout(() => ellaSpeak(shortNote(data.ella_note)), 600);
+    if (data.ella_note) setTimeout(() => stylistSpeak(shortNote(data.ella_note)), 600);
   } catch(err) {
     console.error(err);
     goTo('screen-mode');
@@ -2900,7 +2901,7 @@ async function generateOutfitFromState() {
     goTo('screen-results');
     switchTab('outfit');
     spawnSparkles();
-    if (data.ella_note) setTimeout(() => ellaSpeak(shortNote(data.ella_note)), 600);
+    if (data.ella_note) setTimeout(() => stylistSpeak(shortNote(data.ella_note)), 600);
   } catch(err) {
     console.error(err);
     goTo('screen-mode');
@@ -3058,7 +3059,7 @@ function hoverAndGreet(f, cx, cy, big, line) {
   f.bob.animate([{ transform: 'translateY(-5px)' }, { transform: 'translateY(5px)' }],
     { duration: 700, iterations: Infinity, direction: 'alternate', easing: 'ease-in-out' });
   burst(f.stage, cx, cy - f.H * big * 0.2, f.who, 30);
-  if (f.who === 'ella') ellaSpeak('Hi babe.');
+  stylistSpeak(f.who === 'ella' ? 'Hi babe.' : 'Howdy, mate!', f.who);
   const bubble = document.createElement('div');
   bubble.className = 'speech';
   bubble.textContent = line;
@@ -3087,7 +3088,7 @@ function hoverAndGreet(f, cx, cy, big, line) {
 
 // Ella: mirrors Léon's swoop from the other side, same timing, then says hi.
 function launchEllaEntrance() {
-  if (!motionOK()) { ellaSpeak('Hi babe.'); return; }
+  if (!motionOK()) { stylistSpeak('Hi babe.', 'ella'); return; }
   const f = takeOff('ella');
   const vw = innerWidth, vh = innerHeight;
   const cx = vw / 2, cy = vh * 0.46;
@@ -3102,7 +3103,7 @@ function launchEllaEntrance() {
 
 // Léon: swoops up to the centre of the page, hovers, says hello, then heads back.
 function launchLeonEntrance() {
-  if (!motionOK()) return;
+  if (!motionOK()) { stylistSpeak('Howdy, mate!', 'leon'); return; }
   const f = takeOff('leon');
   const vw = innerWidth, vh = innerHeight;
   const cx = vw / 2, cy = vh * 0.46;
@@ -3115,15 +3116,23 @@ function launchLeonEntrance() {
   inAnim.onfinish = () => hoverAndGreet(f, cx, cy, big, 'Howdy, mate!');
 }
 
-// ── Ella's voice ──
+// ── Stylist voices ──
 // Audio comes from our own server (/api/tts), which holds the ElevenLabs key.
-// Léon has no voice yet; any failure just stays silent.
-const ELLA_LOADING_LINES = [
-  "Dressing you for the occasion. And the attention.",
-  "Give me a moment. I'm building something gorgeous.",
-  "Your look is coming together. Trust the process.",
-  "Curating every detail, just for you."
-];
+// Any failure just stays silent.
+const LOADING_LINES = {
+  ella: [
+    "Dressing you for the occasion. And the attention.",
+    "Give me a moment. I'm building something gorgeous.",
+    "Your look is coming together. Trust the process.",
+    "Curating every detail, just for you."
+  ],
+  leon: [
+    "Consider it done. You're going to look incredible.",
+    "Leave it to me. I know exactly what works.",
+    "This is going to be good. Trust me.",
+    "I've got you, mate. Stand by."
+  ]
+};
 const ellaAudio = new Audio();
 let ellaAudioUnlocked = false;
 // iPhones only allow sound that starts from a tap, so the first tap unlocks one audio player we reuse.
@@ -3137,13 +3146,13 @@ function shortNote(text) {
   const s = (text || '').match(/[^.!?]+[.!?]+/g);
   return s ? s.slice(0, 2).map(x => x.trim()).join(' ') : (text || '');
 }
-async function ellaSpeak(text) {
-  if (!text || activeStylist !== 'ella') return;
+async function stylistSpeak(text, who = activeStylist) {
+  if (!text || who !== activeStylist) return;
   try {
     const res = await fetch('/api/tts', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: text.slice(0, 400) })
+      body: JSON.stringify({ text: text.slice(0, 400), stylist: who })
     });
     if (!res.ok) return;
     const url = URL.createObjectURL(await res.blob());
