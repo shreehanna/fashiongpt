@@ -1,189 +1,15 @@
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, send_from_directory, Response
 import anthropic
 import json
 import os
 import requests as req
-from datetime import datetime
 
 app = Flask(__name__, static_folder='.', static_url_path='')
 client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
 
-RATINGS_FILE = 'ratings.json'
-STATS_FILE = 'stats.json'
-CLOSET_FILE = 'closet.json'
-
-
-# ── Helpers ───────────────────────────────────────────────────────────────────
-
-def load_json_file(path, default):
-    try:
-        if os.path.exists(path):
-            with open(path, 'r') as f:
-                return json.load(f)
-    except Exception:
-        pass
-    return default
-
-
-def save_json_file(path, data):
-    try:
-        with open(path, 'w') as f:
-            json.dump(data, f)
-    except Exception:
-        pass
-
-
-def append_json_line(path, data):
-    try:
-        with open(path, 'a') as f:
-            f.write(json.dumps(data) + '\n')
-    except Exception:
-        pass
-
-
-def increment_stat(key):
-    stats = load_json_file(STATS_FILE, {})
-    stats[key] = stats.get(key, 0) + 1
-    save_json_file(STATS_FILE, stats)
-
-
-def get_budget_brands(gender, budget):
-    budget_brands_women = {
-        'everyday': 'Zara, ASOS, Mango, H&M, Topshop, Myntra, AJIO, Nykaa Fashion',
-        'midrange': 'COS, Reformation, & Other Stories, Massimo Dutti, Reiss, Banana Republic, Vero Moda, AND',
-        'luxury': 'Chanel, Dior, Prada, Gucci, Saint Laurent, Bottega Veneta, Versace, Valentino, Loro Piana'
-    }
-    budget_brands_men = {
-        'everyday': 'Zara Man, H&M Men, ASOS Menswear, Mango Man, Uniqlo, Myntra Men, AJIO Men',
-        'midrange': 'Massimo Dutti, COS Men, Reiss, Banana Republic, Selected Homme, Jack & Jones Premium',
-        'luxury': 'Tom Ford, Brunello Cucinelli, Zegna, Canali, Dior Men, Saint Laurent Men, Prada Men'
-    }
-    brands = budget_brands_men if gender == 'men' else budget_brands_women
-    return brands.get(budget, brands['everyday'])
-
-
-def get_price_guide(budget, currency):
-    price_ranges = {
-        'everyday': {'INR': '₹800–₹3,500', 'USD': '$15–$60'},
-        'midrange': {'INR': '₹3,500–₹15,000', 'USD': '$60–$250'},
-        'luxury': {'INR': '₹40,000–₹2,00,000', 'USD': '$500–$3,000'}
-    }
-    return price_ranges.get(budget, price_ranges['everyday'])[currency]
-
-
-def parse_claude_json(response_text):
-    text = response_text.strip()
-    if '```json' in text:
-        text = text.split('```json')[1].split('```')[0].strip()
-    elif '```' in text:
-        text = text.split('```')[1].split('```')[0].strip()
-    return json.loads(text)
-
-
-# ── Keep-alive ping ───────────────────────────────────────────────────────────
-
-@app.route('/ping')
-def ping():
-    """Keep-alive endpoint — set up cron-job.org to hit this every 10 mins to prevent Render sleep."""
-    return jsonify({"status": "ok", "timestamp": datetime.utcnow().isoformat()}), 200
-
-
-# ── Static routes ─────────────────────────────────────────────────────────────
-
 @app.route('/')
 def index():
     return send_from_directory('.', 'index.html')
-
-
-# ── Stats ─────────────────────────────────────────────────────────────────────
-
-@app.route('/api/stats', methods=['GET'])
-def get_stats():
-    """Return live stats for the landing page counters."""
-    stats = load_json_file(STATS_FILE, {})
-
-    total_ratings = 0
-    positive_ratings = 0
-    try:
-        if os.path.exists(RATINGS_FILE):
-            with open(RATINGS_FILE, 'r') as f:
-                for line in f:
-                    line = line.strip()
-                    if line:
-                        entry = json.loads(line)
-                        total_ratings += 1
-                        if entry.get('rating') == 'up':
-                            positive_ratings += 1
-    except Exception:
-        pass
-
-    satisfaction = round((positive_ratings / total_ratings) * 100) if total_ratings > 0 else 0
-
-    return jsonify({
-        "looks_generated": stats.get("looks_generated", 0),
-        "total_ratings": total_ratings,
-        "satisfaction_rate": satisfaction,
-        "display": f"{stats.get('looks_generated', 0)}+ looks styled"
-    })
-
-
-# ── Rating ────────────────────────────────────────────────────────────────────
-
-@app.route('/api/rate', methods=['POST'])
-def rate_look():
-    """Save a thumbs up/down rating for a look."""
-    try:
-        data = request.json
-        entry = {
-            "look_name": data.get("look_name", ""),
-            "rating": data.get("rating", ""),
-            "occasion": data.get("occasion", ""),
-            "celeb": data.get("celeb", ""),
-            "era": data.get("era", ""),
-            "timestamp": datetime.utcnow().isoformat()
-        }
-        append_json_line(RATINGS_FILE, entry)
-        return jsonify({"success": True})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-
-# ── Image search ──────────────────────────────────────────────────────────────
-
-@app.route('/api/image-search', methods=['POST'])
-def image_search():
-    """Search Google Custom Search for a product image."""
-    try:
-        data = request.json
-        query = data.get('query', '')
-        api_key = os.environ.get('GOOGLE_API_KEY')
-        cx = os.environ.get('GOOGLE_CX')
-
-        if not api_key or not cx:
-            return jsonify({'image_url': None, 'error': 'Google API not configured'})
-
-        response = req.get(
-            'https://www.googleapis.com/customsearch/v1',
-            params={
-                'key': api_key,
-                'cx': cx,
-                'q': query + ' fashion product',
-                'searchType': 'image',
-                'num': 1,
-                'imgSize': 'medium',
-                'safe': 'active'
-            },
-            timeout=5
-        )
-        items = response.json().get('items', [])
-        if items:
-            return jsonify({'image_url': items[0]['link']})
-        return jsonify({'image_url': None})
-    except Exception as e:
-        return jsonify({'image_url': None, 'error': str(e)})
-
-
-# ── Outfit ────────────────────────────────────────────────────────────────────
 
 @app.route('/api/outfit', methods=['POST'])
 def get_outfit():
@@ -200,11 +26,28 @@ def get_outfit():
     recent_look_names = data.get('recent_look_names', [])
     body_profile = data.get('body_profile', '')
 
-    brands = get_budget_brands(gender, budget)
-    price_guide = get_price_guide(budget, currency)
+    # Budget brand guidance
+    budget_brands_women = {
+        'everyday': 'Zara, ASOS, Mango, H&M, Topshop, Myntra, AJIO, Nykaa Fashion',
+        'midrange': 'COS, Reformation, & Other Stories, Massimo Dutti, Reiss, Banana Republic, Vero Moda, AND',
+        'luxury': 'Chanel, Dior, Prada, Gucci, Saint Laurent, Bottega Veneta, Versace, Valentino, Loro Piana'
+    }
+    budget_brands_men = {
+        'everyday': 'Zara Man, H&M Men, ASOS Menswear, Mango Man, Uniqlo, Myntra Men, AJIO Men',
+        'midrange': 'Massimo Dutti, COS Men, Reiss, Banana Republic, Selected Homme, Jack & Jones Premium',
+        'luxury': 'Tom Ford, Brunello Cucinelli, Zegna, Canali, Dior Men, Saint Laurent Men, Prada Men'
+    }
+    budget_brands = budget_brands_men if gender == 'men' else budget_brands_women
 
-    # Track usage
-    increment_stat("looks_generated")
+    currency_symbol = '₹' if currency == 'INR' else '$'
+    price_ranges = {
+        'everyday': {'INR': '₹800–₹3,500', 'USD': '$15–$60'},
+        'midrange': {'INR': '₹3,500–₹15,000', 'USD': '$60–$250'},
+        'luxury': {'INR': '₹40,000–₹2,00,000', 'USD': '$500–$3,000'}
+    }
+
+    price_guide = price_ranges.get(budget, price_ranges['everyday'])[currency]
+    brands = budget_brands.get(budget, budget_brands['everyday'])
 
     closet_instruction = ''
     if mode == 'closet' and closet_context:
@@ -223,7 +66,7 @@ def get_outfit():
         names_list = ', '.join(recent_look_names[-5:])
         no_repeat_instruction = f"\n\nNO-REPEAT RADAR: The user recently wore looks called: {names_list}. Do NOT repeat the same vibe, color palette, or silhouette. Make this look feel fresh and different."
 
-    # ── Dupe mode ──
+    # Mode-specific prompt overrides
     if mode == 'dupe':
         inspo_look = data.get('inspo_look', '')
         dupe_prompt = f"""You are Ella, a Gossip Girl-coded AI fashion stylist.
@@ -258,19 +101,25 @@ Return ONLY valid JSON:
 }}
 
 Include 5-7 items. Be specific — real product names."""
+
         try:
             message = client.messages.create(
                 model="claude-sonnet-4-6",
                 max_tokens=2000,
                 messages=[{"role": "user", "content": dupe_prompt}]
             )
-            return jsonify(parse_claude_json(message.content[0].text))
+            response_text = message.content[0].text.strip()
+            if '```json' in response_text:
+                response_text = response_text.split('```json')[1].split('```')[0].strip()
+            elif '```' in response_text:
+                response_text = response_text.split('```')[1].split('```')[0].strip()
+            outfit_data = json.loads(response_text)
+            return jsonify(outfit_data)
         except json.JSONDecodeError as e:
             return jsonify({"error": f"Parse error: {str(e)}"}), 500
         except Exception as e:
             return jsonify({"error": str(e)}), 500
 
-    # ── Complete mode ──
     if mode == 'complete':
         anchor_item = data.get('anchor_item', '')
         complete_prompt = f"""You are Ella, a Gossip Girl-coded AI fashion stylist.
@@ -309,19 +158,26 @@ Return ONLY valid JSON:
 }}
 
 Include 4-6 supporting items."""
+
         try:
             message = client.messages.create(
                 model="claude-sonnet-4-6",
                 max_tokens=2000,
                 messages=[{"role": "user", "content": complete_prompt}]
             )
-            return jsonify(parse_claude_json(message.content[0].text))
+            response_text = message.content[0].text.strip()
+            if '```json' in response_text:
+                response_text = response_text.split('```json')[1].split('```')[0].strip()
+            elif '```' in response_text:
+                response_text = response_text.split('```')[1].split('```')[0].strip()
+            outfit_data = json.loads(response_text)
+            return jsonify(outfit_data)
         except json.JSONDecodeError as e:
             return jsonify({"error": f"Parse error: {str(e)}"}), 500
         except Exception as e:
             return jsonify({"error": str(e)}), 500
 
-    # ── Gender-specific prompt instructions ──
+    # Gender-specific prompt instructions
     if gender == 'couple':
         gender_instruction = """You are styling a COUPLE — provide TWO coordinated looks: one for her, one for him. They should complement each other (matching accent colors, complementary formality, cohesive vibe) without being matchy-matchy.
 
@@ -339,7 +195,7 @@ styling_notes should cover: grooming (hair + beard direction), watch/accessory c
         gender_instruction = "You are styling a WOMAN."
         gender_instruction_2 = "woman"
 
-    # Content Creator mode
+    # Content Creator mode: add photo_tip to JSON schema
     photo_tip_schema = ''
     photo_tip_instruction = ''
     if occasion == 'Content Creator':
@@ -390,17 +246,26 @@ Include 6-8 items (or 10-12 for couples). Be specific — real product names, re
             max_tokens=max_tokens,
             messages=[{"role": "user", "content": prompt}]
         )
-        return jsonify(parse_claude_json(message.content[0].text))
+
+        response_text = message.content[0].text.strip()
+
+        if '```json' in response_text:
+            response_text = response_text.split('```json')[1].split('```')[0].strip()
+        elif '```' in response_text:
+            response_text = response_text.split('```')[1].split('```')[0].strip()
+
+        outfit_data = json.loads(response_text)
+        return jsonify(outfit_data)
+
     except json.JSONDecodeError as e:
         return jsonify({"error": f"Parse error: {str(e)}"}), 500
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 
-# ── Plan My Day ───────────────────────────────────────────────────────────────
-
 @app.route('/api/plan-day', methods=['POST'])
 def plan_day():
+    """Generate 3 coordinated looks for a full day's schedule."""
     data = request.json
     schedule = data.get('schedule', '')
     gender = data.get('gender', 'women')
@@ -409,9 +274,25 @@ def plan_day():
     style_profile = data.get('style_profile', '')
     celebrity = data.get('celebrity', 'No specific muse')
 
-    brands = get_budget_brands(gender, budget)
-    price_guide = get_price_guide(budget, currency)
-    increment_stat("day_plans")
+    budget_brands_women = {
+        'everyday': 'Zara, ASOS, Mango, H&M, Myntra, AJIO',
+        'midrange': 'COS, Reformation, & Other Stories, Massimo Dutti',
+        'luxury': 'Chanel, Dior, Prada, Gucci, Saint Laurent'
+    }
+    budget_brands_men = {
+        'everyday': 'Zara Man, H&M Men, ASOS Menswear, Uniqlo, Myntra Men',
+        'midrange': 'Massimo Dutti, COS Men, Reiss, Banana Republic',
+        'luxury': 'Tom Ford, Brunello Cucinelli, Zegna, Dior Men'
+    }
+    budget_brands = budget_brands_men if gender == 'men' else budget_brands_women
+    brands = budget_brands.get(budget, budget_brands['everyday'])
+
+    price_ranges = {
+        'everyday': {'INR': '₹800–₹3,500', 'USD': '$15–$60'},
+        'midrange': {'INR': '₹3,500–₹15,000', 'USD': '$60–$250'},
+        'luxury': {'INR': '₹40,000–₹2,00,000', 'USD': '$500–$3,000'}
+    }
+    price_guide = price_ranges.get(budget, price_ranges['everyday'])[currency]
 
     style_instruction = f"\nStyle muse: {celebrity}" if celebrity != 'No specific muse' else ''
     if style_profile:
@@ -460,17 +341,21 @@ Each look: 4-5 items. The third look has no transition_tip (end of day). Cohesiv
             max_tokens=3000,
             messages=[{"role": "user", "content": prompt}]
         )
-        return jsonify(parse_claude_json(message.content[0].text))
+        response_text = message.content[0].text.strip()
+        if '```json' in response_text:
+            response_text = response_text.split('```json')[1].split('```')[0].strip()
+        elif '```' in response_text:
+            response_text = response_text.split('```')[1].split('```')[0].strip()
+        return jsonify(json.loads(response_text))
     except json.JSONDecodeError as e:
         return jsonify({"error": f"Parse error: {str(e)}"}), 500
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 
-# ── Re-style ──────────────────────────────────────────────────────────────────
-
 @app.route('/api/restyle', methods=['POST'])
 def restyle():
+    """Re-style a saved look for a new occasion."""
     data = request.json
     look = data.get('look', {})
     new_occasion = data.get('new_occasion', '')
@@ -478,12 +363,28 @@ def restyle():
     budget = data.get('budget', 'everyday')
     currency = data.get('currency', 'INR')
 
-    brands = get_budget_brands(gender, budget)
-    price_guide = get_price_guide(budget, currency)
-    increment_stat("restyles")
-
     original_items = ', '.join([f"{i.get('name')} by {i.get('brand')}" for i in look.get('items', [])])
     original_name = look.get('look_name', 'your saved look')
+
+    budget_brands_women = {
+        'everyday': 'Zara, ASOS, Mango, H&M, Myntra, AJIO',
+        'midrange': 'COS, Reformation, & Other Stories, Massimo Dutti',
+        'luxury': 'Chanel, Dior, Prada, Gucci, Saint Laurent'
+    }
+    budget_brands_men = {
+        'everyday': 'Zara Man, H&M Men, ASOS Menswear, Uniqlo',
+        'midrange': 'Massimo Dutti, COS Men, Reiss',
+        'luxury': 'Tom Ford, Brunello Cucinelli, Dior Men'
+    }
+    budget_brands = budget_brands_men if gender == 'men' else budget_brands_women
+    brands = budget_brands.get(budget, budget_brands['everyday'])
+
+    price_ranges = {
+        'everyday': {'INR': '₹800–₹3,500', 'USD': '$15–$60'},
+        'midrange': {'INR': '₹3,500–₹15,000', 'USD': '$60–$250'},
+        'luxury': {'INR': '₹40,000–₹2,00,000', 'USD': '$500–$3,000'}
+    }
+    price_guide = price_ranges.get(budget, price_ranges['everyday'])[currency]
 
     prompt = f"""You are Ella, a Gossip Girl-coded AI fashion stylist.
 
@@ -524,17 +425,21 @@ Return ONLY valid JSON in the standard outfit format:
             max_tokens=2000,
             messages=[{"role": "user", "content": prompt}]
         )
-        return jsonify(parse_claude_json(message.content[0].text))
+        response_text = message.content[0].text.strip()
+        if '```json' in response_text:
+            response_text = response_text.split('```json')[1].split('```')[0].strip()
+        elif '```' in response_text:
+            response_text = response_text.split('```')[1].split('```')[0].strip()
+        return jsonify(json.loads(response_text))
     except json.JSONDecodeError as e:
         return jsonify({"error": f"Parse error: {str(e)}"}), 500
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 
-# ── Brand Match ───────────────────────────────────────────────────────────────
-
 @app.route('/api/brand-match', methods=['POST'])
 def brand_match():
+    """Match the user's style profile to brands worth exploring."""
     data = request.json
     style_profile = data.get('style_profile', '')
     quiz = data.get('quiz', {})
@@ -543,7 +448,6 @@ def brand_match():
     currency = data.get('currency', 'INR')
     celeb = data.get('celeb', '')
     era = data.get('era', '')
-    increment_stat("brand_matches")
 
     prompt = f"""You are Ella, a Gossip Girl-coded AI fashion stylist.
 
@@ -579,54 +483,178 @@ Return ONLY valid JSON:
             max_tokens=1500,
             messages=[{"role": "user", "content": prompt}]
         )
-        return jsonify(parse_claude_json(message.content[0].text))
+        response_text = message.content[0].text.strip()
+        if '```json' in response_text:
+            response_text = response_text.split('```json')[1].split('```')[0].strip()
+        elif '```' in response_text:
+            response_text = response_text.split('```')[1].split('```')[0].strip()
+        return jsonify(json.loads(response_text))
     except json.JSONDecodeError as e:
         return jsonify({"error": f"Parse error: {str(e)}"}), 500
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 
-# ── Closet ────────────────────────────────────────────────────────────────────
+@app.route('/ping')
+def ping():
+    return jsonify({'status': 'ok'})
+
+@app.route('/api/image-search', methods=['POST'])
+def image_search():
+    try:
+        data = request.json
+        query = data.get('query', '')
+        api_key = os.environ.get('GOOGLE_API_KEY')
+        cx = os.environ.get('GOOGLE_CX')
+        if not api_key or not cx:
+            return jsonify({'image_url': None, 'error': 'Google API not configured'})
+        response = req.get(
+            'https://www.googleapis.com/customsearch/v1',
+            params={
+                'key': api_key, 'cx': cx,
+                'q': query + ' fashion product',
+                'searchType': 'image', 'num': 1,
+                'imgSize': 'medium', 'safe': 'active'
+            },
+            timeout=5
+        )
+        items = response.json().get('items', [])
+        if items:
+            return jsonify({'image_url': items[0]['link']})
+        return jsonify({'image_url': None})
+    except Exception as e:
+        return jsonify({'image_url': None, 'error': str(e)})
+
+
+@app.route('/api/parse-voice', methods=['POST'])
+def parse_voice():
+    """Parse a free-form voice transcript into structured outfit request data."""
+    try:
+        data = request.json
+        transcript = data.get('transcript', '')
+        if not transcript.strip():
+            return jsonify({'error': 'No transcript provided'}), 400
+
+        prompt = f"""You are Ella, a fashion AI. A user just spoke this request to you:
+
+"{transcript}"
+
+Extract the following fields. If a field isn't mentioned, use the default shown.
+
+Return ONLY valid JSON:
+{{
+  "occasion": "what occasion/event they described — be specific (e.g. 'beach birthday party', 'job interview at a startup', 'date night dinner'). Default: 'everyday casual'",
+  "budget": "everyday | midrange | luxury — infer from words like 'affordable', 'designer', 'luxury', 'cheap', 'splurge'. Default: everyday",
+  "gender": "women | men | couple — infer from pronouns or explicit mention. Default: women",
+  "celeb": "any celebrity name mentioned as style muse. Default: ''",
+  "city": "city or location mentioned. Default: ''",
+  "season": "season mentioned (Summer, Winter, Monsoon, etc). Default: ''",
+  "era": "aesthetic era if mentioned (Clean Girl, Y2K, Minimalist, etc). Default: 'Clean Girl Aesthetic'",
+  "ella_greeting": "Ella's short 1-sentence spoken response confirming she heard the request — warm, Gossip Girl-coded. Start with 'Got it —' or 'On it —' etc. Under 20 words."
+}}"""
+
+        message = client.messages.create(
+            model="claude-sonnet-4-6",
+            max_tokens=500,
+            messages=[{"role": "user", "content": prompt}]
+        )
+        response_text = message.content[0].text.strip()
+        if '```json' in response_text:
+            response_text = response_text.split('```json')[1].split('```')[0].strip()
+        elif '```' in response_text:
+            response_text = response_text.split('```')[1].split('```')[0].strip()
+        parsed = json.loads(response_text)
+        return jsonify(parsed)
+    except json.JSONDecodeError as e:
+        return jsonify({'error': f'Parse error: {str(e)}'}), 500
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 
 @app.route('/api/closet/save', methods=['POST'])
 def save_closet():
-    """Save a closet item — persists to server so it survives browser clears."""
     try:
         data = request.json
-        existing = load_json_file(CLOSET_FILE, [])
-        # Avoid duplicates by name
-        existing = [i for i in existing if i.get('name') != data.get('name')]
+        closet_path = 'closet.json'
+        existing = []
+        if os.path.exists(closet_path):
+            with open(closet_path, 'r') as f:
+                existing = json.load(f)
         existing.append(data)
-        save_json_file(CLOSET_FILE, existing)
-        return jsonify({"success": True, "count": len(existing)})
+        with open(closet_path, 'w') as f:
+            json.dump(existing, f)
+        return jsonify({"success": True})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 
 @app.route('/api/closet/load', methods=['GET'])
 def load_closet():
-    """Load all saved closet items from server."""
     try:
-        return jsonify(load_json_file(CLOSET_FILE, []))
+        closet_path = 'closet.json'
+        if not os.path.exists(closet_path):
+            return jsonify([])
+        with open(closet_path, 'r') as f:
+            return jsonify(json.load(f))
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+# ── Ella's voice ─────────────────────────────────────────────────────────────
+# The ElevenLabs key and Ella's voice ID live in Render's environment variables
+# (ELEVENLABS_API_KEY, ELLA_VOICE_ID), never in index.html.
+import time
+from collections import deque
 
-@app.route('/api/closet/delete', methods=['POST'])
-def delete_closet_item():
-    """Delete a single closet item by name."""
+_tts_cache = {}            # short fixed lines ("Hi babe", loading lines) are only paid for once
+_tts_hits = {}             # ip -> recent request times, to stop anyone burning your credits
+TTS_MAX_CHARS = 400
+TTS_PER_IP = 20            # requests per 10 minutes per visitor
+
+
+def _tts_allowed(ip):
+    now = time.time()
+    q = _tts_hits.setdefault(ip, deque())
+    while q and now - q[0] > 600:
+        q.popleft()
+    if len(q) >= TTS_PER_IP:
+        return False
+    q.append(now)
+    return True
+
+
+@app.route('/api/tts', methods=['POST'])
+def tts():
+    key = os.environ.get('ELEVENLABS_API_KEY')
+    voice_id = os.environ.get('ELLA_VOICE_ID')
+    if not key or not voice_id:
+        return jsonify({'error': 'voice not configured'}), 503
+    text = ((request.get_json(silent=True) or {}).get('text') or '').strip()[:TTS_MAX_CHARS]
+    if not text:
+        return jsonify({'error': 'no text'}), 400
+    if text in _tts_cache:
+        return Response(_tts_cache[text], mimetype='audio/mpeg')
+    ip = (request.headers.get('X-Forwarded-For') or request.remote_addr or '').split(',')[0].strip()
+    if not _tts_allowed(ip):
+        return jsonify({'error': 'slow down'}), 429
     try:
-        data = request.json
-        name = data.get('name', '')
-        existing = load_json_file(CLOSET_FILE, [])
-        existing = [i for i in existing if i.get('name') != name]
-        save_json_file(CLOSET_FILE, existing)
-        return jsonify({"success": True})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        r = req.post(
+            f'https://api.elevenlabs.io/v1/text-to-speech/{voice_id}',
+            headers={'xi-api-key': key, 'Content-Type': 'application/json', 'Accept': 'audio/mpeg'},
+            json={
+                'text': text,
+                'model_id': 'eleven_multilingual_v2',
+                'voice_settings': {'stability': 0.35, 'similarity_boost': 0.9, 'style': 0.75, 'use_speaker_boost': True}
+            },
+            timeout=30
+        )
+    except req.RequestException:
+        return jsonify({'error': 'voice service unreachable'}), 502
+    if r.status_code != 200:
+        return jsonify({'error': 'voice service error', 'status': r.status_code}), 502
+    if len(text) <= 120 and len(_tts_cache) < 64:
+        _tts_cache[text] = r.content
+    return Response(r.content, mimetype='audio/mpeg')
 
-
-# ── Run ───────────────────────────────────────────────────────────────────────
 
 if __name__ == '__main__':
     app.run(debug=True, port=5001)
