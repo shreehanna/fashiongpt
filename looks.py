@@ -175,8 +175,11 @@ def avoid_list(gender, occasion, who, limit=30):
 
 # ── What goes into the prompt ─────────────────────────────────────────────────
 HEROES = {
-    'women': ['a dress', 'a co-ord set', 'a jumpsuit', 'a skirt and top', 'tailored trousers', 'a statement jacket or blazer',
-              'denim', 'a corset or bustier top', 'a knit', 'a shirt worn in an unexpected way', 'a maxi skirt', 'shorts or a skort'],
+    # Ella's starting points lean Upper East Side glam (see HOUSE_STYLE); still varied enough that no look repeats.
+    'women': ['a sequin or beaded mini dress', 'a ruffle-trimmed chiffon dress', 'a satin slip dress', 'a corset top with a mini skirt',
+              'a lace dress', 'a feather- or fringe-trimmed piece', 'a tweed jacket with a mini skirt', 'a bow-detail dress',
+              'a draped one-shoulder dress', 'a metallic co-ord', 'a puff-sleeve or bubble-hem dress', 'a halter-neck dress',
+              'an embellished playsuit', 'a velvet mini dress', 'a jacquard or brocade mini', 'a sheer layered chiffon dress'],
     'men': ['a suit', 'an overshirt', 'a statement jacket', 'a knit polo', 'pleated trousers', 'a bomber', 'a shacket',
             'a camp-collar shirt', 'denim', 'a waistcoat', 'a turtleneck', 'cargo or utility trousers'],
     'women_ethnic': ['a lehenga', 'a saree', 'an anarkali', 'a sharara set', 'a kurta set', 'a pre-draped saree', 'a co-ord kurta set',
@@ -187,6 +190,37 @@ HEROES = {
 PALETTES = ['jewel tones', 'all-neutral tonal', 'monochrome head to toe', 'pastels', 'black and one bold colour', 'earth tones',
             'metallics', 'red and pink', 'blue and white', 'warm brights', 'cool greys and silver', 'chocolate and cream',
             'olive and gold', 'print-on-print', 'white on white', 'burgundy and camel']
+WOMEN_PALETTES = ['champagne and gold', 'blush and rose gold', 'ivory and pearl', 'black and gold', 'one jewel tone with gold',
+                  'red and pink', 'silver and ice blue', 'emerald and gold', 'burgundy and blush', 'monochrome head to toe',
+                  'pastels with gold', 'nude and crystal', 'cobalt and silver', 'all-white with sparkle', 'lilac and silver']
+
+# Ella dresses women like an Upper East Side party girl, not an office. Every look prompt gets this except
+# Dupe (which must copy its inspiration) and men's looks.
+HOUSE_STYLE = (
+    "\n\nELLA'S HOUSE STYLE (Upper East Side glam). Unless the occasion needs something else, dress her like an "
+    "Upper East Side party girl, not like she's going to the office:\n"
+    "- One show-stopping, feminine hero piece. Think a champagne sequin-and-bead mini with cascading chiffon ruffles and a "
+    "wrap V-neck; or a satin slip, lace, a corset with a mini skirt, feathers or fringe, bows, tweed with a mini skirt by day.\n"
+    "- Flirty, leg-lengthening proportions: mini or above the knee for parties, dates, dinners and nights out.\n"
+    "- Texture and light: sequins, beading, satin, chiffon, lace, metallics. Palettes like champagne, blush, ivory and gold, "
+    "or one rich jewel tone.\n"
+    "- Finish the fantasy: a quilted chain-strap mini bag (flower appliqué is very her), statement gold or floral earrings, "
+    "fine stacked gold bangles, barely-there metallic strappy heels.\n"
+    "- Beauty: glossy blown-out waves, bronzed glowing skin, a soft smoky eye, nude-pink gloss.\n"
+    "- Never the hero piece: office tailoring, plain basics, all-beige minimalism, sensible flats.\n"
+    "- Work, interviews, religious or formal daytime events: keep it appropriate (no minis or sequins) but feminine and "
+    "polished, Blair Waldorf by day: tweed, pleats, bows, a headband, a pretty top-handle bag.\n"
+    "- Indian festive occasions: the same glam in Indian wear: sequin, mirror or bead work, ruffled or pre-draped sarees, "
+    "chiffon, blush and champagne, an embellished potli, statement jhumkas.\n"
+    "The user's chosen muse and era come first; this decides everything they leave open.")
+HOUSE_STYLE_COUPLE = (" This is for HER look. Style HIM to match her glamour, Chuck Bass to her Serena: a velvet or "
+                      "satin-lapel jacket, an open collar or a loosened silk tie, polished loafers, one sharp accessory.")
+
+
+def house_style(gender, mode=''):
+    if mode == 'dupe' or gender == 'men':
+        return ''
+    return HOUSE_STYLE + (HOUSE_STYLE_COUPLE if gender == 'couple' else '')
 
 
 def variation(gender, occasion):
@@ -194,8 +228,9 @@ def variation(gender, occasion):
     pool = HEROES.get(f"{'men' if gender == 'men' else 'women'}{'_ethnic' if ethnic else ''}")
     if gender == 'couple':
         pool = HEROES['women_ethnic' if ethnic else 'women']
+    palettes = PALETTES if gender == 'men' else WOMEN_PALETTES
     return (f"\nStarting point for this look (to keep every look new): build it around {random.choice(pool)} with a "
-            f"{random.choice(PALETTES)} palette, unless the muse or occasion clearly calls for something else.")
+            f"{random.choice(palettes)} palette, unless the muse or occasion clearly calls for something else.")
 
 
 def muse_rule(muse):
@@ -210,13 +245,13 @@ def muse_rule(muse):
             f"so the same muse never gives a repeat. In ella_note, name the real {m} look or signature you're channelling.")
 
 
-def rules(gender, occasion, muse, who):
+def rules(gender, occasion, muse, who, mode=''):
     try:
         given = avoid_list(gender, occasion, who)
     except Exception as e:
         print('[looks] avoid list skipped:', e)
         given = []
-    text = muse_rule(muse)
+    text = house_style(gender, mode) + muse_rule(muse)
     text += ("\n\nNEVER REPEAT A LOOK: every look must be new, for this person and for everyone else, even for the same "
              "occasion asked again. The same main pieces in a different colour or fabric still count as a repeat.")
     if given:
@@ -250,7 +285,7 @@ def _who_and_rules(data):
         who = identity()[1]
     except Exception:
         who = 'unknown'
-    return gender, occasion, muse, who, rules(gender, occasion, muse, who)
+    return gender, occasion, muse, who, rules(gender, occasion, muse, who, str(data.get('mode') or ''))
 
 
 def _clash(text, kind, gender, occasion, muse, who):

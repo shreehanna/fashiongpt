@@ -210,7 +210,7 @@ def get_outfit():
     data = request.json
     occasion = data.get('occasion', '')
     celebrity = data.get('celebrity', 'No specific muse')
-    era = data.get('era', 'Clean Girl Aesthetic')
+    era = data.get('era') or 'Upper East Side Glam'
     mode = data.get('mode', 'discover')
     budget = data.get('budget', 'everyday')
     currency = data.get('currency', 'INR')
@@ -685,7 +685,7 @@ Return ONLY valid JSON:
   "celeb": "any celebrity name mentioned as style muse. Default: ''",
   "city": "city or location mentioned. Default: ''",
   "season": "season mentioned (Summer, Winter, Monsoon, etc). Default: ''",
-  "era": "aesthetic era if mentioned (Clean Girl, Y2K, Minimalist, etc). Default: 'Clean Girl Aesthetic'",
+  "era": "aesthetic era if mentioned (Upper East Side Glam, Clean Girl, Y2K, Minimalist, etc). Default: 'Upper East Side Glam'",
   "ella_greeting": "Ella's short 1-sentence spoken response confirming she heard the request — warm, Gossip Girl-coded. Start with 'Got it —' or 'On it —' etc. Under 20 words."
 }}"""
 

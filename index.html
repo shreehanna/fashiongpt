@@ -1514,6 +1514,7 @@ body::after {
   </div>
 
   <div class="era-grid" id="era-grid">
+    <div class="era-tile" data-val="Upper East Side Glam" onclick="selectEra(this)"><div class="era-decade">Ella's pick</div><div class="era-name">Upper East Side</div></div>
     <div class="era-tile" data-val="1900s Edwardian" onclick="selectEra(this)"><div class="era-decade">1900s</div><div class="era-name">Edwardian</div></div>
     <div class="era-tile" data-val="1920s Flapper" onclick="selectEra(this)"><div class="era-decade">1920s</div><div class="era-name">Flapper</div></div>
     <div class="era-tile" data-val="1950s Old Hollywood" onclick="selectEra(this)"><div class="era-decade">1950s</div><div class="era-name">Old Hollywood</div></div>
@@ -2158,7 +2159,7 @@ async function generateOutfit() {
     const data = await requestLook('/api/outfit', {
         occasion: occasionContext,
         celebrity: state.celeb || 'No specific muse',
-        era: state.era || (wantsEthnic(state.occasion, state.dresscode) ? 'Contemporary Indian festive' : 'Clean Girl Aesthetic'),
+        era: state.era || (wantsEthnic(state.occasion, state.dresscode) ? 'Contemporary Indian festive' : 'Upper East Side Glam'),
         mode: selectedMode,
         budget: state.budget,
         currency: state.currency,
@@ -3186,7 +3187,7 @@ async function submitCompleteLook() {
         anchor_item: anchorItem,
         occasion: occasionHint || 'versatile everyday',
         celebrity: state.celeb || 'No specific muse',
-        era: state.era || (wantsEthnic(occasionHint) ? 'Contemporary Indian festive' : 'Clean Girl Aesthetic'),
+        era: state.era || (wantsEthnic(occasionHint) ? 'Contemporary Indian festive' : 'Upper East Side Glam'),
         gender: state.gender,
         budget: state.budget,
         currency: state.currency,
@@ -3469,7 +3470,7 @@ function parseVoiceLocal(transcript) {
   // Occasion — use the full transcript directly, cleaned up
   let occasion = transcript.replace(/^(prose of |basically |like )/gi,'').trim();
   if (occasion.length > 80) occasion = occasion.slice(0,80);
-  return { occasion, budget, gender, celeb, city, season, era: 'Clean Girl Aesthetic',
+  return { occasion, budget, gender, celeb, city, season, era: 'Upper East Side Glam',
     ella_greeting: "On it — styling you right now!" };
 }
 
@@ -3516,7 +3517,7 @@ async function runVoiceRequest(transcript) {
   state.celeb = parsed.celeb || '';
   state.city = parsed.city || '';
   state.season = parsed.season || '';
-  state.era = parsed.era || 'Clean Girl Aesthetic';
+  state.era = parsed.era || 'Upper East Side Glam';
   state.quiz = { body: '', skin: '', lifestyle: '', palette: [], styleSize: '' };
 
   closeVoiceMode();
@@ -3551,7 +3552,7 @@ async function generateOutfitFromState() {
     const data = await requestLook('/api/outfit', {
         occasion: occasionContext,
         celebrity: state.celeb || 'No specific muse',
-        era: state.era || (wantsEthnic(state.occasion, state.dresscode) ? 'Contemporary Indian festive' : 'Clean Girl Aesthetic'),
+        era: state.era || (wantsEthnic(state.occasion, state.dresscode) ? 'Contemporary Indian festive' : 'Upper East Side Glam'),
         mode: selectedMode,
         budget: state.budget,
         currency: state.currency,
