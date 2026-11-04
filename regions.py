@@ -7,6 +7,8 @@ The brand lists are examples per budget tier, not a whitelist: Ella can pick any
 store as long as it ships to that country.
 """
 
+from brand_atlas import COUNTRY_NAMES, pool_for
+
 REGIONS = {
     'IN': {
         'everyday': {
@@ -125,14 +127,19 @@ def retailers_for(code):
 
 
 def prompt_note(data):
-    """A paragraph for every styling prompt: shop only where this person can buy."""
+    """A paragraph for every styling prompt: the Brand Atlas pool for this budget, and only what this
+    person can buy and get delivered in their country."""
+    budget = str((data or {}).get('budget') or 'everyday')
     c = country_of(data)
+    pool = pool_for(budget, c[0] if c else None)
+    atlas = ("\nBrand Atlas brands for this budget. Pick mainly from these; use another brand only if it suits "
+             "the look better:\n" + pool + "\n")
     if not c:
-        return ''
+        return atlas
     code, name = c
-    return (f"\nShopper's country: {name} ({code}). Only choose pieces from brands or stores that sell and deliver to "
-            f"{name} right now: the brand's own {name} website, its stores there, or a retailer that ships there. "
-            f"Leave out anything that isn't sold in {name}. Use any brand that fits, high street to luxury "
-            f"(for example {', '.join(sorted({'Revolve', 'Nike', 'Net-a-Porter', 'Farfetch'}))} where they deliver), "
-            f"not only the examples given. For each item, set \"store\" to the website it can be bought from in {name}, "
-            f"as a bare domain (e.g. zara.com, prada.com, net-a-porter.com, myntra.com).")
+    return atlas + (
+        f"Shopper's country: {name} ({code}). Only choose pieces from brands or stores that sell and deliver to "
+        f"{name} right now: the brand's own {name} website, its stores there, or a retailer that ships there "
+        f"(for example Revolve, Net-a-Porter, Farfetch or Nike where they deliver). Leave out anything that isn't "
+        f"sold in {name}, even if it's in the atlas. For each item, set \"store\" to the website it can be bought "
+        f"from in {name}, as a bare domain (e.g. zara.com, prada.com, net-a-porter.com, myntra.com).")

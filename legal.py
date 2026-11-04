@@ -83,12 +83,13 @@ PAGES = {
 <ul>
   <li><b>Google sign-in:</b> your name, email address and profile picture, used to run your account and Pro subscription.</li>
   <li><b>Styling details:</b> your quiz answers, occasion, budget and any text or voice request you send, used only to create your looks. Voice recordings are sent for transcription and aren't stored by us. Saved looks and closet photos stay in your browser on your device.</li>
+  <li><b>Location:</b> if you allow it, your browser shares your position once; BigDataCloud turns it into your country and city so Ella only shows clothes you can buy and get delivered there. Only the country and city are kept, in your browser; your exact position is never stored or sent to us. You can pick your country by hand instead.</li>
   <li><b>Usage:</b> how many looks you've made today, to apply the daily limit.</li>
   <li><b>Payments:</b> handled by Razorpay (in India) or Dodo Payments (outside India). We receive your subscription and payment IDs and their status; we never see or store your card, UPI or bank details. Dodo Payments also receives your billing country to work out local tax.</li>
   <li><b>Analytics:</b> Google Analytics records anonymous visit statistics.</li>
 </ul>
 <h2>Who processes it for us</h2>
-<p>Anthropic (AI that writes the looks), ElevenLabs (stylist voices, and turning your voice requests into text), Google (sign-in, product image search, analytics), Razorpay and Dodo Payments (payments), Render (hosting) and Neon (database). They process data only to provide their service to us.</p>
+<p>Anthropic (AI that writes the looks), ElevenLabs (stylist voices, and turning your voice requests into text), Google (sign-in, product image search, analytics), Razorpay and Dodo Payments (payments), BigDataCloud (turning a location into a country), Serper (product search), Render (hosting) and Neon (database). They process data only to provide their service to us.</p>
 <h2>Cookies</h2>
 <p>We use one essential cookie to keep you signed in and to count free looks, and analytics cookies from Google Analytics.</p>
 <h2>How long we keep it</h2>
