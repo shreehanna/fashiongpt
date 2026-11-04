@@ -1,18 +1,205 @@
-from flask import Flask, request, jsonify, send_from_directory, Response
+from flask import Flask, request, jsonify, send_from_directory, Response, g, stream_with_context
 import anthropic
 import json
 import os
 import requests as req
 from shop import country_code, find_image
 from regions import brands_for, prompt_note
-from pro import owner_request
-from looks import create_unique   # every look checked against every look ever given
+import re
+from pro import owner_request, refund_look
+from looks import create_unique, stream_unique, RepeatError, STYLE_MODEL   # every look checked against every look ever given
 from alerts import watch_claude, voice_result, ServiceDown, bp as alerts_bp   # tells the owner when an API runs low
 
 # static_folder=None: only index.html is served, so app.py, pro.py and any data files can't be downloaded
 app = Flask(__name__, static_folder=None)
 client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
 watch_claude(client)   # counts each call's cost and alerts the owner if credits run low or out
+
+
+# ── Looks, written live ───────────────────────────────────────────────────────
+# Ella takes 15-25 s to write a whole look. With "stream": true the page gets her writing live, one JSON
+# object per line: the name and note as they grow, each piece field by field, and the full look last.
+def _strip_fences(text):
+    t = (text or '').strip()
+    if '```json' in t:
+        t = t.split('```json')[1].split('```')[0].strip()
+    elif '```' in t:
+        t = t.split('```')[1].split('```')[0].strip()
+    return t
+
+
+class LiveLook:
+    """Reads Ella's answer while she writes it and says what changed: the name and her note as they
+    grow, the piece she's on (field by field), and each piece once it's finished. Only the new part of
+    the text is looked at each time, so it stays cheap on Render's small CPU."""
+    FIELDS = ('category', 'name', 'brand', 'store', 'price', 'description')
+    _KEY = re.compile(r'"(\w+)"\s*:\s*"')
+
+    def __init__(self):
+        self.text = ''
+        self.vals = {'look_name': ('', False), 'ella_note': ('', False)}
+        self.items_at = None        # where the items list starts
+        self.pos = None             # scanning resumes here: between pieces, outside any text
+        self.done_items = 0
+        self.part = None            # the half-written piece last reported
+        self.closed = False
+
+    @staticmethod
+    def _string_at(text, i):
+        """(raw text of a JSON string starting at i, finished?)"""
+        esc = False
+        for j in range(i, len(text)):
+            ch = text[j]
+            if esc:
+                esc = False
+            elif ch == '\\':
+                esc = True
+            elif ch == '"':
+                return text[i:j], True
+        return text[i:], False
+
+    @staticmethod
+    def _decode(raw, finished):
+        if not finished:
+            if (len(raw) - len(raw.rstrip('\\'))) % 2:
+                raw = raw[:-1]                       # an escape cut in half
+            raw = re.sub(r'\\u[0-9a-fA-F]{0,3}$', '', raw)
+        try:
+            return json.loads('"' + raw + '"')
+        except ValueError:
+            return None
+
+    def _fields(self, obj):
+        out, i = {}, 0
+        while True:
+            m = self._KEY.search(obj, i)
+            if not m:
+                return out
+            raw, fin = self._string_at(obj, m.end())
+            val = self._decode(raw, fin)
+            if m.group(1) in self.FIELDS and val is not None:
+                out[m.group(1)] = val
+            if not fin:
+                return out
+            i = m.end() + len(raw) + 1
+
+    def feed(self, chunk):
+        self.text += chunk
+        text, out = self.text, []
+        for key, kind in (('look_name', 'name'), ('ella_note', 'note')):
+            old, fin = self.vals[key]
+            if fin:
+                continue
+            m = re.search(r'"' + key + r'"\s*:\s*"', text)
+            if not m:
+                continue
+            raw, fin = self._string_at(text, m.end())
+            val = self._decode(raw, fin)
+            if val is not None and (val != old or fin):
+                self.vals[key] = (val, fin)
+                out.append({'t': kind, key: val, 'done': fin})
+        if self.closed:
+            return out
+        if self.items_at is None:
+            m = re.search(r'"items"\s*:\s*\[', text)
+            if not m:
+                return out
+            self.items_at = self.pos = m.end()
+        depth, start, in_str, esc = 0, None, False, False
+        for i in range(self.pos, len(text)):
+            ch = text[i]
+            if in_str:
+                if esc:
+                    esc = False
+                elif ch == '\\':
+                    esc = True
+                elif ch == '"':
+                    in_str = False
+            elif ch == '"':
+                in_str = True
+            elif ch == '{':
+                if depth == 0:
+                    start = i
+                depth += 1
+            elif ch == '}':
+                depth -= 1
+                if depth == 0 and start is not None:
+                    try:
+                        item = json.loads(text[start:i + 1])
+                    except ValueError:
+                        item = None              # the full look at the end still has it
+                    if isinstance(item, dict):
+                        out.append({'t': 'item', 'i': self.done_items, 'item': item})
+                    self.done_items += 1
+                    self.part = None
+                    self.pos = i + 1
+                    start = None
+            elif ch == ']' and depth == 0:
+                self.closed = True
+                return out
+        if start is not None:                    # a piece she's in the middle of
+            fields = self._fields(text[start:])
+            if fields and fields != self.part:
+                self.part = fields
+                out.append({'t': 'item_part', 'i': self.done_items, 'item': fields})
+        return out
+
+
+QUICK_MODEL = os.environ.get('QUICK_MODEL') or 'claude-haiku-5-5'
+
+
+def quick_create(prompt, max_tokens):
+    """Small, simple jobs (like understanding a spoken request) on the fast model, so Talk starts the
+    look sooner. Falls back to the styling model if the fast one isn't available."""
+    try:
+        return client.messages.create(model=QUICK_MODEL, max_tokens=max_tokens,
+                                      messages=[{'role': 'user', 'content': prompt}])
+    except ServiceDown:
+        raise
+    except Exception as e:
+        print(f'[talk] {QUICK_MODEL} failed ({e!r}); using {STYLE_MODEL}')
+        return client.messages.create(model=STYLE_MODEL, max_tokens=max_tokens,
+                                      messages=[{'role': 'user', 'content': prompt}])
+
+
+def _line(ev):
+    return json.dumps(ev, ensure_ascii=False) + '\n'
+
+
+def look_response(data, prompt, max_tokens):
+    """The look as one JSON reply, or written live when the page sends "stream": true."""
+    if not data.get('stream'):
+        message = create_unique(client, data, prompt, max_tokens)
+        return jsonify(json.loads(_strip_fences(message.content[0].text)))
+    ticket = getattr(g, 'look_ticket', None)
+    events = stream_unique(client, data, prompt, max_tokens)
+
+    def gen():
+        live = LiveLook()
+        yield _line({'t': 'start'})
+        try:
+            for kind, payload in events:
+                if kind == 'delta':
+                    for ev in live.feed(payload):
+                        yield _line(ev)
+                elif kind == 'restart':          # that was a repeat: Ella starts over
+                    live = LiveLook()
+                    yield _line({'t': 'restart'})
+                else:
+                    yield _line({'t': 'done', 'look': json.loads(_strip_fences(payload))})
+                    return
+            raise RuntimeError('the look ended early')
+        except Exception as e:
+            if ticket:
+                refund_look(ticket)              # a look that failed doesn't use up a free look
+            print('[look] live look failed:', repr(e))
+            friendly = str(e) if isinstance(e, (ServiceDown, RepeatError)) else 'Ella hit a snag. Please try again.'
+            yield _line({'t': 'error', 'error': friendly})
+
+    resp = Response(stream_with_context(gen()), mimetype='application/x-ndjson')
+    resp.headers['Cache-Control'] = 'no-cache, no-transform'
+    resp.headers['X-Accel-Buffering'] = 'no'     # tell any proxy not to hold the parts back
+    return resp
 
 @app.route('/')
 def index():
@@ -112,14 +299,7 @@ Return ONLY valid JSON:
 Include 5-7 items. Be specific — real product names."""
 
         try:
-            message = create_unique(client, data, dupe_prompt, 2000)
-            response_text = message.content[0].text.strip()
-            if '```json' in response_text:
-                response_text = response_text.split('```json')[1].split('```')[0].strip()
-            elif '```' in response_text:
-                response_text = response_text.split('```')[1].split('```')[0].strip()
-            outfit_data = json.loads(response_text)
-            return jsonify(outfit_data)
+            return look_response(data, dupe_prompt, 2000)
         except json.JSONDecodeError as e:
             return jsonify({"error": f"Parse error: {str(e)}"}), 500
         except Exception as e:
@@ -166,14 +346,7 @@ Return ONLY valid JSON:
 Include 4-6 supporting items."""
 
         try:
-            message = create_unique(client, data, complete_prompt, 2000)
-            response_text = message.content[0].text.strip()
-            if '```json' in response_text:
-                response_text = response_text.split('```json')[1].split('```')[0].strip()
-            elif '```' in response_text:
-                response_text = response_text.split('```')[1].split('```')[0].strip()
-            outfit_data = json.loads(response_text)
-            return jsonify(outfit_data)
+            return look_response(data, complete_prompt, 2000)
         except json.JSONDecodeError as e:
             return jsonify({"error": f"Parse error: {str(e)}"}), 500
         except Exception as e:
@@ -244,17 +417,7 @@ Include 6-8 items (or 10-12 for couples). Be specific — real product names, re
 
     try:
         max_tokens = 3500 if gender == 'couple' else 2000
-        message = create_unique(client, data, prompt, max_tokens)
-
-        response_text = message.content[0].text.strip()
-
-        if '```json' in response_text:
-            response_text = response_text.split('```json')[1].split('```')[0].strip()
-        elif '```' in response_text:
-            response_text = response_text.split('```')[1].split('```')[0].strip()
-
-        outfit_data = json.loads(response_text)
-        return jsonify(outfit_data)
+        return look_response(data, prompt, max_tokens)
 
     except json.JSONDecodeError as e:
         return jsonify({"error": f"Parse error: {str(e)}"}), 500
@@ -419,13 +582,7 @@ Return ONLY valid JSON in the standard outfit format:
 }}"""
 
     try:
-        message = create_unique(client, data, prompt, 2000)
-        response_text = message.content[0].text.strip()
-        if '```json' in response_text:
-            response_text = response_text.split('```json')[1].split('```')[0].strip()
-        elif '```' in response_text:
-            response_text = response_text.split('```')[1].split('```')[0].strip()
-        return jsonify(json.loads(response_text))
+        return look_response(data, prompt, 2000)
     except json.JSONDecodeError as e:
         return jsonify({"error": f"Parse error: {str(e)}"}), 500
     except Exception as e:
@@ -475,7 +632,7 @@ Return ONLY valid JSON:
 
     try:
         message = client.messages.create(
-            model="claude-sonnet-4-6",
+            model=STYLE_MODEL,
             max_tokens=1500,
             messages=[{"role": "user", "content": prompt}]
         )
@@ -532,11 +689,7 @@ Return ONLY valid JSON:
   "ella_greeting": "Ella's short 1-sentence spoken response confirming she heard the request — warm, Gossip Girl-coded. Start with 'Got it —' or 'On it —' etc. Under 20 words."
 }}"""
 
-        message = client.messages.create(
-            model="claude-sonnet-4-6",
-            max_tokens=500,
-            messages=[{"role": "user", "content": prompt}]
-        )
+        message = quick_create(prompt, 500)
         response_text = message.content[0].text.strip()
         if '```json' in response_text:
             response_text = response_text.split('```json')[1].split('```')[0].strip()

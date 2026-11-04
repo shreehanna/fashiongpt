@@ -89,6 +89,7 @@ NOT_BRAND_SITES = re.compile(
     r'|flipkart|vogue|elle|harpersbazaar|glamour|businessoffashion|lyst|google)\.', re.I)
 
 _cache = OrderedDict()
+_cache_lock = __import__('threading').Lock()   # the server handles several requests at once
 _domains = {}
 _hits = {}
 PER_IP = 40              # look lookups per 10 minutes per visitor
@@ -473,10 +474,11 @@ def resolve(brand, name, country='IN', store=None, trace=None):
         return None
     gl = (country or 'IN').lower()
     key = f'{gl}|{brand.lower()}|{name.lower()}|{(store or "").lower()}'
-    hit = _cache.get(key)
-    if hit and trace is None and time.time() - hit[0] < CACHE_SECONDS:
-        _cache.move_to_end(key)
-        return hit[1]
+    with _cache_lock:
+        hit = _cache.get(key)
+        if hit and trace is None and time.time() - hit[0] < CACHE_SECONDS:
+            _cache.move_to_end(key)
+            return hit[1]
 
     tried, found, home = set(), None, None
     candidates = []
@@ -515,9 +517,11 @@ def resolve(brand, name, country='IN', store=None, trace=None):
     if not found:
         site = home or sd
         found = {'url': None, 'site': site, 'site_url': f'https://{"www." if site and site.count(".") == 1 else ""}{site}' if site else None}
-    _cache[key] = (time.time(), found)
-    if len(_cache) > 2000:
-        _cache.popitem(last=False)
+    with _cache_lock:
+        _cache[key] = (time.time(), found)
+        _cache.move_to_end(key)
+        while len(_cache) > 2000:
+            _cache.popitem(last=False)
     return found
 
 

@@ -47,7 +47,7 @@ from datetime import datetime, timedelta, timezone
 from functools import wraps
 
 import requests as req
-from flask import Blueprint, jsonify, make_response, request, session
+from flask import Blueprint, g, jsonify, make_response, request, session
 
 PRICES = {'monthly': 199, 'yearly': 1999}            # rupees (Razorpay)
 CYCLES = {'monthly': 60, 'yearly': 5}                 # Razorpay billing cycles per subscription (5 years)
@@ -343,6 +343,7 @@ def metered(view):
         if not ticket['ok']:
             return jsonify({'error': 'limit', 'pro': ticket['pro'], 'limit': ticket['limit'],
                             'signed_in': ticket['signed_in']}), 402
+        g.look_ticket = ticket       # a look written live refunds this itself if it fails part-way
         try:
             resp = make_response(view(*a, **kw))
         except Exception:

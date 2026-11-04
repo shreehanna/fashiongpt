@@ -1135,6 +1135,16 @@ body::after {
 .pro-legal a { color: var(--fg2); }
 .pro-sheet .pro-error[hidden], .pro-sheet .pro-account[hidden], .pro-sheet .pro-test[hidden], .pro-sheet .pro-region[hidden] { display: none !important; }
 .voice-subtitle.is-error { color: #F2B8A8; }
+.live-writing { margin: 18px auto 0; text-align: center; font: 500 12px var(--sans); letter-spacing: 0.14em; text-transform: uppercase; color: var(--gold-ink); }
+.live-writing::before { content: ''; display: inline-block; width: 7px; height: 7px; margin-right: 10px; border-radius: 50%; background: var(--gold); vertical-align: 1px; animation: livePulse 1.1s ease-in-out infinite; }
+.live-writing[hidden] { display: none; }
+.is-typing::after { content: ''; display: inline-block; width: 2px; height: 0.95em; margin-left: 3px; vertical-align: -0.1em; background: var(--gold); animation: caretBlink 0.9s steps(1) infinite; }
+.outfit-item.is-writing { box-shadow: 0 0 0 1px rgba(154,116,51,0.45), 0 8px 24px rgba(60,40,15,0.10); }
+.outfit-item.is-writing .oi-img-wrap, .outfit-item.is-writing .oi-pinterest, .outfit-item.is-writing .oi-shop { display: none; }
+@keyframes caretBlink { 50% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .is-typing::after { animation: none; } }
+@keyframes livePulse { 0%, 100% { opacity: 0.25; transform: scale(0.8); } 50% { opacity: 1; transform: scale(1.15); } }
+@media (prefers-reduced-motion: reduce) { .live-writing::before { animation: none; } }
 /* ── Owner only: API status + low-credit alerts ── */
 .owner-alert {
   position: fixed; left: 50%; transform: translateX(-50%); z-index: 250;
@@ -2145,10 +2155,7 @@ async function generateOutfit() {
   const recentNames = state.recentLooks.slice(0, 5).map(l => l.look_name).filter(Boolean);
 
   try {
-    const res = await fetch('/api/outfit', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+    const data = await requestLook('/api/outfit', {
         occasion: occasionContext,
         celebrity: state.celeb || 'No specific muse',
         era: state.era || (wantsEthnic(state.occasion, state.dresscode) ? 'Contemporary Indian festive' : 'Clean Girl Aesthetic'),
@@ -2160,26 +2167,24 @@ async function generateOutfit() {
         closet_context: closetContext,
         recent_look_names: recentNames,
         body_profile: state.quiz.styleSize || ''
-      })
     });
-
-    if (!res.ok) throw await lookError(res);
-    const data = await res.json();
-    renderResults(data);
     countLook();
     goTo('screen-results');
     switchTab('outfit');
     spawnSparkles();
     if (data.ella_note) setTimeout(() => stylistSpeak(shortNote(data.ella_note)), 600);
   } catch(err) {
+    if (err.aborted) return;   // a newer look replaced this one
     console.error(err);
     goTo('screen-mode');
-    if (!err.limit) alert('Ella hit a snag — please try again! ✨');
+    if (!err.limit) alert(err.friendly || 'Ella hit a snag — please try again! ✨');
   }
 }
 
 // ── Render results ──
-function renderResults(data) {
+// A look is drawn in three parts so it can arrive live: the header, each piece, then the notes,
+// shop links and history once the whole look is in.
+function beginResults(data) {
   state.currentOutfit = data;
   document.getElementById('result-title').textContent = data.look_name || 'Your Look';
   document.getElementById('result-meta').textContent =
@@ -2192,67 +2197,93 @@ function renderResults(data) {
   if (tu) { tu.className = 'thumb-btn'; tu.textContent = '👍 Love it'; }
   if (td) { td.className = 'thumb-btn'; td.textContent = '👎 Not quite'; }
 
-  // Outfit items
+  document.getElementById('outfit-grid').innerHTML = '';
+  const sn = document.getElementById('styling-notes');
+  if (sn) sn.style.display = 'none';
+  return [];
+}
+function addResultItem(item, anchors, draft) {
   const grid = document.getElementById('outfit-grid');
-  grid.innerHTML = '';
-  const shopAnchors = [];
-  (data.items || []).forEach(item => {
-    const pinterestQuery = encodeURIComponent(`${item.name} ${item.brand} fashion`);
-    const pinterestUrl = `https://pinterest.com/search/pins/?q=${pinterestQuery}`;
-    const shopUrl = item.shop_url || buildShopUrl(item.brand, item.name);
-    // Pinterest label: "Shop [item name] on Pinterest"
-    const pinterestLabel = `Shop ${item.name} on Pinterest`;
-
-    const itemId = `item-img-${Math.random().toString(36).slice(2)}`;
-    const div = document.createElement('div');
-    div.className = 'outfit-item';
-    div.innerHTML = `
-      <div class="oi-img-wrap" id="${itemId}">
-        <div class="oi-img-skeleton"></div>
-      </div>
-      <div class="oi-category">${item.category || ''}</div>
-      <div class="oi-name">${item.name}</div>
-      <div class="oi-brand">${item.brand}</div>
-      <div class="oi-price">${item.price}</div>
-      <div class="oi-desc">${item.description || ''}</div>
-      <a class="oi-pinterest" href="${pinterestUrl}" target="_blank" rel="noopener">
-        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.373 0 0 5.373 0 12c0 5.084 3.163 9.426 7.627 11.174-.105-.949-.2-2.405.042-3.441.218-.937 1.407-5.965 1.407-5.965s-.359-.719-.359-1.782c0-1.668.967-2.914 2.171-2.914 1.023 0 1.518.769 1.518 1.69 0 1.029-.655 2.568-.994 3.995-.283 1.194.599 2.169 1.777 2.169 2.133 0 3.772-2.249 3.772-5.495 0-2.873-2.064-4.882-5.012-4.882-3.414 0-5.418 2.561-5.418 5.207 0 1.031.397 2.138.893 2.738a.36.36 0 0 1 .083.345l-.333 1.36c-.053.22-.174.267-.402.161-1.499-.698-2.436-2.889-2.436-4.649 0-3.785 2.75-7.262 7.929-7.262 4.163 0 7.398 2.967 7.398 6.931 0 4.136-2.607 7.464-6.227 7.464-1.216 0-2.359-.632-2.75-1.378l-.748 2.853c-.271 1.043-1.002 2.35-1.492 3.146C9.57 23.812 10.763 24 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0z"/></svg>
-        ${pinterestLabel}
-      </a>
-      <div class="oi-match" hidden></div>
-      <a class="oi-shop" href="${shopUrl}" target="_blank" rel="noopener">
-        🛒 Shop on ${item.brand}
-      </a>
-    `;
-    grid.appendChild(div);
-    shopAnchors.push(div.querySelector('.oi-shop'));
-
-    // Fetch product image in background
-    const imgQuery = `${item.name} ${item.brand}`;
-    fetch('/api/image-search', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({query: imgQuery})
-    }).then(r => r.json()).then(result => {
-      const wrap = document.getElementById(itemId);
-      if (!wrap) return;
-      if (result.image_url) {
-        const img = document.createElement('img');
-        img.className = 'oi-img';
-        img.src = result.image_url;
-        img.alt = item.name;
-        img.onerror = () => { wrap.style.display = 'none'; };
-        wrap.innerHTML = '';
-        wrap.appendChild(img);
-      } else {
-        wrap.style.display = 'none';
-      }
-    }).catch(() => {
-      const wrap = document.getElementById(itemId);
-      if (wrap) wrap.style.display = 'none';
-    });
+  const itemId = `item-img-${Math.random().toString(36).slice(2)}`;
+  const div = document.createElement('div');
+  div.className = 'outfit-item';
+  div.dataset.imgId = itemId;
+  div.innerHTML = `
+    <div class="oi-img-wrap" id="${itemId}">
+      <div class="oi-img-skeleton"></div>
+    </div>
+    <div class="oi-category"></div>
+    <div class="oi-name"></div>
+    <div class="oi-brand"></div>
+    <div class="oi-price"></div>
+    <div class="oi-desc"></div>
+    <a class="oi-pinterest" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.373 0 0 5.373 0 12c0 5.084 3.163 9.426 7.627 11.174-.105-.949-.2-2.405.042-3.441.218-.937 1.407-5.965 1.407-5.965s-.359-.719-.359-1.782c0-1.668.967-2.914 2.171-2.914 1.023 0 1.518.769 1.518 1.69 0 1.029-.655 2.568-.994 3.995-.283 1.194.599 2.169 1.777 2.169 2.133 0 3.772-2.249 3.772-5.495 0-2.873-2.064-4.882-5.012-4.882-3.414 0-5.418 2.561-5.418 5.207 0 1.031.397 2.138.893 2.738a.36.36 0 0 1 .083.345l-.333 1.36c-.053.22-.174.267-.402.161-1.499-.698-2.436-2.889-2.436-4.649 0-3.785 2.75-7.262 7.929-7.262 4.163 0 7.398 2.967 7.398 6.931 0 4.136-2.607 7.464-6.227 7.464-1.216 0-2.359-.632-2.75-1.378l-.748 2.853c-.271 1.043-1.002 2.35-1.492 3.146C9.57 23.812 10.763 24 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0z"/></svg>
+      <span class="oi-pin-label"></span>
+    </a>
+    <div class="oi-match" hidden></div>
+    <a class="oi-shop" target="_blank" rel="noopener"></a>
+  `;
+  fillResultItem(div, item);
+  grid.appendChild(div);
+  anchors.push(div.querySelector('.oi-shop'));
+  if (!draft) loadItemImage(div, item);
+  return div;
+}
+// Text goes in as text (never as HTML), so a piece can be filled in while Ella is still writing it.
+function fillResultItem(div, item) {
+  const set = (sel, v) => { const el = div.querySelector(sel); if (el) el.textContent = v || ''; };
+  set('.oi-category', item.category);
+  set('.oi-name', item.name);
+  set('.oi-brand', item.brand);
+  set('.oi-price', item.price);
+  set('.oi-desc', item.description);
+  div.querySelector('.oi-pinterest').href = `https://pinterest.com/search/pins/?q=${encodeURIComponent(`${item.name || ''} ${item.brand || ''} fashion`)}`;
+  set('.oi-pin-label', `Shop ${item.name || ''} on Pinterest`);
+  const shop = div.querySelector('.oi-shop');
+  if (!shop.classList.contains('is-finding')) {
+    shop.href = item.shop_url || buildShopUrl(item.brand || '', item.name || '');
+    shop.textContent = `🛒 Shop on ${item.brand || ''}`;
+  }
+}
+// While a piece is being written, the blinking cursor sits on the field Ella is writing.
+function markTyping(div, item) {
+  div.querySelectorAll('.is-typing').forEach(el => el.classList.remove('is-typing'));
+  if (!item) return;
+  const order = [['description', '.oi-desc'], ['price', '.oi-price'], ['brand', '.oi-brand'], ['name', '.oi-name'], ['category', '.oi-category']];
+  const at = order.find(([k]) => item[k]);
+  if (at) div.querySelector(at[1]).classList.add('is-typing');
+}
+function loadItemImage(div, item) {
+  const itemId = div.dataset.imgId;
+  fetch('/api/image-search', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({query: `${item.name} ${item.brand}`})
+  }).then(r => r.json()).then(result => {
+    const wrap = document.getElementById(itemId);
+    if (!wrap) return;
+    if (result.image_url) {
+      const img = document.createElement('img');
+      img.className = 'oi-img';
+      img.src = result.image_url;
+      img.alt = item.name;
+      img.onerror = () => { wrap.style.display = 'none'; };
+      wrap.innerHTML = '';
+      wrap.appendChild(img);
+    } else {
+      wrap.style.display = 'none';
+    }
+  }).catch(() => {
+    const wrap = document.getElementById(itemId);
+    if (wrap) wrap.style.display = 'none';
   });
-  findShopLinks(data.items || [], shopAnchors);
+}
+function finishResults(data, anchors) {
+  state.currentOutfit = data;
+  document.getElementById('result-title').textContent = data.look_name || 'Your Look';
+  document.getElementById('ella-note').textContent = data.ella_note || '';
+  findShopLinks(data.items || [], anchors);
 
   // Auto-log to recentLooks (max 5)
   const recentEntry = {
@@ -2287,6 +2318,139 @@ function renderResults(data) {
   } else {
     sn.style.display = 'none';
   }
+}
+function renderResults(data) {
+  const anchors = beginResults(data);
+  (data.items || []).forEach(item => addResultItem(item, anchors));
+  finishResults(data, anchors);
+}
+
+// ── Looks arrive live ──
+// Ella takes 15-25 s to write a whole look, so the server sends what she's writing as she writes it:
+// the name and her note letter by letter, then each piece field by field. The page shows them straight away and finishes the look
+// (notes, shop links, history) when the full look arrives.
+function typeInto(id, text, done) {
+  const el = document.getElementById(id);
+  el.textContent = text;
+  el.classList.toggle('is-typing', !done);
+}
+function setLiveWriting(text) {
+  let el = document.getElementById('live-writing');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'live-writing'; el.className = 'live-writing'; el.setAttribute('role', 'status');
+    document.getElementById('outfit-grid').insertAdjacentElement('afterend', el);
+  }
+  el.textContent = text || '';
+  el.hidden = !text;
+}
+let liveLookCtrl = null;   // only one look is written at a time; a new request cancels the old one
+async function requestLook(url, body, onStart) {
+  if (liveLookCtrl) liveLookCtrl.abort();
+  const ctrl = liveLookCtrl = new AbortController();
+  const replaced = e => {
+    if (ctrl.signal.aborted) { const a = new Error('replaced by a newer look'); a.aborted = true; return a; }
+    return e;
+  };
+  let res;
+  try {
+    res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(Object.assign({}, body, { stream: true })),
+      signal: ctrl.signal
+    });
+  } catch (e) { throw replaced(e); }
+  if (!res.ok) throw await lookError(res);
+  if (!(res.headers.get('content-type') || '').includes('ndjson')) {   // an older server: all at once
+    const data = await res.json();
+    if (onStart) onStart();
+    renderResults(data);
+    return data;
+  }
+  let look = null, live = null, buf = '';
+  // Follow Ella down the page as she starts each piece, unless the person has scrolled themselves.
+  let userScrolled = false;
+  const stopFollowing = () => { userScrolled = true; };
+  ['wheel', 'touchmove', 'keydown'].forEach(t => window.addEventListener(t, stopFollowing, { passive: true, once: true }));
+  const follow = el => {
+    if (userScrolled || ctrl.signal.aborted) return;
+    try { el.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch (e) {}
+  };
+  const begin = () => {
+    if (live) return;
+    if (onStart) onStart();
+    live = { anchors: [], items: [], cards: [] };
+    beginResults({ look_name: 'Ella is styling…', ella_note: '', items: live.items });
+    setLiveWriting('Ella is choosing the pieces…');
+    goTo('screen-results');
+    switchTab('outfit');
+  };
+  const handle = ev => {
+    if (ctrl.signal.aborted) return;           // a newer look owns the screen now
+    if (ev.t === 'name') { begin(); state.currentOutfit.look_name = ev.look_name; typeInto('result-title', ev.look_name, ev.done); }
+    else if (ev.t === 'note') { begin(); state.currentOutfit.ella_note = ev.ella_note; typeInto('ella-note', ev.ella_note, ev.done); }
+    else if (ev.t === 'item_part' || ev.t === 'item') {
+      begin();
+      const done = ev.t === 'item';
+      let card = live.cards[ev.i];
+      if (!card) {
+        card = live.cards[ev.i] = addResultItem(ev.item, live.anchors, true);
+        holdShopLink(live.anchors[live.anchors.length - 1]);
+        card.classList.add('is-writing');
+        follow(card);
+      } else {
+        fillResultItem(card, ev.item);
+      }
+      markTyping(card, done ? null : ev.item);
+      if (done) { live.items[ev.i] = ev.item; card.classList.remove('is-writing'); loadItemImage(card, ev.item); }
+    }
+    else if (ev.t === 'restart' && live) {
+      live.items = []; live.anchors = []; live.cards = [];
+      beginResults({ look_name: 'Ella is restyling…', ella_note: 'That look has been given to someone before, so Ella is starting over with new pieces.', items: live.items });
+      setLiveWriting('Ella is choosing new pieces…');
+    }
+    else if (ev.t === 'done') look = ev.look;
+    else if (ev.t === 'error') { const e = new Error(ev.error || 'failed'); e.friendly = ev.error; throw e; }
+  };
+  try {
+    if (res.body && res.body.getReader) {
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      for (;;) {
+        const { value, done } = await reader.read();
+        if (value) buf += decoder.decode(value, { stream: true });
+        let i;
+        while ((i = buf.indexOf('\n')) >= 0) {
+          const line = buf.slice(0, i).trim();
+          buf = buf.slice(i + 1);
+          if (line) handle(JSON.parse(line));
+        }
+        if (done) break;
+      }
+    } else {
+      buf = await res.text();
+    }
+    buf.split('\n').forEach(line => { if (line.trim()) handle(JSON.parse(line)); });
+  } catch (e) {
+    throw replaced(e);
+  } finally {
+    ['wheel', 'touchmove', 'keydown'].forEach(t => window.removeEventListener(t, stopFollowing));
+    if (liveLookCtrl === ctrl) {
+      setLiveWriting(''); liveLookCtrl = null;
+      document.querySelectorAll('#screen-results .is-typing').forEach(el => el.classList.remove('is-typing'));
+    }
+  }
+  if (ctrl.signal.aborted) throw replaced(null);
+  if (!look) throw new Error('The look stopped half-way.');
+  const items = look.items || [];
+  if (live && live.items.filter(Boolean).length === items.length && items.every((it, k) => live.items[k] && live.items[k].name === it.name)) {
+    finishResults(look, live.anchors);           // every piece is already on screen
+  } else {
+    if (!live && onStart) onStart();
+    renderResults(look);
+  }
+  return look;
 }
 
 // ── Where the shopper is ──
@@ -2437,6 +2601,13 @@ function showShopPhoto(anchor, url) {
   img.onload = () => { wrap.innerHTML = ''; wrap.appendChild(img); wrap.style.display = ''; };   // the photo of the exact product linked
   img.src = url;
 }
+function holdShopLink(a) {
+  if (!a) return;
+  a.removeAttribute('href');
+  a.setAttribute('aria-disabled', 'true');
+  a.classList.add('is-finding');
+  a.textContent = 'Finding the exact item…';
+}
 async function findShopLinks(items, anchors) {
   const need = [];
   items.forEach((it, i) => {
@@ -2445,14 +2616,7 @@ async function findShopLinks(items, anchors) {
   });
   if (!need.length) return;
   // until the lookup answers, the button isn't a link, so nobody lands on a generic search page by accident
-  need.forEach(i => {
-    const a = anchors[i];
-    if (!a) return;
-    a.removeAttribute('href');
-    a.setAttribute('aria-disabled', 'true');
-    a.classList.add('is-finding');
-    a.textContent = 'Finding the exact item…';
-  });
+  need.forEach(i => holdShopLink(anchors[i]));
   const done = new Set();
   try {
     const ctrl = new AbortController();
@@ -2878,28 +3042,21 @@ async function openRestyleModal(look, newOccasion) {
   document.getElementById('gen-message').innerHTML = `Re-styling <em>${look.look_name || look.title}</em> for ${newOccasion}…`;
   goTo('screen-generating');
   try {
-    const res = await fetch('/api/restyle', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+    const data = await requestLook('/api/restyle', {
         look,
         new_occasion: newOccasion + (wantsEthnic(newOccasion) ? ethnicBrief(state.gender || 'women') : ''),
         gender: state.gender,
         budget: state.budget,
         currency: state.currency
-      })
-    });
-    if (!res.ok) throw await lookError(res);
-    const data = await res.json();
-    state.occasion = newOccasion;
-    renderResults(data);
+    }, () => { state.occasion = newOccasion; });
     countLook();
     goTo('screen-results');
     switchTab('outfit');
     spawnSparkles();
   } catch(err) {
+    if (err.aborted) return;   // a newer look replaced this one
     goTo('screen-results');
-    if (!err.limit) alert('Ella hit a snag re-styling — try again!');
+    if (!err.limit) alert(err.friendly || 'Ella hit a snag re-styling — try again!');
   }
 }
 
@@ -2989,29 +3146,22 @@ async function submitDupeLook() {
   document.getElementById('gen-message').textContent = 'Finding affordable dupes…';
   goTo('screen-generating');
   try {
-    const res = await fetch('/api/outfit', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+    const data = await requestLook('/api/outfit', {
         mode: 'dupe',
         inspo_look: inspoLook,
         gender: state.gender,
         budget: state.budget,
         currency: state.currency,
         occasion: 'Dupe look'
-      })
-    });
-    if (!res.ok) throw await lookError(res);
-    const data = await res.json();
-    state.occasion = `Dupe: ${inspoLook.slice(0, 40)}`;
-    renderResults(data);
+    }, () => { state.occasion = `Dupe: ${inspoLook.slice(0, 40)}`; });
     countLook();
     goTo('screen-results');
     switchTab('outfit');
     spawnSparkles();
   } catch(err) {
+    if (err.aborted) return;   // a newer look replaced this one
     goTo('screen-landing');
-    if (!err.limit) alert('Ella hit a snag — try again!');
+    if (!err.limit) alert(err.friendly || 'Ella hit a snag — try again!');
   }
 }
 
@@ -3031,10 +3181,7 @@ async function submitCompleteLook() {
   document.getElementById('gen-message').textContent = 'Building around your piece…';
   goTo('screen-generating');
   try {
-    const res = await fetch('/api/outfit', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+    const data = await requestLook('/api/outfit', {
         mode: 'complete',
         anchor_item: anchorItem,
         occasion: occasionHint || 'versatile everyday',
@@ -3044,19 +3191,15 @@ async function submitCompleteLook() {
         budget: state.budget,
         currency: state.currency,
         style_profile: buildQuizContext() + (wantsEthnic(occasionHint) ? ethnicBrief(state.gender || 'women') : '')
-      })
-    });
-    if (!res.ok) throw await lookError(res);
-    const data = await res.json();
-    state.occasion = occasionHint || 'Complete the outfit';
-    renderResults(data);
+    }, () => { state.occasion = occasionHint || 'Complete the outfit'; });
     countLook();
     goTo('screen-results');
     switchTab('outfit');
     spawnSparkles();
   } catch(err) {
+    if (err.aborted) return;   // a newer look replaced this one
     goTo('screen-landing');
-    if (!err.limit) alert('Ella hit a snag — try again!');
+    if (!err.limit) alert(err.friendly || 'Ella hit a snag — try again!');
   }
 }
 
@@ -3405,10 +3548,7 @@ async function generateOutfitFromState() {
   const recentNames = state.recentLooks.slice(0, 5).map(l => l.look_name).filter(Boolean);
 
   try {
-    const res = await fetch('/api/outfit', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({
+    const data = await requestLook('/api/outfit', {
         occasion: occasionContext,
         celebrity: state.celeb || 'No specific muse',
         era: state.era || (wantsEthnic(state.occasion, state.dresscode) ? 'Contemporary Indian festive' : 'Clean Girl Aesthetic'),
@@ -3420,20 +3560,17 @@ async function generateOutfitFromState() {
         closet_context: closetContext,
         recent_look_names: recentNames,
         body_profile: state.quiz.styleSize || ''
-      })
     });
-    if (!res.ok) throw await lookError(res);
-    const data = await res.json();
-    renderResults(data);
     countLook();
     goTo('screen-results');
     switchTab('outfit');
     spawnSparkles();
     if (data.ella_note) setTimeout(() => stylistSpeak(shortNote(data.ella_note)), 600);
   } catch(err) {
+    if (err.aborted) return;   // a newer look replaced this one
     console.error(err);
     goTo('screen-mode');
-    if (!err.limit) alert('Ella hit a snag — please try again! ✨');
+    if (!err.limit) alert(err.friendly || 'Ella hit a snag — please try again! ✨');
   }
 }
 

@@ -12,6 +12,7 @@ start from, so the first try is almost always new.
 """
 import hashlib
 import json
+import os
 import random
 import re
 import secrets
@@ -21,6 +22,7 @@ from types import SimpleNamespace
 from pro import db, identity
 from shop import TYPE_FAMILIES, _tokens
 
+STYLE_MODEL = os.environ.get('STYLE_MODEL') or 'claude-sonnet-4-6'   # the model that writes looks
 WINDOW = 3000            # recent looks checked for near-repeats
 MAX_TRIES = 4
 COLOURS = {
@@ -239,9 +241,7 @@ def _parse(text):
         return None
 
 
-def create_unique(client, data, prompt, max_tokens, model='claude-sonnet-4-6', kind='look'):
-    """Like client.messages.create, but the look (or each look of a day plan) is guaranteed new.
-    Returns an object with .content[0].text, so the existing parsing code works unchanged."""
+def _who_and_rules(data):
     gender = str(data.get('gender') or 'women')
     occasion = str(data.get('occasion') or data.get('schedule') or data.get('new_occasion') or data.get('anchor_item')
                    or data.get('inspo_look') or '')[:200]
@@ -250,30 +250,72 @@ def create_unique(client, data, prompt, max_tokens, model='claude-sonnet-4-6', k
         who = identity()[1]
     except Exception:
         who = 'unknown'
-    extra = rules(gender, occasion, muse, who)
+    return gender, occasion, muse, who, rules(gender, occasion, muse, who)
+
+
+def _clash(text, kind, gender, occasion, muse, who):
+    """None if this answer can go out (and it's remembered); otherwise the earlier look it repeats."""
+    parsed = _parse(text)
+    if parsed is None:
+        return None                             # let the caller report the parse error as before
+    looks = parsed.get('looks') if kind == 'day' else [parsed]
+    looks = [l for l in looks or [] if isinstance(l, dict)]
+    try:
+        for k, look in enumerate(looks):
+            clash = find_repeat(look, gender, looks[:k])
+            if clash:
+                return clash
+        for look in looks:
+            remember(look, gender, occasion, muse, who)
+    except Exception as e:                      # the ledger being down must never stop a look
+        print('[looks] repeat check skipped:', e)
+    return None
+
+
+def _clash_note(clash):
+    return (f"\n\nREPEAT BLOCKED: your last answer was too close to a look already given ({clash}). "
+            f"Start again with different main pieces, a different silhouette and a different colour story.")
+
+
+GAVE_UP = "Ella couldn't find a look that hasn't been given before. Change a detail and try again."
+
+
+def create_unique(client, data, prompt, max_tokens, model=None, kind='look'):
+    """Like client.messages.create, but the look (or each look of a day plan) is guaranteed new.
+    Returns an object with .content[0].text, so the existing parsing code works unchanged."""
+    gender, occasion, muse, who, extra = _who_and_rules(data)
+    model = model or STYLE_MODEL
     clash_note = ''
     for attempt in range(MAX_TRIES):
         message = client.messages.create(model=model, max_tokens=max_tokens,
                                          messages=[{'role': 'user', 'content': prompt + extra + clash_note}])
-        parsed = _parse(message.content[0].text)
-        if parsed is None:
-            return message                      # let the caller report the parse error as before
-        looks = parsed.get('looks') if kind == 'day' else [parsed]
-        looks = [l for l in looks or [] if isinstance(l, dict)]
-        try:
-            clash = None
-            for k, look in enumerate(looks):
-                clash = find_repeat(look, gender, looks[:k])
-                if clash:
-                    break
-            if not clash:
-                for look in looks:
-                    remember(look, gender, occasion, muse, who)
-                return message
-        except Exception as e:                  # the ledger being down must never stop a look
-            print('[looks] repeat check skipped:', e)
+        clash = _clash(message.content[0].text, kind, gender, occasion, muse, who)
+        if not clash:
             return message
         print(f'[looks] try {attempt + 1}: repeat of "{clash}", restyling')
-        clash_note = (f"\n\nREPEAT BLOCKED: your last answer was too close to a look already given ({clash}). "
-                      f"Start again with different main pieces, a different silhouette and a different colour story.")
-    raise RepeatError("Ella couldn't find a look that hasn't been given before. Change a detail and try again.")
+        clash_note = _clash_note(clash)
+    raise RepeatError(GAVE_UP)
+
+
+def stream_unique(client, data, prompt, max_tokens, model=None, kind='look'):
+    """The same guarantee, written live: yields ('delta', text) while Ella writes, ('restart', clash) if
+    what she wrote repeats an earlier look (she then starts over), and finally ('done', full_text)."""
+    gender, occasion, muse, who, extra = _who_and_rules(data)
+    model = model or STYLE_MODEL
+    clash_note = ''
+    for attempt in range(MAX_TRIES):
+        chunks = []
+        with client.messages.stream(model=model, max_tokens=max_tokens,
+                                    messages=[{'role': 'user', 'content': prompt + extra + clash_note}]) as s:
+            for text in s.text_stream:
+                chunks.append(text)
+                yield 'delta', text
+        full = ''.join(chunks)
+        clash = _clash(full, kind, gender, occasion, muse, who)
+        if not clash:
+            yield 'done', full
+            return
+        print(f'[looks] try {attempt + 1}: repeat of "{clash}", restyling')
+        clash_note = _clash_note(clash)
+        yield 'restart', clash
+    raise RepeatError(GAVE_UP)

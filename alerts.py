@@ -34,7 +34,7 @@ IST = timezone(timedelta(hours=5, minutes=30))
 REMIND_EVERY = 12 * 3600          # repeat an unresolved alert twice a day, not on every request
 VOICE_CHECK_EVERY = 6 * 3600
 # USD per million tokens (input, output). An estimate; override with CLAUDE_PRICE_IN / CLAUDE_PRICE_OUT.
-CLAUDE_PRICES = {'haiku': (1.0, 5.0), 'sonnet': (3.0, 15.0), 'opus': (5.0, 25.0)}
+CLAUDE_PRICES = {'haiku-5': (0.10, 0.50), 'sonnet-5': (2.0, 10.0), 'haiku': (1.0, 5.0), 'sonnet': (3.0, 15.0), 'opus': (5.0, 25.0)}
 
 SERVICES = {
     'claude': {'name': 'Claude', 'what': 'styling', 'unit': 'usd', 'env': 'ANTHROPIC_API_KEY',
@@ -246,34 +246,83 @@ def _claude_cost(model, usage):
     return (tin * pin + (getattr(usage, 'output_tokens', 0) or 0) * pout) / 1e6
 
 
-def watch_claude(client):
-    """Wrap client.messages.create: count what each call costs, and catch running out."""
-    original = client.messages.create
-    if getattr(original, '_el_watched', False):
-        return
+def _claude_down(e):
+    """A ServiceDown to raise instead of `e` if it means credits ran out / the key was refused, else None."""
+    kind = claude_problem(e)
+    if not kind:
+        return None
+    text = ("Anthropic says the credit balance is too low, so no looks can be made. Add credits "
+            "(or switch on auto-reload) in the Claude Console." if kind == 'out' else
+            f"Anthropic refused the API key ({getattr(e, 'status_code', '?')}). Check ANTHROPIC_API_KEY "
+            "in Render: was the key deleted or changed?")
+    later(report, 'claude', kind, text)
+    return ServiceDown("Ella's taking a short break. Please try again in a little while.")
 
-    def create(*a, **kw):
+
+def _claude_used(model, msg):
+    usage = getattr(msg, 'usage', None)
+    if usage is not None:
+        later(_spend, 'claude', _claude_cost(model or '', usage))
+    else:
+        later(_resolved, 'claude')
+
+
+class _WatchedStream:
+    """Wraps `with client.messages.stream(...) as s:` the same way create() is wrapped."""
+
+    def __init__(self, fn, a, kw):
+        self.fn, self.a, self.kw, self.cm, self.s = fn, a, kw, None, None
+
+    def __enter__(self):
         try:
-            msg = original(*a, **kw)
+            self.cm = self.fn(*self.a, **self.kw)
+            self.s = self.cm.__enter__()
         except Exception as e:
-            kind = claude_problem(e)
-            if not kind:
-                raise
-            text = ("Anthropic says the credit balance is too low, so no looks can be made. Add credits "
-                    "(or switch on auto-reload) in the Claude Console." if kind == 'out' else
-                    f"Anthropic refused the API key ({getattr(e, 'status_code', '?')}). Check ANTHROPIC_API_KEY "
-                    "in Render: was the key deleted or changed?")
-            later(report, 'claude', kind, text)
-            raise ServiceDown("Ella's taking a short break. Please try again in a little while.") from e
-        usage = getattr(msg, 'usage', None)
-        if usage is not None:
-            later(_spend, 'claude', _claude_cost(kw.get('model', ''), usage))
-        else:
-            later(_resolved, 'claude')
-        return msg
+            down = _claude_down(e)
+            if down:
+                raise down from e
+            raise
+        return self.s
 
-    create._el_watched = True
-    client.messages.create = create
+    def __exit__(self, et, ev, tb):
+        if et is None:
+            try:
+                _claude_used(self.kw.get('model', ''), self.s.get_final_message())
+            except Exception as e:
+                print('[alerts] stream usage not counted:', e)
+        result = self.cm.__exit__(et, ev, tb)
+        if et is not None and not result:
+            down = _claude_down(ev)
+            if down:
+                raise down from ev
+        return result
+
+
+def watch_claude(client):
+    """Wrap client.messages.create and .stream: count what each call costs, and catch running out."""
+    original = client.messages.create
+    if not getattr(original, '_el_watched', False):
+        def create(*a, **kw):
+            try:
+                msg = original(*a, **kw)
+            except Exception as e:
+                down = _claude_down(e)
+                if down:
+                    raise down from e
+                raise
+            _claude_used(kw.get('model', ''), msg)
+            return msg
+
+        create._el_watched = True
+        client.messages.create = create
+
+    original_stream = getattr(client.messages, 'stream', None)
+    if original_stream is not None and not getattr(original_stream, '_el_watched', False):
+        def stream(*a, **kw):
+            return _WatchedStream(original_stream, a, kw)
+
+        stream._el_watched = True
+        client.messages.stream = stream
 
 
 # ── ElevenLabs ────────────────────────────────────────────────────────────────
