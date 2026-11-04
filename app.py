@@ -6,6 +6,7 @@ import requests as req
 from shop import country_code, find_image
 from regions import brands_for, prompt_note
 from pro import owner_request
+from looks import create_unique   # every look checked against every look ever given
 
 # static_folder=None: only index.html is served, so app.py, pro.py and any data files can't be downloaded
 app = Flask(__name__, static_folder=None)
@@ -109,11 +110,7 @@ Return ONLY valid JSON:
 Include 5-7 items. Be specific — real product names."""
 
         try:
-            message = client.messages.create(
-                model="claude-sonnet-4-6",
-                max_tokens=2000,
-                messages=[{"role": "user", "content": dupe_prompt}]
-            )
+            message = create_unique(client, data, dupe_prompt, 2000)
             response_text = message.content[0].text.strip()
             if '```json' in response_text:
                 response_text = response_text.split('```json')[1].split('```')[0].strip()
@@ -167,11 +164,7 @@ Return ONLY valid JSON:
 Include 4-6 supporting items."""
 
         try:
-            message = client.messages.create(
-                model="claude-sonnet-4-6",
-                max_tokens=2000,
-                messages=[{"role": "user", "content": complete_prompt}]
-            )
+            message = create_unique(client, data, complete_prompt, 2000)
             response_text = message.content[0].text.strip()
             if '```json' in response_text:
                 response_text = response_text.split('```json')[1].split('```')[0].strip()
@@ -249,11 +242,7 @@ Include 6-8 items (or 10-12 for couples). Be specific — real product names, re
 
     try:
         max_tokens = 3500 if gender == 'couple' else 2000
-        message = client.messages.create(
-            model="claude-sonnet-4-6",
-            max_tokens=max_tokens,
-            messages=[{"role": "user", "content": prompt}]
-        )
+        message = create_unique(client, data, prompt, max_tokens)
 
         response_text = message.content[0].text.strip()
 
@@ -346,11 +335,7 @@ Return ONLY valid JSON:
 Each look: 4-5 items. The third look has no transition_tip (end of day). Cohesive color story across all three."""
 
     try:
-        message = client.messages.create(
-            model="claude-sonnet-4-6",
-            max_tokens=3000,
-            messages=[{"role": "user", "content": prompt}]
-        )
+        message = create_unique(client, data, prompt, 3000, kind='day')
         response_text = message.content[0].text.strip()
         if '```json' in response_text:
             response_text = response_text.split('```json')[1].split('```')[0].strip()
@@ -432,11 +417,7 @@ Return ONLY valid JSON in the standard outfit format:
 }}"""
 
     try:
-        message = client.messages.create(
-            model="claude-sonnet-4-6",
-            max_tokens=2000,
-            messages=[{"role": "user", "content": prompt}]
-        )
+        message = create_unique(client, data, prompt, 2000)
         response_text = message.content[0].text.strip()
         if '```json' in response_text:
             response_text = response_text.split('```json')[1].split('```')[0].strip()

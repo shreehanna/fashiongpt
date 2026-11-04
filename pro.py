@@ -136,6 +136,12 @@ SCHEMA = [
          created_at BIGINT, current_end BIGINT)""",
     "CREATE TABLE IF NOT EXISTS el_kv (k TEXT PRIMARY KEY, v TEXT)",
     "CREATE TABLE IF NOT EXISTS el_events (id TEXT PRIMARY KEY, at BIGINT)",
+    # every look ever given (looks.py), so none is ever given twice
+    """CREATE TABLE IF NOT EXISTS el_looks (
+         id TEXT PRIMARY KEY, created_at BIGINT, gender TEXT, occasion TEXT, muse TEXT, who TEXT,
+         look_name TEXT, items TEXT, core_key TEXT)""",
+    "CREATE INDEX IF NOT EXISTS el_looks_recent ON el_looks (gender, created_at)",
+    "CREATE INDEX IF NOT EXISTS el_looks_core ON el_looks (gender, core_key)",
 ]
 _local = threading.local()
 _schema_ready = False
