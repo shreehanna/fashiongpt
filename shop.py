@@ -26,6 +26,7 @@ from flask import Blueprint, jsonify, request
 import unicodedata
 
 from brand_atlas import SITE_OVERRIDES
+from pro import owner_request
 from regions import retailers_for
 
 shop = Blueprint('shop', __name__)
@@ -541,7 +542,7 @@ def shop_links():
     if not items or not _provider():
         return jsonify({'links': [None] * len(items)})
     ip = (request.headers.get('X-Forwarded-For') or request.remote_addr or '').split(',')[0].strip()
-    if not _allowed(ip):
+    if not owner_request() and not _allowed(ip):
         return jsonify({'links': [None] * len(items), 'error': 'slow down'}), 429
     cc = country_code(body)
     with ThreadPoolExecutor(max_workers=min(6, len(items))) as pool:
@@ -561,7 +562,7 @@ def shop_check():
     if not provider:
         return jsonify({'search': 'none: set SERPER_API_KEY on Render'}), 503
     ip = (request.headers.get('X-Forwarded-For') or request.remote_addr or '').split(',')[0].strip()
-    if not _allowed(ip):
+    if not owner_request() and not _allowed(ip):
         return jsonify({'error': 'slow down'}), 429
     trace = []
     result = resolve(args.get('brand', '')[:80], args.get('name', '')[:160], country_code(args), args.get('store', '')[:80], trace)

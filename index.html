@@ -3758,7 +3758,7 @@ function updateLooksMeter() {
 }
 function updateProPill() {
   const pill = document.querySelector('.pro-pill');
-  if (pill) pill.textContent = isPro() ? '✦ Pro' : '✦ Get Pro';
+  if (pill) pill.textContent = ME && ME.owner ? '✦ Owner' : isPro() ? '✦ Pro' : '✦ Get Pro';
 }
 
 function money(amount, intl) {
@@ -3800,7 +3800,10 @@ function renderPaywall() {
     pending: ['Payment received. Finishing up…', 'Pro switches on as soon as the payment clears, usually within a minute.'],
     browse: ['Unlimited looks, every day.', 'Ella and Léon, on call whenever you need a look.']
   };
-  const [head, sub] = pro && proReason !== 'welcome' && proReason !== 'fairuse'
+  const owner = !!(ME && ME.owner);
+  const [head, sub] = owner
+    ? ["You're the owner.", "Everything's unlocked on this account: unlimited looks, no payments, no limits."]
+    : pro && proReason !== 'welcome' && proReason !== 'fairuse'
     ? ["You're Pro.", 'Unlimited looks, every day.']
     : (heads[proReason] || heads.browse);
   document.getElementById('pro-head').textContent = head;
@@ -3830,8 +3833,14 @@ function renderPaywall() {
   if (!PRO.paymentsLive) {
     cta.hidden = !soon.hidden;
     cta.textContent = 'Get Pro';
+  } else if (owner) {
+    manage.hidden = false;
+    document.getElementById('pp-status').textContent = 'Owner ✦';
+    document.getElementById('pp-renew').textContent = 'No subscription needed on this account.';
+    document.getElementById('pp-cancel').hidden = true;
   } else if (pro) {
     manage.hidden = false;
+    document.getElementById('pp-status').textContent = "You're Pro ✦";
     const end = ME.period_end || ME.pro_until;
     document.getElementById('pp-renew').textContent = ME.renews
       ? `Renews on ${niceDate(end)}`

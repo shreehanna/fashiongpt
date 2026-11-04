@@ -27,6 +27,8 @@ Optional:
   INTL_PRICE_MONTHLY (4.99)  INTL_PRICE_YEARLY (49.99)   shown in the app; must match Dodo
   RAZORPAY_PLAN_MONTHLY / RAZORPAY_PLAN_YEARLY            created automatically if not set
   FREE_LOOKS_PER_DAY (3)  PRO_LOOKS_PER_DAY (50, a fair-use ceiling against scripts)
+  OWNER_EMAILS             the owner's Google account(s), comma-separated: everything unlocked, never pays,
+                           no daily limits. Kept in Render rather than in the code so it isn't public.
 
 Until the core three plus at least one provider are set, nothing here blocks anyone:
 the app behaves exactly as before and the Pro sheet says payments aren't open yet.
@@ -233,7 +235,25 @@ def identity():
     return None, 'a:' + session['anon']
 
 
+def owner_emails():
+    return {e.strip().lower() for e in env('OWNER_EMAILS').split(',') if e.strip()}
+
+
+def is_owner(email):
+    return bool(email) and email.lower() in owner_emails()
+
+
+def owner_request():
+    """True when the owner is signed in on this browser (Google-verified email in the login cookie)."""
+    try:
+        return is_owner(session.get('email'))
+    except RuntimeError:     # outside a request
+        return False
+
+
 def is_pro(user):
+    if user and is_owner(user.get('email')):
+        return True
     return bool(user) and int(user.get('pro_until') or 0) > now()
 
 
@@ -270,6 +290,8 @@ def reserve_look():
         return {'ok': True}
     try:
         email, who = identity()
+        if is_owner(email):
+            return {'ok': True}          # the owner is never counted or capped
         day = today()
         user = get_user(email) if email else None
         pro = is_pro(user)
@@ -436,6 +458,9 @@ def me_payload():
         email, who = identity()
     pro = is_pro(user)
     out.update(signed_in=bool(user), pro=pro)
+    if user and is_owner(user['email']):
+        out.update(owner=True, email=user['email'], name=user['name'], picture=user['picture'], renews=False)
+        return out
     if user:
         end = None
         if pro and user['sub_id']:
@@ -503,6 +528,8 @@ def subscribe():
     if region == 'intl' and not dodo_ready():
         return jsonify({'error': 'International payments are not open yet.'}), 503
     user = get_user(session['email'])
+    if is_owner(user['email']):
+        return jsonify({'error': "You're the owner, so everything's already unlocked."}), 409
     if is_pro(user) and user['sub_status'] in ('active', 'authenticated') and not user['cancelling']:
         return jsonify({'error': 'You already have Pro.'}), 409
     try:

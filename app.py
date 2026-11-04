@@ -3,6 +3,9 @@ import anthropic
 import json
 import os
 import requests as req
+from shop import country_code, find_image
+from regions import brands_for, prompt_note
+from pro import owner_request
 
 # static_folder=None: only index.html is served, so app.py, pro.py and any data files can't be downloaded
 app = Flask(__name__, static_folder=None)
@@ -21,6 +24,7 @@ def get_outfit():
     mode = data.get('mode', 'discover')
     budget = data.get('budget', 'everyday')
     currency = data.get('currency', 'INR')
+    region_note = prompt_note(data)   # only what this shopper can buy in their country
     gender = data.get('gender', 'women')
     style_profile = data.get('style_profile', '')
     closet_context = data.get('closet_context', '')
@@ -48,7 +52,7 @@ def get_outfit():
     }
 
     price_guide = price_ranges.get(budget, price_ranges['everyday'])[currency]
-    brands = budget_brands.get(budget, budget_brands['everyday'])
+    brands = brands_for(data, gender, budget) or budget_brands.get(budget, budget_brands['everyday'])
 
     closet_instruction = ''
     if mode == 'closet' and closet_context:
@@ -75,7 +79,7 @@ def get_outfit():
 The user wants an affordable DUPE for this celebrity/editorial look: "{inspo_look}"
 
 Budget: {budget} ({brands})
-Currency: {currency} (price range per piece: {price_guide})
+Currency: {currency} (price range per piece: {price_guide}){region_note}
 Styling for: {gender}
 
 Deconstruct the original look and recreate its essence — the silhouette, color story, and vibe — at {budget} budget using {brands}. Make it wearable for real life, not just editorial.
@@ -89,6 +93,7 @@ Return ONLY valid JSON:
       "category": "category name",
       "name": "specific product name",
       "brand": "exact brand name",
+      "store": "website to buy it from in the shopper's country, as a bare domain like zara.com",
       "price": "price with currency symbol",
       "description": "one sentence on why this dupes the original piece"
     }}
@@ -131,7 +136,7 @@ Occasion: {occasion or 'versatile everyday wear'}
 Style muse: {celebrity}
 Era: {era}
 Budget: {budget} ({brands})
-Currency: {currency} (price range per piece: {price_guide})
+Currency: {currency} (price range per piece: {price_guide}){region_note}
 Styling for: {gender}
 {style_instruction}{body_instruction}
 
@@ -146,6 +151,7 @@ Return ONLY valid JSON:
       "category": "category name",
       "name": "specific product name",
       "brand": "exact brand name",
+      "store": "website to buy it from in the shopper's country, as a bare domain like zara.com",
       "price": "price with currency symbol",
       "description": "one sentence on how this piece complements the anchor item"
     }}
@@ -213,7 +219,7 @@ Style muse: {celebrity}
 Aesthetic era: {era}
 Mode: {mode}
 Budget: {budget} ({brands})
-Currency: {currency} (price range per piece: {price_guide})
+Currency: {currency} (price range per piece: {price_guide}){region_note}
 {style_instruction}{body_instruction}{closet_instruction}{no_repeat_instruction}{photo_tip_instruction}
 
 Build a complete head-to-toe outfit. Return ONLY valid JSON in exactly this structure:
@@ -225,7 +231,8 @@ Build a complete head-to-toe outfit. Return ONLY valid JSON in exactly this stru
     {{
       "category": "category name (see gender-specific guidance above)",
       "name": "specific product name",
-      "brand": "exact brand name (from the budget tier brands)",
+      "brand": "exact brand name (the budget tier brands are examples, not a limit)",
+      "store": "website to buy it from in the shopper's country, as a bare domain like zara.com",
       "price": "price with currency symbol e.g. ₹2,499 or $45",
       "description": "one precise sentence on why this piece works for this specific occasion and muse"
     }}
@@ -272,6 +279,7 @@ def plan_day():
     gender = data.get('gender', 'women')
     budget = data.get('budget', 'everyday')
     currency = data.get('currency', 'INR')
+    region_note = prompt_note(data)   # only what this shopper can buy in their country
     style_profile = data.get('style_profile', '')
     celebrity = data.get('celebrity', 'No specific muse')
 
@@ -286,7 +294,7 @@ def plan_day():
         'luxury': 'Tom Ford, Brunello Cucinelli, Zegna, Dior Men'
     }
     budget_brands = budget_brands_men if gender == 'men' else budget_brands_women
-    brands = budget_brands.get(budget, budget_brands['everyday'])
+    brands = brands_for(data, gender, budget) or budget_brands.get(budget, budget_brands['everyday'])
 
     price_ranges = {
         'everyday': {'INR': '₹800–₹3,500', 'USD': '$15–$60'},
@@ -307,7 +315,7 @@ Day schedule: "{schedule}"
 
 Gender: {gender}
 Budget: {budget} ({brands})
-Currency: {currency} (price range: {price_guide})
+Currency: {currency} (price range: {price_guide}){region_note}
 {style_instruction}
 
 Create exactly 3 looks — one per key part of the day. Looks should share a color story or base pieces for easy transitions (e.g., same trousers styled two ways, a blazer that works for two occasions).
@@ -325,6 +333,7 @@ Return ONLY valid JSON:
           "category": "category",
           "name": "product name",
           "brand": "brand name",
+          "store": "website to buy it from in the shopper's country, as a bare domain like zara.com",
           "price": "price",
           "description": "one sentence"
         }}
@@ -363,6 +372,7 @@ def restyle():
     gender = data.get('gender', 'women')
     budget = data.get('budget', 'everyday')
     currency = data.get('currency', 'INR')
+    region_note = prompt_note(data)   # only what this shopper can buy in their country
 
     original_items = ', '.join([f"{i.get('name')} by {i.get('brand')}" for i in look.get('items', [])])
     original_name = look.get('look_name', 'your saved look')
@@ -378,7 +388,7 @@ def restyle():
         'luxury': 'Tom Ford, Brunello Cucinelli, Dior Men'
     }
     budget_brands = budget_brands_men if gender == 'men' else budget_brands_women
-    brands = budget_brands.get(budget, budget_brands['everyday'])
+    brands = brands_for(data, gender, budget) or budget_brands.get(budget, budget_brands['everyday'])
 
     price_ranges = {
         'everyday': {'INR': '₹800–₹3,500', 'USD': '$15–$60'},
@@ -394,7 +404,7 @@ The user saved a look called "{original_name}" with these pieces: {original_item
 Now they want to RE-STYLE it for: {new_occasion}
 
 Budget: {budget} ({brands})
-Currency: {currency} (price range: {price_guide})
+Currency: {currency} (price range: {price_guide}){region_note}
 Gender: {gender}
 
 Keep as many original pieces as you can. Swap out what doesn't work and add new pieces to make it work for the new occasion. Be clever — Ella knows how to make a brunch blazer work for a cocktail hour.
@@ -408,6 +418,7 @@ Return ONLY valid JSON in the standard outfit format:
       "category": "category",
       "name": "product name",
       "brand": "brand",
+      "store": "website to buy it from in the shopper's country, as a bare domain like zara.com",
       "price": "price",
       "description": "one sentence — note if this is KEPT from original or NEW"
     }}
@@ -447,6 +458,7 @@ def brand_match():
     gender = data.get('gender', 'women')
     budget = data.get('budget', 'everyday')
     currency = data.get('currency', 'INR')
+    region_note = prompt_note(data)   # only what this shopper can buy in their country
     celeb = data.get('celeb', '')
     era = data.get('era', '')
 
@@ -457,7 +469,7 @@ Based on this user's style profile, recommend brands they should know and shop.
 Style profile: {style_profile}
 Gender: {gender}
 Budget tier: {budget}
-Currency preference: {currency}
+Currency preference: {currency}{region_note}
 Style muse: {celeb or 'None'}
 Aesthetic era: {era or 'None'}
 Quiz answers: Body type: {quiz.get('body', '')}, Skin tone: {quiz.get('skin', '')}, Lifestyle: {quiz.get('lifestyle', '')}, Palette: {', '.join(quiz.get('palette', []))}
@@ -502,29 +514,12 @@ def ping():
 
 @app.route('/api/image-search', methods=['POST'])
 def image_search():
-    try:
-        data = request.json
-        query = data.get('query', '')
-        api_key = os.environ.get('GOOGLE_API_KEY')
-        cx = os.environ.get('GOOGLE_CX')
-        if not api_key or not cx:
-            return jsonify({'image_url': None, 'error': 'Google API not configured'})
-        response = req.get(
-            'https://www.googleapis.com/customsearch/v1',
-            params={
-                'key': api_key, 'cx': cx,
-                'q': query + ' fashion product',
-                'searchType': 'image', 'num': 1,
-                'imgSize': 'medium', 'safe': 'active'
-            },
-            timeout=5
-        )
-        items = response.json().get('items', [])
-        if items:
-            return jsonify({'image_url': items[0]['link']})
+    # Serper if SERPER_API_KEY is set, otherwise the old Google Custom Search keys (shop.py)
+    data = request.get_json(silent=True) or {}
+    query = (data.get('query') or '').strip()[:200]
+    if not query:
         return jsonify({'image_url': None})
-    except Exception as e:
-        return jsonify({'image_url': None, 'error': str(e)})
+    return jsonify({'image_url': find_image(query + ' product', gl=country_code(data).lower())})
 
 
 @app.route('/api/parse-voice', methods=['POST'])
@@ -620,7 +615,7 @@ def tts():
     if cache_key in _tts_cache:
         return Response(_tts_cache[cache_key], mimetype='audio/mpeg')
     ip = (request.headers.get('X-Forwarded-For') or request.remote_addr or '').split(',')[0].strip()
-    if not _tts_allowed(ip):
+    if not owner_request() and not _tts_allowed(ip):
         return jsonify({'error': 'slow down'}), 429
     try:
         r = req.post(
@@ -669,7 +664,7 @@ def transcribe():
     q = _stt_hits.setdefault(ip, deque())
     while q and now - q[0] > 600:
         q.popleft()
-    if len(q) >= STT_PER_IP:
+    if len(q) >= STT_PER_IP and not owner_request():
         return jsonify({'error': 'slow down'}), 429
     q.append(now)
     try:
@@ -689,11 +684,13 @@ def transcribe():
     return jsonify({'text': (out.get('text') or '').strip(), 'language': out.get('language_code')})
 
 
-# ── E&L Pro: Google sign-in, Razorpay subscriptions, daily look limit, policy pages ──
+# ── E&L Pro, policy pages and shop links ──
 from pro import init_pro
 from legal import legal
+from shop import shop
 init_pro(app, ['get_outfit', 'restyle'])
 app.register_blueprint(legal)
+app.register_blueprint(shop)   # /api/shop-links: real product pages for the Shop buttons
 
 
 if __name__ == '__main__':
