@@ -7,10 +7,12 @@ from shop import country_code, find_image
 from regions import brands_for, prompt_note
 from pro import owner_request
 from looks import create_unique   # every look checked against every look ever given
+from alerts import watch_claude, voice_result, ServiceDown, bp as alerts_bp   # tells the owner when an API runs low
 
 # static_folder=None: only index.html is served, so app.py, pro.py and any data files can't be downloaded
 app = Flask(__name__, static_folder=None)
 client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
+watch_claude(client)   # counts each call's cost and alerts the owner if credits run low or out
 
 @app.route('/')
 def index():
@@ -611,6 +613,7 @@ def tts():
         )
     except req.RequestException:
         return jsonify({'error': 'voice service unreachable'}), 502
+    voice_result(r)
     if r.status_code != 200:
         return jsonify({'error': 'voice service error', 'status': r.status_code}), 502
     if len(text) <= 120 and len(_tts_cache) < 64:
@@ -658,6 +661,7 @@ def transcribe():
         )
     except req.RequestException:
         return jsonify({'error': 'voice service unreachable'}), 502
+    voice_result(r)
     if r.status_code != 200:
         print('[talk] transcription failed', r.status_code, r.text[:200])
         return jsonify({'error': 'transcription failed', 'status': r.status_code}), 502
@@ -672,6 +676,7 @@ from shop import shop
 init_pro(app, ['get_outfit', 'restyle'])
 app.register_blueprint(legal)
 app.register_blueprint(shop)   # /api/shop-links: real product pages for the Shop buttons
+app.register_blueprint(alerts_bp)   # /api/owner/*: API status, balances, test alert (owner only)
 
 
 if __name__ == '__main__':

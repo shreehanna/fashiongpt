@@ -1135,6 +1135,53 @@ body::after {
 .pro-legal a { color: var(--fg2); }
 .pro-sheet .pro-error[hidden], .pro-sheet .pro-account[hidden], .pro-sheet .pro-test[hidden], .pro-sheet .pro-region[hidden] { display: none !important; }
 .voice-subtitle.is-error { color: #F2B8A8; }
+/* ── Owner only: API status + low-credit alerts ── */
+.owner-alert {
+  position: fixed; left: 50%; transform: translateX(-50%); z-index: 250;
+  bottom: calc(14px + env(safe-area-inset-bottom, 0px)); width: min(520px, calc(100% - 32px));
+  display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px;
+  padding: 10px 8px 10px 14px; border-radius: 14px; background: #1E1712; color: #F7F0E3;
+  box-shadow: 0 12px 32px rgba(0,0,0,0.28); font: 13px/1.4 var(--sans); text-shadow: none;
+}
+.owner-alert[hidden], body:has(.pro-overlay.active) .owner-alert { display: none; }
+.owner-alert .oa-text { flex: 1 1 210px; min-width: 0; }
+.owner-alert .oa-text b { font-weight: 600; }
+.owner-alert a, .owner-alert button {
+  background: none; border: none; padding: 6px; cursor: pointer; color: #E6C98F;
+  font: 600 12px var(--sans); letter-spacing: 0.04em; text-decoration: underline; text-underline-offset: 3px;
+}
+.owner-alert .oa-x { color: #F7F0E3; text-decoration: none; font-size: 17px; line-height: 1; padding: 4px 8px; }
+.owner-health { margin-top: 24px; padding-top: 18px; border-top: 1px solid rgba(154,116,51,0.35); text-align: left; }
+.owner-health[hidden] { display: none !important; }
+.oh-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 4px; }
+.oh-title { font: 500 11px var(--sans); letter-spacing: 0.2em; text-transform: uppercase; color: var(--gold-ink); }
+.oh-row { padding: 12px 0; border-bottom: 1px solid rgba(30,23,18,0.09); }
+.oh-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.oh-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; background: #8C8273; }
+.oh-row[data-level="ok"] .oh-dot { background: #4F7A4A; }
+.oh-row[data-level="low"] .oh-dot { background: #C08A1E; }
+.oh-row[data-level="out"] .oh-dot, .oh-row[data-level="key"] .oh-dot { background: #A33A22; }
+.oh-name { font: 600 14px var(--sans); color: var(--ink); }
+.oh-what { font-size: 12px; color: var(--fg3); }
+.oh-level { margin-left: auto; font: 600 10.5px var(--sans); letter-spacing: 0.14em; text-transform: uppercase; color: var(--fg2); }
+.oh-row[data-level="low"] .oh-level { color: #8A5A0E; }
+.oh-row[data-level="out"] .oh-level, .oh-row[data-level="key"] .oh-level { color: #8A2E18; }
+.oh-text { margin: 4px 0 0 16px; font-size: 13px; line-height: 1.45; color: var(--fg2); }
+.oh-form { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 8px 0 0 16px; }
+.oh-form input {
+  flex: 1 1 150px; min-width: 0; padding: 9px 11px; border-radius: 8px; border: 1px solid rgba(30,23,18,0.28);
+  background: #FFFDF8; color: var(--ink); font: 14px var(--sans);
+}
+.oh-btn {
+  padding: 8px 14px; border-radius: 999px; border: 1px solid var(--ink); background: transparent; color: var(--ink);
+  font: 500 11px var(--sans); letter-spacing: 0.12em; text-transform: uppercase; cursor: pointer;
+}
+.oh-btn:disabled { opacity: 0.5; cursor: default; }
+.oh-link { font-size: 12.5px; color: var(--gold-ink); }
+.oh-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-top: 14px; font-size: 12.5px; color: var(--fg2); line-height: 1.45; }
+.oh-foot span { flex: 1 1 220px; min-width: 0; }
+.oh-msg { margin: 8px 0 0; font-size: 12.5px; color: var(--fg2); }
+.oh-msg.warn { color: #8A3B12; }
 .voice-confirm-btn { background: #D9BD86; color: var(--ink); }
 .outfit-item:hover, .gallery-card:hover { box-shadow: 0 10px 30px rgba(60,40,15,0.18); }
 
@@ -1747,6 +1794,7 @@ body::after {
 <!-- ═══════════════════════════════════════════════════════════════
      E&L PRO — PRICING / PAYWALL
 ═══════════════════════════════════════════════════════════════ -->
+<div class="owner-alert" id="owner-alert" role="status" hidden></div>
 <div class="overlay pro-overlay" id="pro-overlay" role="dialog" aria-modal="true" aria-labelledby="pro-head">
   <div class="pro-sheet">
     <button class="sc-close pro-close" onclick="closePaywall()" aria-label="Close">✕</button>
@@ -1793,6 +1841,7 @@ body::after {
         </ul>
       </div>
     </div>
+    <div class="owner-health" id="owner-health" hidden></div>
     <p class="pro-error" id="pro-error" role="alert" hidden></p>
     <p class="pro-account" id="pro-account" hidden></p>
     <p class="pro-test" id="pro-test" hidden>Test mode: no real money moves. Use the test card or UPI ID from your payment dashboard.</p>
@@ -3703,6 +3752,7 @@ function applyMe(data) {
   }
   updateLooksMeter();
   updateProPill();
+  updateOwnerAlert();
   if (document.getElementById('pro-overlay').classList.contains('active')) renderPaywall();
 }
 
@@ -3757,6 +3807,155 @@ function updateLooksMeter() {
     ? 'No free looks left today · resets at midnight'
     : `${n} free look${n === 1 ? '' : 's'} left today`;
 }
+// ── Owner only: which APIs are fine, low or out ──
+const HEALTH_LABEL = { ok: 'OK', low: 'Running low', out: 'Ran out', key: 'Key rejected', off: 'Off' };
+let ownerAlertHidden = '';
+try { ownerAlertHidden = sessionStorage.getItem('el_alert_hidden') || ''; } catch (e) {}
+function healthAmount(unit, n) {
+  if (unit === 'usd') return '$' + Number(n).toFixed(2);
+  return Math.round(n).toLocaleString('en-IN') + (unit === 'chars' ? ' characters' : ' credits');
+}
+function healthLine(h) {
+  if (h.level === 'off') return 'Not set up in Render yet.';
+  if (h.level !== 'ok' && h.text) return h.text;
+  if (h.left != null && h.balance) {
+    let t = `About ${healthAmount(h.unit, h.left)} left of ${healthAmount(h.unit, h.balance)}`;
+    if (h.unit === 'chars') return t + (h.reset ? ` · refills ${niceDate(h.reset)}` : '') + '.';
+    return t + " (E&L's estimate).";
+  }
+  if (h.note) return h.note;
+  if (h.unit !== 'chars') return 'Type what you have below, so E&L can warn you before it runs out.';
+  return 'Working.';
+}
+function worstHealth() {
+  const rank = { key: 3, out: 3, low: 2 };
+  return ((ME && ME.health) || []).filter(h => rank[h.level]).sort((a, b) => rank[b.level] - rank[a.level]);
+}
+function updateOwnerAlert() {
+  const box = document.getElementById('owner-alert');
+  if (!box) return;
+  const bad = (ME && ME.owner) ? worstHealth() : [];
+  const sig = bad.map(h => h.id + ':' + h.level).join(',');
+  box.innerHTML = '';
+  box.hidden = !bad.length || sig === ownerAlertHidden;
+  if (box.hidden) return;
+  const h = bad[0];
+  const text = document.createElement('span');
+  text.className = 'oa-text';
+  const b = document.createElement('b');
+  b.textContent = `⚠ ${h.name} ${h.level === 'low' ? 'is running low' : h.level === 'out' ? 'has run out' : 'rejected its key'}`;
+  const tiny = h.left != null && h.left < (h.unit === 'usd' ? 0.005 : 1);
+  text.append(b, h.level === 'low' && h.left != null ? (tiny ? ' · almost nothing left' : ` · about ${healthAmount(h.unit, h.left)} left`) : ` · ${h.what} ${h.level === 'low' ? 'may stop soon' : 'is down'}`);
+  if (bad.length > 1) text.append(` · +${bad.length - 1} more`);
+  const top = document.createElement('a');
+  top.href = h.link; top.target = '_blank'; top.rel = 'noopener'; top.textContent = 'Top up ↗';
+  const more = document.createElement('button');
+  more.type = 'button'; more.textContent = 'Details'; more.onclick = () => openPaywall('browse');
+  const x = document.createElement('button');
+  x.type = 'button'; x.className = 'oa-x'; x.setAttribute('aria-label', 'Hide'); x.textContent = '×';
+  x.onclick = () => { ownerAlertHidden = sig; try { sessionStorage.setItem('el_alert_hidden', sig); } catch (e) {} updateOwnerAlert(); };
+  box.append(text, top, more, x);
+}
+function applyHealth(data) {
+  if (!ME || !data) return;
+  if (data.health) ME.health = data.health;
+  if (data.alert_channels) ME.alert_channels = data.alert_channels;
+  updateOwnerAlert();
+  renderOwnerHealth();
+}
+async function ownerCall(url, body) {
+  const r = await fetch(url, body === undefined ? { cache: 'no-store' }
+    : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.error || 'That didn’t work. Try again.');
+  return data;
+}
+let ownerMsg = { text: '', warn: false };
+function setOwnerMsg(text, warn) { ownerMsg = { text, warn: !!warn }; renderOwnerHealth(); }
+async function saveBalance(svc) {
+  const input = document.getElementById('oh-bal-' + svc);
+  const v = (input && input.value || '').trim();
+  if (!v) { setOwnerMsg('Type the balance first.', true); return; }
+  try {
+    applyHealth(await ownerCall('/api/owner/balance', { service: svc, balance: v }));
+    setOwnerMsg('Saved. E&L will warn you when it gets low.');
+  } catch (e) { setOwnerMsg(e.message, true); }
+}
+async function checkHealthNow(btn) {
+  if (btn) { btn.disabled = true; btn.textContent = 'Checking…'; }
+  try { applyHealth(await ownerCall('/api/owner/status')); setOwnerMsg(''); }
+  catch (e) { setOwnerMsg(e.message, true); }
+}
+async function sendTestAlert(btn) {
+  if (btn) { btn.disabled = true; btn.textContent = 'Sending…'; }
+  try {
+    const d = await ownerCall('/api/owner/test-alert', {});
+    const where = Object.entries(d.sent || {});
+    const good = where.filter(([, ok]) => ok).map(([k]) => k === 'phone' ? 'your phone' : 'your email');
+    const bad = where.filter(([, ok]) => !ok).map(([k]) => k === 'phone' ? 'phone (check NTFY_TOPIC)' : 'email (check RESEND_API_KEY and ALERT_EMAIL)');
+    setOwnerMsg((good.length ? 'Test alert sent to ' + good.join(' and ') + '.' : '') + (bad.length ? ' Failed: ' + bad.join(', ') + '.' : ''), !!bad.length);
+  } catch (e) { setOwnerMsg(e.message, true); }
+}
+function renderOwnerHealth() {
+  const box = document.getElementById('owner-health');
+  if (!box) return;
+  const show = !!(ME && ME.owner && ME.health);
+  box.hidden = !show;
+  if (!show) return;
+  box.innerHTML = '';
+  const head = document.createElement('div'); head.className = 'oh-head';
+  const title = document.createElement('div'); title.className = 'oh-title'; title.textContent = 'API status';
+  const check = document.createElement('button'); check.type = 'button'; check.className = 'oh-btn'; check.textContent = 'Check now';
+  check.onclick = () => checkHealthNow(check);
+  head.append(title, check);
+  box.append(head);
+  ME.health.forEach(h => {
+    const row = document.createElement('div'); row.className = 'oh-row'; row.dataset.level = h.level;
+    const top = document.createElement('div'); top.className = 'oh-top';
+    const dot = document.createElement('span'); dot.className = 'oh-dot';
+    const name = document.createElement('span'); name.className = 'oh-name'; name.textContent = h.name;
+    const what = document.createElement('span'); what.className = 'oh-what'; what.textContent = h.what;
+    const lvl = document.createElement('span'); lvl.className = 'oh-level'; lvl.textContent = HEALTH_LABEL[h.level] || h.level;
+    top.append(dot, name, what, lvl);
+    const text = document.createElement('p'); text.className = 'oh-text'; text.textContent = healthLine(h);
+    row.append(top, text);
+    if (h.level !== 'off') {
+      const form = document.createElement('div'); form.className = 'oh-form';
+      if (h.unit !== 'chars') {
+        const input = document.createElement('input');
+        input.id = 'oh-bal-' + h.id; input.inputMode = 'decimal'; input.autocomplete = 'off';
+        input.placeholder = h.unit === 'usd' ? 'New balance in $' : 'Credits you have';
+        input.setAttribute('aria-label', input.placeholder);
+        input.onkeydown = e => { if (e.key === 'Enter') saveBalance(h.id); };
+        const save = document.createElement('button'); save.type = 'button'; save.className = 'oh-btn'; save.textContent = 'Save';
+        save.onclick = () => saveBalance(h.id);
+        form.append(input, save);
+      }
+      const link = document.createElement('a'); link.className = 'oh-link'; link.href = h.link; link.target = '_blank'; link.rel = 'noopener';
+      link.textContent = 'Top up ↗';
+      form.append(link);
+      row.append(form);
+    }
+    box.append(row);
+  });
+  const foot = document.createElement('div'); foot.className = 'oh-foot';
+  const ch = (ME.alert_channels || []).map(c => c === 'phone' ? 'your phone' : 'your email');
+  const span = document.createElement('span');
+  span.textContent = ch.length ? `Alerts go to ${ch.join(' and ')}.` : 'No alerts set up yet: add NTFY_TOPIC (phone) or RESEND_API_KEY + ALERT_EMAIL (email) in Render.';
+  foot.append(span);
+  if (ch.length) {
+    const test = document.createElement('button'); test.type = 'button'; test.className = 'oh-btn'; test.textContent = 'Send a test alert';
+    test.onclick = () => sendTestAlert(test);
+    foot.append(test);
+  }
+  box.append(foot);
+  if (ownerMsg.text) {
+    const m = document.createElement('p'); m.className = 'oh-msg' + (ownerMsg.warn ? ' warn' : ''); m.setAttribute('role', 'status');
+    m.textContent = ownerMsg.text;
+    box.append(m);
+  }
+}
+
 function updateProPill() {
   const pill = document.querySelector('.pro-pill');
   if (pill) pill.textContent = ME && ME.owner ? '✦ Owner' : isPro() ? '✦ Pro' : '✦ Get Pro';
@@ -3881,6 +4080,7 @@ function renderPaywall() {
     acct.append(inBtn);
   }
   document.getElementById('pro-test').hidden = !(ME && ME.test_mode);
+  renderOwnerHealth();
   document.getElementById('pro-skip').hidden = !(proReason === 'limit' && !PRO.paymentsLive);
 }
 
@@ -3897,6 +4097,7 @@ function closePaywall() {
   proRetry = null;
   cancelArmed = false;
   signinOpen = false;
+  ownerMsg = { text: '', warn: false };
 }
 
 // ── Google sign-in ──

@@ -23,6 +23,8 @@ from urllib.parse import urlparse
 import requests as req
 from flask import Blueprint, jsonify, request
 
+from alerts import search_result   # counts Serper credits; alerts the owner when they run low or out
+
 import unicodedata
 
 from brand_atlas import SITE_OVERRIDES
@@ -109,6 +111,7 @@ def search_web(query, gl='in', num=10):
             r = req.post('https://google.serper.dev/search', timeout=8,
                          headers={'X-API-KEY': os.environ['SERPER_API_KEY'], 'Content-Type': 'application/json'},
                          json={'q': query, 'gl': gl, 'num': num})
+            search_result(r)
             return [(o.get('title', ''), o.get('link', '')) for o in (r.json().get('organic') or [])]
         if p == 'google':
             r = req.get('https://www.googleapis.com/customsearch/v1', timeout=8, params={
@@ -128,6 +131,7 @@ def find_image(query, gl='in'):
             r = req.post('https://google.serper.dev/images', timeout=6,
                          headers={'X-API-KEY': os.environ['SERPER_API_KEY'], 'Content-Type': 'application/json'},
                          json={'q': query, 'gl': gl, 'num': 10})
+            search_result(r)
             for im in r.json().get('images') or []:
                 url = im.get('imageUrl') or ''
                 if url.startswith('https://') and not url.lower().endswith('.svg'):

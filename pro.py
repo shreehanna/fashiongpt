@@ -479,6 +479,8 @@ def me_payload():
         user = _user_or_none(email) or {}
         out.update(signed_in=True, pro=True, owner=True, email=email, name=user.get('name') or '',
                    picture=user.get('picture') or '', renews=False)
+        from alerts import owner_payload     # API status + low-credit warnings, for the owner only
+        out.update(owner_payload())
         return out
     if not live:
         # Payments off: sign-in works, but there's nothing to count or sell yet.
