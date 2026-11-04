@@ -93,6 +93,12 @@ def payments_live():
     return razorpay_ready() or dodo_ready()
 
 
+def signin_ready():
+    """Google sign-in only needs the cookie key and the Google client, not payments: the owner has to be
+    able to sign in (and get everything) before Razorpay or Dodo is switched on."""
+    return all(env(k) for k in ('SECRET_KEY', 'GOOGLE_CLIENT_ID'))
+
+
 def test_mode():
     return (razorpay_ready() and env('RAZORPAY_KEY_ID').startswith('rzp_test_')) or \
         (dodo_ready() and (env('DODO_MODE') or 'test') != 'live')
@@ -448,14 +454,40 @@ def apply_dodo_subscription(data, email_hint=None):
 
 
 # ── Routes ────────────────────────────────────────────────────────────────────
+def _user_or_none(email):
+    try:
+        return get_user(email) if email else None
+    except Exception as e:
+        print('[pro] user lookup failed:', e)
+        return None
+
+
 def me_payload():
     live = payments_live()
+    signin = live or signin_ready()
     out = {'payments_live': live, 'test_mode': live and test_mode(),
            'regions': {'in': razorpay_ready(), 'intl': dodo_ready()},
-           'google_client_id': env('GOOGLE_CLIENT_ID') or None,
+           'signin': signin, 'google_client_id': (env('GOOGLE_CLIENT_ID') or None) if signin else None,
            'prices': PRICES, 'intl_prices': intl_prices(), 'free_per_day': FREE_PER_DAY,
            'signed_in': False, 'pro': False, 'looks_left': None}
+    if not signin:
+        return out
+    # The owner is recognised from the Google-verified email in the login cookie alone, so it works
+    # with or without payments and even if the database was wiped.
+    email = session.get('email')
+    if is_owner(email):
+        user = _user_or_none(email) or {}
+        out.update(signed_in=True, pro=True, owner=True, email=email, name=user.get('name') or '',
+                   picture=user.get('picture') or '', renews=False)
+        return out
     if not live:
+        # Payments off: sign-in works, but there's nothing to count or sell yet.
+        user = _user_or_none(email)
+        if email and not user:
+            session.pop('email', None)
+        elif user:
+            out.update(signed_in=True, pro=is_pro(user), email=user['email'], name=user['name'],
+                       picture=user['picture'])
         return out
     email, who = identity()
     user = get_user(email) if email else None
@@ -464,9 +496,6 @@ def me_payload():
         email, who = identity()
     pro = is_pro(user)
     out.update(signed_in=bool(user), pro=pro)
-    if user and is_owner(user['email']):
-        out.update(owner=True, email=user['email'], name=user['name'], picture=user['picture'], renews=False)
-        return out
     if user:
         end = None
         if pro and user['sub_id']:
@@ -492,7 +521,7 @@ def me():
 
 @bp.post('/api/auth/google')
 def auth_google():
-    if not payments_live():
+    if not signin_ready():
         return jsonify({'error': 'sign-in is not switched on yet'}), 503
     token = (request.get_json(silent=True) or {}).get('credential')
     if not token:
@@ -506,10 +535,15 @@ def auth_google():
     if not info.get('email_verified'):
         return jsonify({'error': 'Google says this email is not verified'}), 401
     email = info['email'].lower()
-    db('INSERT INTO el_users (email, google_sub, name, picture, created_at) VALUES (%s, %s, %s, %s, %s) '
-       'ON CONFLICT (email) DO UPDATE SET google_sub = excluded.google_sub, name = excluded.name, '
-       'picture = excluded.picture',
-       (email, info.get('sub'), info.get('name') or info.get('given_name') or '', info.get('picture') or '', now()))
+    try:
+        db('INSERT INTO el_users (email, google_sub, name, picture, created_at) VALUES (%s, %s, %s, %s, %s) '
+           'ON CONFLICT (email) DO UPDATE SET google_sub = excluded.google_sub, name = excluded.name, '
+           'picture = excluded.picture',
+           (email, info.get('sub'), info.get('name') or info.get('given_name') or '', info.get('picture') or '', now()))
+    except Exception as e:
+        print('[pro] could not save the user:', e)
+        if not is_owner(email):           # the owner doesn't need a saved row to be recognised
+            return jsonify({'error': 'Sign-in is having trouble right now. Please try again.'}), 503
     session['email'] = email
     session.permanent = True
     return jsonify(me_payload())
@@ -706,3 +740,5 @@ def init_pro(app, metered_endpoints=()):
         app.view_functions[name] = metered(app.view_functions[name])
     print('[pro] payments:', 'India on' if razorpay_ready() else 'India off', '·',
           'international on' if dodo_ready() else 'international off')
+    print('[pro] sign-in:', 'on' if signin_ready() else 'off (needs SECRET_KEY and GOOGLE_CLIENT_ID)', '·',
+          f'{len(owner_emails())} owner account(s)' if owner_emails() else 'no OWNER_EMAILS set')
