@@ -23,6 +23,9 @@ from urllib.parse import urlparse
 import requests as req
 from flask import Blueprint, jsonify, request
 
+import unicodedata
+
+from brand_atlas import SITE_OVERRIDES
 from regions import retailers_for
 
 shop = Blueprint('shop', __name__)
@@ -154,8 +157,36 @@ def _host(url):
     return host[4:] if host.startswith('www.') else host
 
 
+_LETTERS = str.maketrans({'ø': 'o', 'æ': 'ae', 'œ': 'oe', 'ß': 'ss', 'ł': 'l', 'đ': 'd', '°': ''})
+
+
+def _ascii(text, german=False):
+    t = (text or '').lower().translate(_LETTERS)
+    if german:   # Glashütte -> glashuette, Söhne -> soehne
+        t = t.replace('ä', 'ae').replace('ö', 'oe').replace('ü', 'ue')
+    return unicodedata.normalize('NFKD', t).encode('ascii', 'ignore').decode()
+
+
+def _keys(brand):
+    """Every way a brand's name can appear in its web address: Hermès -> hermes, Dolce & Gabbana ->
+    dolcegabbana / dolceandgabbana, Zadig & Voltaire -> zadigetvoltaire, A. Lange & Söhne -> alangesoehne."""
+    keys = set()
+    for german in (False, True):
+        t = _ascii(brand, german)
+        for amp in ('and', 'et', ''):
+            k = re.sub(r'[^a-z0-9]', '', t.replace('&', amp))
+            if k:
+                keys.add(k)
+    return keys
+
+
 def _norm(text):
-    return re.sub(r'[^a-z0-9]', '', (text or '').lower().replace('&', 'and'))
+    return re.sub(r'[^a-z0-9]', '', _ascii(text).replace('&', 'and'))
+
+
+def _label_matches(label, keys, min_len=3):
+    label = re.sub(r'[^a-z0-9]', '', label)
+    return any(label == k or (len(label) >= min_len and label in k) or (len(k) >= min_len and k in label) for k in keys)
 
 
 def _registrable(host):
@@ -176,31 +207,197 @@ def _region_hint(cc):
     return re.compile(rf'(?:/|[-_.]){cc}(?:[/_-]|$)|[-_]{cc}\.html' + extra, re.I)
 
 
-def _pick(results, domain=None, pattern=None, cc='in'):
-    picks = []
-    for title, link in results:
-        if not link.startswith('http') or NOT_PRODUCT.search(link):
-            continue
-        host = _host(link)
-        if domain and not (host == domain or host.endswith('.' + domain)):
-            continue
-        path = link.split(host, 1)[-1]
-        if (pattern and re.search(pattern, path, re.I)) or GENERIC_PRODUCT.search(path):
-            picks.append((title, link))
-    if not picks:
+# ── Is this search result the same item? ─────────────────────────────────────
+STOP = {'with', 'and', 'the', 'in', 'for', 'a', 'an', 'of', 'on', 'to', 'by', 'from', 'women', 'woman', 'womens', 'men', 'man',
+        'mens', 'buy', 'online', 'shop', 'new', 'india', 'html', 'www', 'com', 'product', 'products', 'p', 'item', 'detail'}
+SYN = {'trainer': 'sneaker', 'pant': 'trouser', 'tshirt': 'tee', 'kurti': 'kurta', 'sari': 'saree', 'jumper': 'sweater',
+       'pullover': 'sweater', 'denim': 'jean', 'pump': 'heel', 'stiletto': 'heel', 'handbag': 'bag', 'eyewear': 'sunglass',
+       'bootie': 'boot', 'playsuit': 'jumpsuit', 'romper': 'jumpsuit', 'camisole': 'cami', 'parfum': 'perfume', 'fragrance': 'perfume'}
+# words that say what kind of thing it is; a result must be the same kind
+TYPE_FAMILIES = [
+    {'dress', 'gown'}, {'shirt', 'overshirt'}, {'top', 'blouse', 'tee', 'tank', 'cami', 'bodysuit', 'corset', 'bustier', 'crop'},
+    {'trouser', 'chino', 'jogger', 'legging', 'palazzo', 'culotte'}, {'jean'}, {'skirt'}, {'short'},
+    {'blazer', 'jacket', 'bomber', 'gilet'}, {'coat', 'trench', 'overcoat', 'parka', 'puffer'},
+    {'sweater', 'cardigan', 'sweatshirt', 'hoodie', 'knit'}, {'kurta', 'tunic'}, {'saree'}, {'lehenga'}, {'anarkali'},
+    {'dupatta', 'stole', 'scarf', 'shawl'}, {'sherwani'}, {'bandhgala', 'nehru'}, {'suit', 'tuxedo'}, {'waistcoat', 'vest'},
+    {'coord', 'set'}, {'jumpsuit'}, {'sneaker', 'shoe'}, {'heel', 'sandal', 'slingback'}, {'boot'}, {'loafer', 'moccasin'},
+    {'flat', 'ballerina', 'ballet'}, {'mule', 'clog', 'slide'}, {'juttis', 'jutti', 'mojari', 'kolhapuri'},
+    {'bag', 'tote', 'clutch', 'pouch', 'crossbody', 'satchel', 'hobo', 'baguette', 'backpack'}, {'belt'}, {'watch'},
+    {'earring', 'hoop', 'stud', 'jhumka'}, {'necklace', 'pendant', 'chain', 'choker'}, {'ring'},
+    {'bracelet', 'bangle', 'cuff', 'kada'}, {'sunglass'}, {'cap', 'hat', 'beanie', 'beret'}, {'perfume', 'eau', 'edp', 'edt'},
+    {'polo'}, {'bra', 'bralette', 'lingerie'},
+]
+MULTI_BRAND = {'myntra.com', 'ajio.com', 'nykaafashion.com', 'nykaa.com', 'tatacliq.com', 'azafashions.com', 'perniaspopupshop.com',
+               'farfetch.com', 'net-a-porter.com', 'mrporter.com', 'mytheresa.com', 'ssense.com', 'revolve.com', 'nordstrom.com',
+               'saksfifthavenue.com', 'shopbop.com', 'selfridges.com', 'harrods.com', 'asos.com', 'zalando.com', 'aboutyou.com',
+               'namshi.com', 'ounass.ae', '6thstreet.com', 'levelshoes.com', 'theiconic.com.au', 'davidjones.com', 'myer.com.au',
+               'zalora.sg', 'johnlewis.com', 'simons.ca', 'holtrenfrew.com', 'thebay.com', 'bergdorfgoodman.com',
+               'neimanmarcus.com', 'luisaviaroma.com', 'matchesfashion.com', 'amazon.in', 'amazon.com', 'flipkart.com'}
+
+
+def _stem(w):
+    if len(w) > 4 and w.endswith('sses'):
+        w = w[:-2]
+    elif len(w) > 4 and w.endswith('ies'):
+        w = w[:-3] + 'y'
+    elif len(w) > 3 and w.endswith('s') and not w.endswith('ss'):
+        w = w[:-1]
+    return SYN.get(w, w)
+
+
+def _tokens(text):
+    t = _ascii(text)
+    t = re.sub(r'\bco[\s-]?ords?\b', 'coord', t)
+    t = re.sub(r'\bt[\s-]?shirts?\b', 'tee', t)
+    t = re.sub(r'\bsun[\s-]?glasses\b', 'sunglass', t)
+    return {_stem(w) for w in re.findall(r'[a-z0-9]+', t) if len(w) > 1 and w not in STOP and not w.isdigit()}
+
+
+def _families(tokens):
+    return [i for i, fam in enumerate(TYPE_FAMILIES) if tokens & fam]
+
+
+def relevance(name, brand, title, link, multi_brand=False):
+    """0..1 for how well a result matches the item, or None if it's clearly a different thing."""
+    want = _tokens(name) - _tokens(brand)
+    got = _tokens(title) | _tokens(urlparse(link).path.replace('-', ' ').replace('_', ' ').replace('/', ' '))
+    fams = _families(want)
+    if fams and not any(TYPE_FAMILIES[i] & got for i in fams):
+        return None                      # asked for a co-ord set, this is a shirt
+    if multi_brand and brand:
+        bt = {w for w in _tokens(brand) if len(w) > 2} or _tokens(brand)
+        if bt and not (bt & got) and _norm(brand) not in _norm(title + link):
+            return None                  # on Myntra/Farfetch, it must be the right brand
+    if not want:
+        return 0.5
+    overlap = len(want & got) / len(want)
+    if overlap < 0.33 and not (len(want) <= 2 and overlap > 0):
         return None
+    return overlap
+
+
+def _is_product_url(link, pattern=None):
+    host = _host(link)
+    path = link.split(host, 1)[-1]
+    if NOT_PRODUCT.search(link):
+        return False
+    if pattern:                          # a site we know: only its real product-page shape counts
+        return bool(re.search(pattern, path, re.I))
+    return bool(GENERIC_PRODUCT.search(path))
+
+
+def _rank(results, name, brand, domain=None, pattern=None, cc='in', trace=None):
+    """Product pages from these results, best match first."""
     hint = _region_hint(cc)
-    for title, link in picks:      # e.g. zara.com/in/... for India over zara.com/us/...
-        if hint.search(link):
-            return {'url': link, 'title': _clean_title(title)}
-    title, link = picks[0]
-    return {'url': link, 'title': _clean_title(title)}
+    ranked = []
+    for pos, (title, link) in enumerate(results):
+        why = None
+        host = _host(link) if link.startswith('http') else ''
+        if not host:
+            why = 'not a web page'
+        elif domain and not (host == domain or host.endswith('.' + domain)):
+            why = 'other site'
+        elif not _is_product_url(link, pattern):
+            why = 'not a product page'
+        else:
+            multi = _registrable(host) in MULTI_BRAND and _norm(brand) not in _norm(_registrable(host))
+            score = relevance(name, brand, title, link, multi)
+            if score is None:
+                why = 'different item' + (' or brand' if multi else '')
+            else:
+                total = score + (0.15 if hint.search(link) else 0) + max(0, 0.05 - pos * 0.005)
+                ranked.append((total, title, link))
+                why = f'match {score:.2f}'
+        if trace is not None:
+            trace.append({'title': title, 'link': link, 'result': why})
+    ranked.sort(key=lambda r: -r[0])
+    return [(t, l) for _, t, l in ranked]
+
+
+# ── Does the page still exist? (sold-out products often redirect to a category or the home page) ──
+UA = ('Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) '
+      'Chrome/126.0.0.0 Mobile Safari/537.36')
+
+
+def _meta(html, prop):
+    m = re.search(r'<meta[^>]+(?:property|name)=["\']' + re.escape(prop) + r'["\'][^>]*content=["\']([^"\']+)', html, re.I) or \
+        re.search(r'<meta[^>]+content=["\']([^"\']+)["\'][^>]*(?:property|name)=["\']' + re.escape(prop) + r'["\']', html, re.I)
+    return m.group(1).strip() if m else None
+
+
+def _safe_host(host):
+    return bool(host) and '.' in host and not re.match(r'^[\d.]+$|^\[|localhost|\.local$|\.internal$', host)
+
+
+def check_page(url, pattern=None, cc='in'):
+    """{'state': 'ok'|'dead'|'unknown', ...}. Shops that block robots answer 403: that's 'unknown', not dead."""
+    if not url.startswith('https://') or not _safe_host(_host(url)):
+        return {'state': 'dead'}
+    try:
+        r = req.get(url, timeout=6, allow_redirects=True, stream=True, headers={
+            'User-Agent': UA, 'Accept': 'text/html,application/xhtml+xml', 'Accept-Language': f'en-{cc.upper()},en;q=0.9'})
+        status, final = r.status_code, r.url
+        if status in (404, 410):
+            return {'state': 'dead', 'status': status}
+        if status != 200:
+            return {'state': 'unknown', 'status': status}
+        fpath = urlparse(final).path.rstrip('/')
+        if final.split('?')[0].rstrip('/') != url.split('?')[0].rstrip('/') and (not fpath or not _is_product_url(final, pattern)):
+            return {'state': 'dead', 'status': status, 'final': final}
+        html, size = '', 0
+        for chunk in r.iter_content(65536, decode_unicode=False):
+            html += chunk.decode('utf-8', 'ignore')
+            size += len(chunk)
+            if size > 600000:
+                break
+        r.close()
+        avail = [a.lower() for a in re.findall(r'"availability"\s*:\s*"(?:https?://schema\.org/)?([A-Za-z]+)"', html)]
+        og_avail = (_meta(html, 'product:availability') or _meta(html, 'og:availability') or '').lower()
+        sold_out = (bool(avail) and not any(a in ('instock', 'limitedavailability', 'preorder', 'onlineonly') for a in avail)) \
+            or og_avail in ('out of stock', 'oos', 'outofstock')
+        image = _meta(html, 'og:image') or _meta(html, 'twitter:image')
+        return {'state': 'ok', 'final': final, 'title': _meta(html, 'og:title'),
+                'image': image if image and image.startswith('https://') else None, 'sold_out': sold_out}
+    except (req.RequestException, UnicodeError) as e:
+        return {'state': 'unknown', 'error': type(e).__name__}
+
+
+def _choose(ranked, pattern, cc, trace=None, budget=3):
+    """First ranked page that still exists and is in stock; else the best one that might be."""
+    fallback = None
+    for title, link in ranked[:budget]:
+        c = check_page(link, pattern, cc)
+        if trace is not None:
+            trace.append({'check': link, **{k: v for k, v in c.items() if k != 'image'}})
+        if c['state'] == 'dead':
+            continue
+        found = {'url': c.get('final') or link, 'title': _clean_title(c.get('title') or title)}
+        if c.get('image'):
+            found['image'] = c['image']
+        if c['state'] == 'ok' and c.get('sold_out'):
+            found['sold_out'] = True
+            fallback = fallback or found
+            continue
+        return found
+    return fallback
+
+
+_OVERRIDES = {_norm(k): v for k, v in SITE_OVERRIDES.items()}
+_SUFFIXES = {'india', 'in', 'man', 'men', 'mens', 'women', 'womens', 'woman', 'kids', 'home', 'design', 'us', 'usa', 'uk', 'online', 'store'}
 
 
 def known_site(name):
-    b = (name or '').lower()
+    """(domain, product-page pattern) for brands we know, else None.
+    'Zara India' and 'H&M Men' match Zara and H&M; 'Raw Mango' does not match Mango."""
+    n = _norm(name)
+    if n in _OVERRIDES:
+        domain = _OVERRIDES[n]
+        pattern = next((p for kw, d, p in BRAND_SITES if d == domain), None)
+        return domain, pattern
+    b = _ascii(name)
     for kw, domain, pattern in BRAND_SITES:
-        if re.search(r'(^|[^a-z0-9])' + re.escape(kw) + r'([^a-z0-9]|$)', b):
+        m = re.match(r'\s*' + re.escape(kw) + r'(?=[^a-z0-9]|$)(.*)$', b)
+        if m and set(re.findall(r'[a-z0-9]+', m.group(1))) <= _SUFFIXES:
             return domain, pattern
     return None
 
@@ -212,14 +409,20 @@ def official_domain(brand, gl):
         return None
     if key in _domains:
         return _domains[key]
+    keys = _keys(brand)
     found = None
     for _, link in search_web(f'{brand} official website', gl, num=8):
         host = _host(link)
         if not host or NOT_BRAND_SITES.search(host):
             continue
-        core = _core(host)
-        if len(core) >= 3 and (core in key or key in core):
-            found = _registrable(host)
+        registrable = _registrable(host)
+        if _label_matches(registrable.split('.')[0], keys):
+            found = registrable
+            break
+        # the brand lives on a parent company's site: allensolly.abfrl.in, oldnavy.gap.com, gshock.casio.com
+        subs = host[: -len(registrable)].strip('.').split('.') if host != registrable else []
+        if any(_label_matches(lab, keys, min_len=4) for lab in subs if lab not in ('www', 'www2', 'shop', 'store', 'usa', 'us', 'uk', 'eu', 'en', 'in')):
+            found = host
             break
     _domains[key] = found
     if len(_domains) > 3000:
@@ -235,17 +438,29 @@ def _store_domain(store):
     return None
 
 
-def _site_search(domain, pattern, name, gl, retry=True):
-    found = _pick(search_web(f'site:{domain} {name}', gl), domain, pattern, gl)
-    if not found and retry:   # the brand's own wording often differs: try the key words only
+def _site_search(domain, pattern, name, brand, gl, retry=True, trace=None):
+    multi = domain in MULTI_BRAND and _norm(brand) not in _norm(domain)
+    q = f'site:{domain} {brand + " " if multi else ""}{name}'
+    step = [] if trace is not None else None
+    ranked = _rank(search_web(q, gl), name, brand, domain, pattern, gl, step)
+    if trace is not None:
+        trace.append({'query': q, 'results': step})
+    if not ranked and retry:   # the brand's own wording often differs: try the key words only
         words = ' '.join(re.findall(r'[A-Za-z0-9]+', name)[:4])
         if words and words.lower() != name.lower():
-            found = _pick(search_web(f'site:{domain} {words}', gl), domain, pattern, gl)
-    return found
+            q = f'site:{domain} {brand + " " if multi else ""}{words}'
+            step = [] if trace is not None else None
+            ranked = _rank(search_web(q, gl), name, brand, domain, pattern, gl, step)
+            if trace is not None:
+                trace.append({'query': q, 'results': step})
+    return _choose(ranked, pattern, gl, trace) if ranked else None
 
 
-def resolve(brand, name, country='IN', store=None):
-    """{'url', 'title'} for the closest real product page in `country`,
+CACHE_SECONDS = 12 * 3600
+
+
+def resolve(brand, name, country='IN', store=None, trace=None):
+    """{'url', 'title', ['image', 'sold_out']} for the closest real product page in `country`,
     or {'url': None, 'site', 'site_url'} saying where to search by hand."""
     brand = (brand or '').strip()
     name = (name or '').strip()
@@ -253,9 +468,10 @@ def resolve(brand, name, country='IN', store=None):
         return None
     gl = (country or 'IN').lower()
     key = f'{gl}|{brand.lower()}|{name.lower()}|{(store or "").lower()}'
-    if key in _cache:
+    hit = _cache.get(key)
+    if hit and trace is None and time.time() - hit[0] < CACHE_SECONDS:
         _cache.move_to_end(key)
-        return _cache[key]
+        return hit[1]
 
     tried, found, home = set(), None, None
     candidates = []
@@ -271,23 +487,30 @@ def resolve(brand, name, country='IN', store=None):
         od = official_domain(brand, gl)
         if od:
             candidates.append((od, (known_site(od) or (None, None))[1]))
+    if trace is not None:
+        trace.append({'sites_to_try': [c[0] for c in candidates]})
     for i, (domain, pattern) in enumerate(candidates):
         if domain in tried:
             continue
         tried.add(domain)
-        home = home or domain
-        found = _site_search(domain, pattern, name, gl, retry=(i == len(candidates) - 1))
+        if domain not in MULTI_BRAND:
+            home = home or domain
+        found = _site_search(domain, pattern, name, brand, gl, retry=(i == len(candidates) - 1), trace=trace)
         if found:
             break
-    if not found:   # the big stores that deliver in this country
+    if not found:   # the big stores that deliver in this country, brand required
         stores = [d for d in retailers_for(country) if d not in tried][:8]
         if stores:
-            sites = ' OR '.join(f'site:{d}' for d in stores)
-            found = _pick(search_web(f'{brand} {name} ({sites})', gl), cc=gl)
+            q = f'{brand} {name} (' + ' OR '.join(f'site:{d}' for d in stores) + ')'
+            step = [] if trace is not None else None
+            ranked = _rank(search_web(q, gl), name, brand, cc=gl, trace=step)
+            if trace is not None:
+                trace.append({'query': q, 'results': step})
+            found = _choose(ranked, None, gl, trace) if ranked else None
     if not found:
         site = home or sd
         found = {'url': None, 'site': site, 'site_url': f'https://{"www." if site and site.count(".") == 1 else ""}{site}' if site else None}
-    _cache[key] = found
+    _cache[key] = (time.time(), found)
     if len(_cache) > 2000:
         _cache.popitem(last=False)
     return found
@@ -325,3 +548,21 @@ def shop_links():
         links = list(pool.map(lambda it: resolve(str(it.get('brand', ''))[:80], str(it.get('name', ''))[:160], cc,
                                                  str(it.get('store', ''))[:80]), items))
     return jsonify({'links': links})
+
+
+@shop.get('/api/shop-check')
+def shop_check():
+    """Open /api/shop-check?brand=Zara&name=linen%20shirt&country=IN in a browser to see every step."""
+    provider = _provider()
+    args = request.args
+    if not args.get('name'):
+        return jsonify({'search': provider or 'none: set SERPER_API_KEY on Render, so Shop links can find products',
+                        'try': '/api/shop-check?brand=Zara&name=linen%20blend%20shirt&country=IN&store=zara.com'})
+    if not provider:
+        return jsonify({'search': 'none: set SERPER_API_KEY on Render'}), 503
+    ip = (request.headers.get('X-Forwarded-For') or request.remote_addr or '').split(',')[0].strip()
+    if not _allowed(ip):
+        return jsonify({'error': 'slow down'}), 429
+    trace = []
+    result = resolve(args.get('brand', '')[:80], args.get('name', '')[:160], country_code(args), args.get('store', '')[:80], trace)
+    return jsonify({'search': provider, 'result': result, 'steps': trace})

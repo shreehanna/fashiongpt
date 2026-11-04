@@ -1079,7 +1079,7 @@ body::after {
 }
 .voice-subtitle { max-width: 300px; }
 .outfit-item > .oi-match { padding-inline: 20px; margin: -2px 0 8px; font-size: 11.5px; line-height: 1.4; color: var(--fg2); }
-.oi-shop.is-finding { opacity: 0.75; }
+.oi-shop.is-finding { opacity: 0.75; cursor: progress; pointer-events: none; }
 .oi-shop.is-finding::after { content: ''; width: 10px; height: 10px; margin-left: 4px; border-radius: 50%; border: 1.5px solid currentColor; border-right-color: transparent; animation: shop-spin 0.8s linear infinite; }
 @keyframes shop-spin { to { transform: rotate(360deg); } }
 .landing-who { margin: 0 auto 22px; display: flex; flex-direction: column; align-items: center; }
@@ -2245,12 +2245,15 @@ function renderResults(data) {
 // is kept, in this browser. Every /api/ request carries it, so Ella only suggests things that
 // sell and deliver there, and Shop links open that country's product page.
 const COUNTRIES = [
-  ['IN', 'India'], ['US', 'United States'], ['GB', 'United Kingdom'], ['AE', 'United Arab Emirates'],
-  ['CA', 'Canada'], ['AU', 'Australia'], ['SG', 'Singapore'], ['SA', 'Saudi Arabia'], ['QA', 'Qatar'],
-  ['DE', 'Germany'], ['FR', 'France'], ['IT', 'Italy'], ['ES', 'Spain'], ['NL', 'Netherlands'], ['IE', 'Ireland'],
-  ['CH', 'Switzerland'], ['SE', 'Sweden'], ['NZ', 'New Zealand'], ['JP', 'Japan'], ['KR', 'South Korea'],
-  ['HK', 'Hong Kong'], ['MY', 'Malaysia'], ['ZA', 'South Africa'], ['NG', 'Nigeria'], ['BD', 'Bangladesh'],
-  ['LK', 'Sri Lanka'], ['NP', 'Nepal'], ['PK', 'Pakistan'], ['BR', 'Brazil'], ['MX', 'Mexico']
+  ['IN', 'India'], ['US', 'United States'], ['GB', 'United Kingdom'], ['AE', 'United Arab Emirates'], ['CA', 'Canada'],
+  ['AU', 'Australia'], ['SG', 'Singapore'], ['SA', 'Saudi Arabia'], ['QA', 'Qatar'], ['AR', 'Argentina'], ['AT', 'Austria'],
+  ['BD', 'Bangladesh'], ['BE', 'Belgium'], ['BR', 'Brazil'], ['CN', 'China'], ['CO', 'Colombia'], ['DK', 'Denmark'],
+  ['FI', 'Finland'], ['FR', 'France'], ['DE', 'Germany'], ['GR', 'Greece'], ['HK', 'Hong Kong'], ['IS', 'Iceland'],
+  ['ID', 'Indonesia'], ['IE', 'Ireland'], ['IL', 'Israel'], ['IT', 'Italy'], ['JP', 'Japan'], ['KW', 'Kuwait'],
+  ['LB', 'Lebanon'], ['MY', 'Malaysia'], ['MX', 'Mexico'], ['NP', 'Nepal'], ['NL', 'Netherlands'], ['NZ', 'New Zealand'],
+  ['NG', 'Nigeria'], ['NO', 'Norway'], ['OM', 'Oman'], ['PK', 'Pakistan'], ['PE', 'Peru'], ['PH', 'Philippines'],
+  ['PL', 'Poland'], ['PT', 'Portugal'], ['ZA', 'South Africa'], ['KR', 'South Korea'], ['ES', 'Spain'], ['LK', 'Sri Lanka'],
+  ['SE', 'Sweden'], ['CH', 'Switzerland'], ['TH', 'Thailand'], ['TR', 'Turkey'], ['UA', 'Ukraine']
 ];
 function guessCountry() {
   const tz = ((Intl.DateTimeFormat().resolvedOptions() || {}).timeZone || '');
@@ -2353,47 +2356,85 @@ function showShopMatch(a, item) {
   if (!a) return;
   const note = a.previousElementSibling;
   const hasNote = note && note.classList.contains('oi-match');
+  const say = (text, warn) => { if (hasNote) { note.textContent = text; note.classList.toggle('is-nolink', !!warn); note.hidden = !text; } };
+  a.classList.remove('is-finding', 'is-search');
+  a.removeAttribute('aria-disabled');
   if (item.shop_url) {
     a.href = item.shop_url;
-    a.classList.remove('is-search');
-    if (hasNote && item.shop_title) { note.textContent = 'Opens: ' + item.shop_title; note.classList.remove('is-nolink'); note.hidden = false; }
+    a.textContent = '🛒 Shop on ' + item.brand;
+    say(item.shop_title ? 'Opens: ' + item.shop_title + (item.shop_sold_out ? ' · sold out right now' : '') : '', item.shop_sold_out);
   } else if (item.shop_site) {
     // no direct page found: say so, and send them to the right website to search
     a.href = item.shop_site_url || ('https://' + item.shop_site);
     a.textContent = '🔎 Search on ' + item.shop_site;
     a.classList.add('is-search');
-    if (hasNote) { note.textContent = `No direct link for this one. Search “${item.name}” on ${item.shop_site}.`; note.classList.add('is-nolink'); note.hidden = false; }
+    say(`No direct link for this one. Search “${item.name}” on ${item.shop_site}.`, true);
+  } else {
+    // the lookup didn't answer: be honest that this is a search page, not the product
+    a.href = buildShopUrl(item.brand, item.name);
+    a.textContent = '🔎 Search ' + item.brand;
+    a.classList.add('is-search');
+    say(`Couldn't find the exact item, so this opens a search for it.`, true);
   }
+}
+function showShopPhoto(anchor, url) {
+  const card = anchor && anchor.closest('.outfit-item');
+  const wrap = card && card.querySelector('.oi-img-wrap');
+  if (!wrap || !/^https:\/\//.test(url || '')) return;
+  const img = document.createElement('img');
+  img.className = 'oi-img';
+  img.alt = '';
+  img.referrerPolicy = 'no-referrer';
+  img.onload = () => { wrap.innerHTML = ''; wrap.appendChild(img); wrap.style.display = ''; };   // the photo of the exact product linked
+  img.src = url;
 }
 async function findShopLinks(items, anchors) {
   const need = [];
-  items.forEach((it, i) => { if (it.shop_url || it.shop_site) showShopMatch(anchors[i], it); else need.push(i); });
+  items.forEach((it, i) => {
+    if (it.shop_url || it.shop_site) { showShopMatch(anchors[i], it); if (it.shop_image) showShopPhoto(anchors[i], it.shop_image); }
+    else need.push(i);
+  });
   if (!need.length) return;
-  need.forEach(i => anchors[i] && anchors[i].classList.add('is-finding'));
+  // until the lookup answers, the button isn't a link, so nobody lands on a generic search page by accident
+  need.forEach(i => {
+    const a = anchors[i];
+    if (!a) return;
+    a.removeAttribute('href');
+    a.setAttribute('aria-disabled', 'true');
+    a.classList.add('is-finding');
+    a.textContent = 'Finding the exact item…';
+  });
+  const done = new Set();
   try {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 45000);
     const res = await fetch('/api/shop-links', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ currency: state.currency, items: need.map(i => ({ brand: items[i].brand, name: items[i].name, store: items[i].store || '' })) })
+      body: JSON.stringify({ currency: state.currency, items: need.map(i => ({ brand: items[i].brand, name: items[i].name, store: items[i].store || '' })) }),
+      signal: ctrl.signal
     });
+    clearTimeout(timer);
     const data = await res.json();
     (data.links || []).forEach((link, k) => {
       const i = need[k];
       if (link && link.url && /^https:\/\//.test(link.url)) {
         items[i].shop_url = link.url;          // saved looks keep the exact link
         items[i].shop_title = link.title || '';
-        showShopMatch(anchors[i], items[i]);
+        items[i].shop_sold_out = !!link.sold_out;
+        if (/^https:\/\//.test(link.image || '')) { items[i].shop_image = link.image; showShopPhoto(anchors[i], link.image); }
+        showShopMatch(anchors[i], items[i]); done.add(i);
       } else if (link && link.site && /^[a-z0-9.-]+$/i.test(link.site)) {
         items[i].shop_site = link.site;
         items[i].shop_site_url = /^https:\/\//.test(link.site_url || '') ? link.site_url : '';
-        showShopMatch(anchors[i], items[i]);
+        showShopMatch(anchors[i], items[i]); done.add(i);
       }
     });
     saveStateToStorage();   // saved and recent looks share these item objects
   } catch (e) {
-    /* keep the store search links */
+    /* fall through: honest search links below */
   } finally {
-    anchors.forEach(a => a && a.classList.remove('is-finding'));
+    need.forEach(i => { if (!done.has(i)) showShopMatch(anchors[i], items[i]); });
   }
 }
 
