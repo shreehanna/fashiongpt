@@ -4,7 +4,8 @@ import json
 import os
 import requests as req
 
-app = Flask(__name__, static_folder='.', static_url_path='')
+# static_folder=None: only index.html is served, so app.py, pro.py and any data files can't be downloaded
+app = Flask(__name__, static_folder=None)
 client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
 
 @app.route('/')
@@ -571,33 +572,8 @@ Return ONLY valid JSON:
         return jsonify({'error': str(e)}), 500
 
 
-@app.route('/api/closet/save', methods=['POST'])
-def save_closet():
-    try:
-        data = request.json
-        closet_path = 'closet.json'
-        existing = []
-        if os.path.exists(closet_path):
-            with open(closet_path, 'r') as f:
-                existing = json.load(f)
-        existing.append(data)
-        with open(closet_path, 'w') as f:
-            json.dump(existing, f)
-        return jsonify({"success": True})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-
-@app.route('/api/closet/load', methods=['GET'])
-def load_closet():
-    try:
-        closet_path = 'closet.json'
-        if not os.path.exists(closet_path):
-            return jsonify([])
-        with open(closet_path, 'r') as f:
-            return jsonify(json.load(f))
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+# (closet save/load endpoints removed: the app keeps closets in each person's browser,
+#  and the old shared closet.json let anyone read everyone's uploads)
 
 # ── Ella's voice ─────────────────────────────────────────────────────────────
 # The ElevenLabs key lives in Render's environment (ELEVENLABS_API_KEY), never in index.html.
@@ -664,6 +640,60 @@ def tts():
     if len(text) <= 120 and len(_tts_cache) < 64:
         _tts_cache[cache_key] = r.content
     return Response(r.content, mimetype='audio/mpeg')
+
+
+# ── Talk: speech to text ─────────────────────────────────────────────────────
+# The phone records the whole request, then ElevenLabs Scribe transcribes it in one go.
+# It copes with accents, Hinglish and brand names far better than the browser's built-in
+# recogniser, and nothing gets "corrected" word by word while you talk.
+_stt_hits = {}
+STT_PER_IP = 15            # transcriptions per 10 minutes per visitor
+STT_MAX_BYTES = 8 * 1024 * 1024
+
+
+@app.route('/api/transcribe', methods=['POST'])
+def transcribe():
+    key = os.environ.get('ELEVENLABS_API_KEY')
+    if not key:
+        return jsonify({'error': 'voice not configured'}), 503
+    audio = request.files.get('audio')
+    if not audio:
+        return jsonify({'error': 'no audio'}), 400
+    data = audio.read(STT_MAX_BYTES + 1)
+    if not data:
+        return jsonify({'error': 'empty recording'}), 400
+    if len(data) > STT_MAX_BYTES:
+        return jsonify({'error': 'recording too long'}), 413
+    ip = (request.headers.get('X-Forwarded-For') or request.remote_addr or '').split(',')[0].strip()
+    now = time.time()
+    q = _stt_hits.setdefault(ip, deque())
+    while q and now - q[0] > 600:
+        q.popleft()
+    if len(q) >= STT_PER_IP:
+        return jsonify({'error': 'slow down'}), 429
+    q.append(now)
+    try:
+        r = req.post(
+            'https://api.elevenlabs.io/v1/speech-to-text',
+            headers={'xi-api-key': key},
+            data={'model_id': os.environ.get('STT_MODEL', 'scribe_v1'), 'tag_audio_events': 'false'},
+            files={'file': (audio.filename or 'talk.webm', data, audio.mimetype or 'application/octet-stream')},
+            timeout=60
+        )
+    except req.RequestException:
+        return jsonify({'error': 'voice service unreachable'}), 502
+    if r.status_code != 200:
+        print('[talk] transcription failed', r.status_code, r.text[:200])
+        return jsonify({'error': 'transcription failed', 'status': r.status_code}), 502
+    out = r.json()
+    return jsonify({'text': (out.get('text') or '').strip(), 'language': out.get('language_code')})
+
+
+# ── E&L Pro: Google sign-in, Razorpay subscriptions, daily look limit, policy pages ──
+from pro import init_pro
+from legal import legal
+init_pro(app, ['get_outfit', 'restyle'])
+app.register_blueprint(legal)
 
 
 if __name__ == '__main__':

@@ -813,10 +813,7 @@ body {
   font-style: italic; line-height: 1.5; text-align: left;
   border: 1px solid rgba(255,255,255,0.1);
 }
-.voice-transcript:empty::before {
-  content: 'Tap the mic and tell Ella what you need…';
-  color: rgba(255,255,255,0.3); font-style: italic;
-}
+.voice-transcript:empty { display: none; }
 .voice-confirm-btn {
   margin-top: 24px;
   display: none;
@@ -1037,7 +1034,67 @@ body::after {
 .pro-plan.is-pro { background: linear-gradient(180deg, rgba(154,116,51,0.1), rgba(251,246,236,0) 60%); border-color: var(--accent); }
 .pro-billing button.on { background: var(--ink); color: #F7F0E3; }
 .pro-billing button.on em { color: #E3C88F; }
-#voice-overlay { background: rgba(26,20,15,0.96); }
+#voice-overlay { background: #18120E; overflow-y: auto; }
+.voice-orb {
+  width: 132px; height: 132px; border-radius: 50%; margin: 26px 0 10px;
+  display: flex; align-items: center; justify-content: center;
+  background: radial-gradient(circle at 50% 40%, rgba(217,189,134,0.26), rgba(217,189,134,0.05) 70%);
+  box-shadow: inset 0 0 0 1px rgba(217,189,134,0.35); transition: box-shadow 0.3s;
+}
+#voice-overlay.is-recording .voice-orb { box-shadow: inset 0 0 0 1px #D9BD86, 0 0 44px rgba(217,189,134,0.35); }
+.voice-bars { display: flex; gap: 6px; align-items: center; height: 60px; }
+.voice-bars span { width: 7px; height: calc(8px + var(--l, 0) * 52px); border-radius: 4px; background: #D9BD86; transition: height 0.08s linear; }
+#voice-overlay.is-busy .voice-bars span { animation: talk-wait 1s ease-in-out infinite; }
+#voice-overlay.is-busy .voice-bars span:nth-child(2) { animation-delay: 0.12s; }
+#voice-overlay.is-busy .voice-bars span:nth-child(3) { animation-delay: 0.24s; }
+#voice-overlay.is-busy .voice-bars span:nth-child(4) { animation-delay: 0.36s; }
+#voice-overlay.is-busy .voice-bars span:nth-child(5) { animation-delay: 0.48s; }
+@keyframes talk-wait { 0%, 100% { height: 10px; } 50% { height: 30px; } }
+.voice-timer { font: 500 14px var(--sans); letter-spacing: 0.1em; color: rgba(247,240,227,0.6); margin-bottom: 18px; font-variant-numeric: tabular-nums; }
+.voice-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+.voice-start, .voice-finish {
+  min-width: 132px; padding: 14px 26px; border-radius: 999px; cursor: pointer;
+  font: 500 13px var(--sans); letter-spacing: 0.14em; text-transform: uppercase; transition: opacity 0.2s, background 0.2s;
+}
+.voice-start { background: #D9BD86; color: var(--ink); border: 1px solid #D9BD86; }
+.voice-finish { background: transparent; color: #F7F0E3; border: 1px solid rgba(247,240,227,0.45); }
+.voice-finish:not(:disabled) { background: #F7F0E3; color: var(--ink); border-color: #F7F0E3; }
+.voice-start:disabled, .voice-finish:disabled { opacity: 0.35; cursor: default; }
+.voice-transcript { margin-top: 20px; font-family: var(--serif); font-size: 18px; text-align: center; }
+.voice-type { display: flex; gap: 8px; width: 100%; max-width: 360px; margin-top: 22px; }
+.voice-type input {
+  flex: 1; min-width: 0; padding: 12px 16px; border-radius: 999px;
+  background: rgba(255,255,255,0.06); border: 1px solid rgba(247,240,227,0.22); color: #F7F0E3;
+  font: 15px var(--sans); outline: none;
+}
+.voice-type input:focus { border-color: #D9BD86; }
+.voice-type input::placeholder { color: rgba(247,240,227,0.45); }
+.voice-type button {
+  padding: 0 18px; border-radius: 999px; border: 1px solid #D9BD86; background: transparent; color: #D9BD86;
+  font: 500 12px var(--sans); letter-spacing: 0.12em; text-transform: uppercase; cursor: pointer;
+}
+.voice-subtitle { max-width: 300px; }
+.legal-links { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 16px; margin-top: 28px; font-size: 12px; letter-spacing: 0.04em; }
+.legal-links a { color: var(--ink); text-decoration: none; border-bottom: 1px solid rgba(154,116,51,0.45); }
+.pro-region {
+  display: block; margin: -12px auto 20px; background: none; border: none; cursor: pointer;
+  font: 500 13px var(--sans); color: var(--gold-ink); text-decoration: underline; text-underline-offset: 3px;
+}
+.pp-signin, .pp-manage { margin: 14px 0 12px; display: flex; flex-direction: column; gap: 8px; align-items: stretch; }
+.pp-signin[hidden], .pp-manage[hidden] { display: none; }
+.pp-google { min-height: 44px; display: flex; justify-content: center; }
+.pp-small { font-size: 12.5px; color: var(--fg2); line-height: 1.45; text-align: center; margin: 0; }
+.pp-small.warn { color: #8A3B12; }
+.pp-status { font-family: var(--serif); font-size: 22px; text-align: center; color: var(--ink); }
+.pp-cancel { justify-content: center; font-size: 12px; padding: 10px 16px; }
+.pro-error { color: #8A3B12; font-size: 13px; margin-top: 14px; }
+.pro-account { font-size: 12.5px; color: var(--fg2); margin-top: 12px; }
+.pro-account button { background: none; border: none; padding: 0; color: var(--gold-ink); font: inherit; text-decoration: underline; cursor: pointer; }
+.pro-test { font-size: 12px; color: var(--fg2); margin-top: 10px; padding: 8px 12px; border: 1px dashed var(--accent); }
+.pro-legal { margin-top: 16px; font-size: 11.5px; color: var(--fg3); line-height: 1.7; }
+.pro-legal a { color: var(--fg2); }
+.pro-sheet .pro-error[hidden], .pro-sheet .pro-account[hidden], .pro-sheet .pro-test[hidden], .pro-sheet .pro-region[hidden] { display: none !important; }
+.voice-subtitle.is-error { color: #F2B8A8; }
 .voice-confirm-btn { background: #D9BD86; color: var(--ink); }
 .outfit-item:hover, .gallery-card:hover { box-shadow: 0 10px 30px rgba(60,40,15,0.18); }
 
@@ -1075,7 +1132,7 @@ body::after {
     </div>
     <div class="looks-meter" id="looks-meter" aria-live="polite"></div>
     <div style="margin-top:16px">
-      <button class="btn-secondary" style="font-size:20px;line-height:1;padding:9px 22px;border-color:var(--accent);color:var(--accent)" onclick="openVoiceMode()" aria-label="Talk to your stylist" title="Talk to your stylist">🎙</button>
+      <button class="btn-secondary" style="font-size:20px;line-height:1;padding:9px 22px;border-color:var(--accent);color:var(--accent)" onclick="openVoiceMode()" aria-label="Talk" title="Talk">🎙</button>
     </div>
     <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:12px;">
       <button class="btn-secondary" style="font-size:11px;padding:9px 16px" onclick="openClosetShortcut()">🧺 My Closet</button>
@@ -1090,6 +1147,9 @@ body::after {
       <span>100% relevant</span>
       <span>11 beta users</span>
     </div>
+    <nav class="legal-links" aria-label="Policies">
+      <a href="/pricing">Pricing</a><a href="/terms">Terms</a><a href="/privacy">Privacy</a><a href="/refunds">Refunds</a><a href="/shipping">Delivery</a><a href="/contact">Contact</a>
+    </nav>
   </div>
 </div>
 
@@ -1177,7 +1237,7 @@ body::after {
     <span style="font-size:11px;color:var(--fg3);text-transform:uppercase;letter-spacing:0.08em">or</span>
     <div style="flex:1;height:1px;background:var(--border)"></div>
   </div>
-  <button class="btn-secondary w100" style="margin-top:12px;border-color:var(--accent);color:var(--accent);gap:8px;justify-content:center" onclick="openVoiceMode()">🎙 Skip to voice — just tell Ella</button>
+  <button class="btn-secondary w100" style="margin-top:12px;border-color:var(--accent);color:var(--accent);gap:8px;justify-content:center" onclick="openVoiceMode()">🎙 Talk</button>
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════════
@@ -1290,7 +1350,7 @@ body::after {
     <span style="font-size:11px;color:var(--fg3);text-transform:uppercase;letter-spacing:0.08em">or</span>
     <div style="flex:1;height:1px;background:var(--border)"></div>
   </div>
-  <button class="btn-secondary w100" style="margin-top:12px;border-color:var(--accent);color:var(--accent);gap:8px;justify-content:center" onclick="openVoiceMode()">🎙 Skip to voice — just tell Ella</button>
+  <button class="btn-secondary w100" style="margin-top:12px;border-color:var(--accent);color:var(--accent);gap:8px;justify-content:center" onclick="openVoiceMode()">🎙 Talk</button>
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════════
@@ -1508,19 +1568,22 @@ body::after {
 <!-- ═══════════════════════════════════════════════════════════════
      VOICE MODE OVERLAY
 ═══════════════════════════════════════════════════════════════ -->
-<div id="voice-overlay">
-  <button class="voice-close" onclick="closeVoiceMode()">✕</button>
-  <div class="voice-mic-wrap">
-    <div class="voice-ring"></div>
-    <div class="voice-ring"></div>
-    <div class="voice-ring"></div>
-    <button class="voice-mic-btn" id="voice-mic-btn" onclick="toggleListening()">🎙</button>
+<div id="voice-overlay" role="dialog" aria-modal="true" aria-labelledby="voice-title">
+  <button class="voice-close" onclick="closeVoiceMode()" aria-label="Close">✕</button>
+  <div class="voice-title" id="voice-title">Talk</div>
+  <div class="voice-subtitle" id="voice-subtitle">Tap Start and say what you need. Tap Finish when you're done.</div>
+  <div class="voice-orb" id="voice-orb" aria-hidden="true"><div class="voice-bars"><span></span><span></span><span></span><span></span><span></span></div></div>
+  <div class="voice-timer" id="voice-timer">0:00</div>
+  <div class="voice-actions">
+    <button class="voice-start" id="voice-start" onclick="startTalk()">Start</button>
+    <button class="voice-finish" id="voice-finish" onclick="finishTalk()" disabled>Finish</button>
   </div>
-  <div class="voice-title">Talk</div>
-  <div class="voice-subtitle" id="voice-subtitle">Tap the mic and speak your request</div>
-  <div class="voice-transcript" id="voice-transcript"></div>
-  <button class="voice-confirm-btn" id="voice-confirm-btn" onclick="confirmVoiceInput()">✦ Style me</button>
-  <p class="voice-hint">Try: "I need an outfit for a beach wedding in Goa, budget-friendly, Deepika Padukone vibes"</p>
+  <div class="voice-transcript" id="voice-transcript" aria-live="polite"></div>
+  <form class="voice-type" onsubmit="event.preventDefault(); typedRequest();">
+    <input id="voice-text" type="text" placeholder="Or type it here…" autocomplete="off" autocapitalize="sentences" autocorrect="off" spellcheck="false" aria-label="Type your request">
+    <button type="submit">Go</button>
+  </form>
+  <p class="voice-hint">Try: "Beach wedding in Goa, budget-friendly, Deepika Padukone vibes"</p>
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════════
@@ -1653,12 +1716,13 @@ body::after {
       <button class="on" data-bill="monthly" onclick="setBilling('monthly')">Monthly</button>
       <button data-bill="yearly" onclick="setBilling('yearly')">Yearly <em id="pp-save">save 16%</em></button>
     </div>
+    <button class="pro-region" id="pro-region" type="button" onclick="setRegion(proRegion === 'in' ? 'intl' : 'in')" hidden></button>
     <div class="pro-plans">
       <div class="pro-plan">
         <div class="pp-name">Free</div>
-        <div class="pp-price"><b>₹0</b></div>
+        <div class="pp-price"><b id="pp-free-price">₹0</b></div>
         <div class="pp-note">Always free</div>
-        <button class="btn-secondary pp-cta" disabled>Your plan</button>
+        <button class="btn-secondary pp-cta" id="pp-free-cta" disabled>Your plan</button>
         <ul class="pp-list">
           <li><span><b id="pp-free-looks">3 looks</b> a day</span></li>
           <li>Ella and Léon</li>
@@ -1671,6 +1735,15 @@ body::after {
         <div class="pp-price"><b id="pp-amount">₹199</b><span id="pp-per">/month</span></div>
         <div class="pp-note" id="pp-note">Billed monthly</div>
         <button class="btn-primary pp-cta" id="pp-cta" onclick="startUpgrade()">Get Pro</button>
+        <div class="pp-signin" id="pp-signin" hidden>
+          <div class="pp-google" id="pp-google"></div>
+          <p class="pp-small" id="pp-signin-note">Sign in with Google to subscribe. Already Pro? Sign in to get it back.</p>
+        </div>
+        <div class="pp-manage" id="pp-manage" hidden>
+          <div class="pp-status" id="pp-status">You're Pro ✦</div>
+          <p class="pp-small" id="pp-renew"></p>
+          <button class="btn-secondary pp-cancel" id="pp-cancel" onclick="cancelPro()">Cancel renewal</button>
+        </div>
         <div class="pp-soon" id="pp-soon" hidden>Pro opens soon. Payments aren't switched on yet.</div>
         <ul class="pp-list">
           <li><span><b>Unlimited looks</b>, every day</span></li>
@@ -1679,7 +1752,11 @@ body::after {
         </ul>
       </div>
     </div>
+    <p class="pro-error" id="pro-error" role="alert" hidden></p>
+    <p class="pro-account" id="pro-account" hidden></p>
+    <p class="pro-test" id="pro-test" hidden>Test mode: no real money moves. Use the test card or UPI ID from your payment dashboard.</p>
     <button class="pro-skip" id="pro-skip" hidden onclick="continueFree()">Keep styling free for now</button>
+    <p class="pro-legal">Renews automatically until you cancel. Cancel anytime.<br><a href="/pricing">Pricing</a> · <a href="/terms">Terms</a> · <a href="/refunds">Refunds</a> · <a href="/privacy">Privacy</a></p>
   </div>
 </div>
 
@@ -1993,7 +2070,7 @@ async function generateOutfit() {
       })
     });
 
-    if (!res.ok) throw new Error('API error');
+    if (!res.ok) throw await lookError(res);
     const data = await res.json();
     renderResults(data);
     countLook();
@@ -2004,7 +2081,7 @@ async function generateOutfit() {
   } catch(err) {
     console.error(err);
     goTo('screen-mode');
-    alert('Ella hit a snag — please try again! ✨');
+    if (!err.limit) alert('Ella hit a snag — please try again! ✨');
   }
 }
 
@@ -2517,7 +2594,7 @@ async function openRestyleModal(look, newOccasion) {
         currency: state.currency
       })
     });
-    if (!res.ok) throw new Error('API error');
+    if (!res.ok) throw await lookError(res);
     const data = await res.json();
     state.occasion = newOccasion;
     renderResults(data);
@@ -2527,7 +2604,7 @@ async function openRestyleModal(look, newOccasion) {
     spawnSparkles();
   } catch(err) {
     goTo('screen-results');
-    alert('Ella hit a snag re-styling — try again!');
+    if (!err.limit) alert('Ella hit a snag re-styling — try again!');
   }
 }
 
@@ -2629,7 +2706,7 @@ async function submitDupeLook() {
         occasion: 'Dupe look'
       })
     });
-    if (!res.ok) throw new Error('API error');
+    if (!res.ok) throw await lookError(res);
     const data = await res.json();
     state.occasion = `Dupe: ${inspoLook.slice(0, 40)}`;
     renderResults(data);
@@ -2639,7 +2716,7 @@ async function submitDupeLook() {
     spawnSparkles();
   } catch(err) {
     goTo('screen-landing');
-    alert('Ella hit a snag — try again!');
+    if (!err.limit) alert('Ella hit a snag — try again!');
   }
 }
 
@@ -2674,7 +2751,7 @@ async function submitCompleteLook() {
         style_profile: buildQuizContext() + (wantsEthnic(occasionHint) ? ethnicBrief(state.gender || 'women') : '')
       })
     });
-    if (!res.ok) throw new Error('API error');
+    if (!res.ok) throw await lookError(res);
     const data = await res.json();
     state.occasion = occasionHint || 'Complete the outfit';
     renderResults(data);
@@ -2684,7 +2761,7 @@ async function submitCompleteLook() {
     spawnSparkles();
   } catch(err) {
     goTo('screen-landing');
-    alert('Ella hit a snag — try again!');
+    if (!err.limit) alert('Ella hit a snag — try again!');
   }
 }
 
@@ -2767,107 +2844,161 @@ document.getElementById('complete-overlay').addEventListener('click', function(e
   if (el && state.quiz.styleSize) el.value = state.quiz.styleSize;
 })();
 
-// ── Voice Mode ──
-let voiceRecognition = null;
-let voiceTranscript = '';
-let voiceListening = false;
+// ── Talk ──
+// Start records the whole request; Finish stops and sends it to /api/transcribe (ElevenLabs Scribe),
+// which handles accents, Hinglish and brand names. No word-by-word "corrections" while talking.
+const TALK_MAX_MS = 90000;
+const talk = { state: 'idle', stream: null, rec: null, chunks: [], ctx: null, raf: 0, tick: 0, t0: 0 };
 
 function openVoiceMode() {
   document.getElementById('voice-overlay').classList.add('active');
-  voiceTranscript = '';
   document.getElementById('voice-transcript').textContent = '';
-  document.getElementById('voice-confirm-btn').style.display = 'none';
-  updateVoiceMicState(false);
+  document.getElementById('voice-text').value = '';
+  talkUI('idle');
 }
 
 function closeVoiceMode() {
-  stopListening();
+  stopTalk();
+  talk.state = 'idle';
   document.getElementById('voice-overlay').classList.remove('active');
 }
 
-function updateVoiceMicState(listening) {
-  const btn = document.getElementById('voice-mic-btn');
-  const subtitle = document.getElementById('voice-subtitle');
-  if (listening) {
-    btn.classList.add('listening');
-    btn.textContent = '⏹';
-    subtitle.textContent = 'Listening… tap to stop';
-  } else {
-    btn.classList.remove('listening');
-    btn.textContent = '🎙';
-    subtitle.textContent = 'Tap the mic and speak your request';
+function talkUI(state, message) {
+  talk.state = state;
+  const o = document.getElementById('voice-overlay');
+  const sub = document.getElementById('voice-subtitle');
+  o.classList.toggle('is-recording', state === 'recording');
+  o.classList.toggle('is-busy', state === 'busy');
+  document.getElementById('voice-start').disabled = state !== 'idle';
+  document.getElementById('voice-finish').disabled = state !== 'recording';
+  document.getElementById('voice-start').textContent = state === 'recording' ? 'Listening…' : 'Start';
+  sub.classList.toggle('is-error', state === 'idle' && !!message);
+  sub.textContent = message || ({
+    idle: "Tap Start and say what you need. Tap Finish when you're done.",
+    recording: 'Take your time. Tap Finish when you’re done.',
+    busy: 'Getting that down…'
+  })[state];
+  if (state !== 'recording') {
+    document.querySelectorAll('.voice-bars span').forEach(b => b.style.setProperty('--l', 0));
+    if (state === 'idle') document.getElementById('voice-timer').textContent = '0:00';
   }
 }
 
-function toggleListening() {
-  if (voiceListening) {
-    stopListening();
-  } else {
-    startListening();
-  }
-}
-
-function startListening() {
-  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SpeechRecognition) {
-    alert('Voice mode isn\'t supported in this browser. Try Chrome or Safari!');
+async function startTalk() {
+  if (talk.state !== 'idle') return;
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.MediaRecorder) {
+    talkUI('idle', "This browser can't record audio. Type your request below instead.");
     return;
   }
-  voiceRecognition = new SpeechRecognition();
-  voiceRecognition.continuous = true;
-  voiceRecognition.interimResults = true;
-  voiceRecognition.lang = 'en-US';
-
-  voiceRecognition.onstart = () => {
-    voiceListening = true;
-    updateVoiceMicState(true);
-  };
-
-  voiceRecognition.onresult = (event) => {
-    let interim = '';
-    let final = '';
-    for (let i = event.resultIndex; i < event.results.length; i++) {
-      const t = event.results[i][0].transcript;
-      if (event.results[i].isFinal) {
-        final += t + ' ';
-      } else {
-        interim += t;
-      }
-    }
-    if (final) voiceTranscript += final;
-    const display = (voiceTranscript + interim).trim();
-    document.getElementById('voice-transcript').textContent = display;
-    if (display.length > 5) {
-      document.getElementById('voice-confirm-btn').style.display = 'inline-flex';
-    }
-  };
-
-  voiceRecognition.onerror = (e) => {
-    console.error('Speech error', e.error);
-    stopListening();
-    if (e.error === 'not-allowed') {
-      alert('Microphone access was denied. Please allow mic access and try again.');
-    }
-  };
-
-  voiceRecognition.onend = () => {
-    voiceListening = false;
-    updateVoiceMicState(false);
-    if (voiceTranscript.trim().length > 5) {
-      document.getElementById('voice-confirm-btn').style.display = 'inline-flex';
-    }
-  };
-
-  voiceRecognition.start();
+  try { ellaAudio.pause(); } catch (e) {}
+  // made inside the tap so iPhones let the level meter run
+  try { talk.ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { talk.ctx = null; }
+  talkUI('busy', 'Opening the mic…');
+  try {
+    talk.stream = await navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+    });
+  } catch (e) {
+    stopTalk();
+    talkUI('idle', e && e.name === 'NotAllowedError'
+      ? 'Microphone access is off. Allow it in your browser settings, or type below.'
+      : "Couldn't open the microphone. Type your request below instead.");
+    return;
+  }
+  const type = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg;codecs=opus']
+    .find(t => MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(t));
+  try {
+    talk.rec = new MediaRecorder(talk.stream, type ? { mimeType: type } : undefined);
+  } catch (e) {
+    stopTalk();
+    talkUI('idle', "Couldn't start recording. Type your request below instead.");
+    return;
+  }
+  talk.chunks = [];
+  talk.rec.ondataavailable = e => { if (e.data && e.data.size) talk.chunks.push(e.data); };
+  talk.rec.start(250);
+  talk.t0 = Date.now();
+  talkUI('recording');
+  // level meter
+  if (talk.ctx) {
+    try {
+      if (talk.ctx.state === 'suspended') talk.ctx.resume();
+      const an = talk.ctx.createAnalyser();
+      an.fftSize = 512;
+      talk.ctx.createMediaStreamSource(talk.stream).connect(an);
+      const buf = new Uint8Array(an.fftSize);
+      const bars = [...document.querySelectorAll('.voice-bars span')];
+      const shape = [0.55, 0.85, 1, 0.8, 0.6];
+      const draw = () => {
+        an.getByteTimeDomainData(buf);
+        let sum = 0;
+        for (let i = 0; i < buf.length; i++) { const v = (buf[i] - 128) / 128; sum += v * v; }
+        const level = Math.min(1, Math.sqrt(sum / buf.length) * 5);
+        bars.forEach((b, i) => b.style.setProperty('--l', (level * shape[i] * (0.8 + Math.random() * 0.4)).toFixed(3)));
+        talk.raf = requestAnimationFrame(draw);
+      };
+      draw();
+    } catch (e) {}
+  }
+  talk.tick = setInterval(() => {
+    const ms = Date.now() - talk.t0;
+    const sec = Math.floor(ms / 1000);
+    document.getElementById('voice-timer').textContent = Math.floor(sec / 60) + ':' + String(sec % 60).padStart(2, '0');
+    if (ms >= TALK_MAX_MS) finishTalk();
+  }, 250);
 }
 
-function stopListening() {
-  if (voiceRecognition) {
-    try { voiceRecognition.stop(); } catch(e) {}
-    voiceRecognition = null;
+function stopTalk() {
+  cancelAnimationFrame(talk.raf);
+  clearInterval(talk.tick);
+  if (talk.rec && talk.rec.state !== 'inactive') { talk.rec.onstop = null; try { talk.rec.stop(); } catch (e) {} }
+  if (talk.stream) talk.stream.getTracks().forEach(t => t.stop());
+  if (talk.ctx) { try { talk.ctx.close(); } catch (e) {} }
+  talk.stream = null; talk.rec = null; talk.ctx = null;
+}
+
+function finishTalk() {
+  if (talk.state !== 'recording' || !talk.rec) return;
+  const rec = talk.rec;
+  const long = Date.now() - talk.t0;
+  talkUI('busy');
+  rec.onstop = () => {
+    const blob = new Blob(talk.chunks, { type: rec.mimeType || 'audio/webm' });
+    sendTalk(blob, long);
+  };
+  try { rec.stop(); } catch (e) {}
+  cancelAnimationFrame(talk.raf);
+  clearInterval(talk.tick);
+  if (talk.stream) talk.stream.getTracks().forEach(t => t.stop());
+  if (talk.ctx) { try { talk.ctx.close(); } catch (e) {} }
+  talk.stream = null; talk.ctx = null;
+}
+
+async function sendTalk(blob, ms) {
+  talk.rec = null;
+  if (!document.getElementById('voice-overlay').classList.contains('active')) return;
+  if (ms < 700 || blob.size < 1500) { talkUI('idle', "Didn't catch anything. Tap Start and try again."); return; }
+  const ext = /mp4|m4a|aac/.test(blob.type) ? 'm4a' : /ogg/.test(blob.type) ? 'ogg' : 'webm';
+  const fd = new FormData();
+  fd.append('audio', blob, 'talk.' + ext);
+  try {
+    const res = await fetch('/api/transcribe', { method: 'POST', body: fd });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || 'failed');
+    const text = (data.text || '').trim();
+    if (!text) { talkUI('idle', "Didn't catch anything. Tap Start and try again."); return; }
+    await runVoiceRequest(text);
+  } catch (e) {
+    talkUI('idle', "Couldn't make that out. Try again, or type it below.");
   }
-  voiceListening = false;
-  updateVoiceMicState(false);
+}
+
+function typedRequest() {
+  const text = document.getElementById('voice-text').value.trim();
+  if (text.length < 3 || talk.state === 'busy') return;
+  stopTalk();
+  document.getElementById('voice-text').blur();
+  runVoiceRequest(text);
 }
 
 function parseVoiceLocal(transcript) {
@@ -2902,15 +3033,16 @@ function parseVoiceLocal(transcript) {
     ella_greeting: "On it — styling you right now!" };
 }
 
-async function confirmVoiceInput() {
-  const transcript = voiceTranscript.trim();
+async function runVoiceRequest(transcript) {
+  transcript = (transcript || '').trim();
   if (!transcript) return;
-  stopListening();
-
-  const btn = document.getElementById('voice-confirm-btn');
-  btn.textContent = 'Ella is listening…';
-  btn.disabled = true;
-  document.getElementById('voice-subtitle').textContent = 'Parsing your request…';
+  document.getElementById('voice-transcript').textContent = '“' + transcript + '”';
+  if (!(isPro() || looksLeft() > 0 || (!PRO.paymentsLive && betaPass))) {
+    closeVoiceMode();
+    openPaywall('limit', () => runVoiceRequest(transcript));
+    return;
+  }
+  talkUI('busy', 'Got it. Styling you now…');
 
   let parsed = null;
   try {
@@ -2989,7 +3121,7 @@ async function generateOutfitFromState() {
         body_profile: state.quiz.styleSize || ''
       })
     });
-    if (!res.ok) throw new Error('API error');
+    if (!res.ok) throw await lookError(res);
     const data = await res.json();
     renderResults(data);
     countLook();
@@ -3000,7 +3132,7 @@ async function generateOutfitFromState() {
   } catch(err) {
     console.error(err);
     goTo('screen-mode');
-    alert('Ella hit a snag — please try again! ✨');
+    if (!err.limit) alert('Ella hit a snag — please try again! ✨');
   }
 }
 
@@ -3278,20 +3410,47 @@ document.getElementById('voice-overlay').addEventListener('click', function(e) {
 });
 
 // ── E&L Pro ──────────────────────────────────────────────────────
-// Preview build: pricing screen + 3-a-day counter kept in this browser.
-// Google sign-in, Razorpay checkout and the server-side check come next;
-// until then anyone can clear their browser data to reset the counter.
+// The server decides who is Pro and how many free looks are left (/api/me). Until payments
+// are switched on there, the 3-a-day counter lives in this browser as before.
+// India pays with Razorpay in ₹ (UPI Autopay, cards); everyone else with Dodo Payments in US$.
 const PRO = {
-  monthly: 199,
-  yearly: 1999,
+  monthly: 199, yearly: 1999,          // ₹, India
+  intlMonthly: 4.99, intlYearly: 49.99, // US$, everywhere else
   freeLooksPerDay: 3,
-  paymentsLive: false   // flip to true once Razorpay + server checks are in
+  paymentsLive: false
 };
+let ME = null;
 let proBilling = 'monthly';
+let proRegion = /^Asia\/(Kolkata|Calcutta)$/.test((Intl.DateTimeFormat().resolvedOptions() || {}).timeZone || '') ? 'in' : 'intl';
+let proReason = 'browse';
+let proBusy = false;
 let betaPass = false;   // preview only: lets people keep styling after the limit
 let proRetry = null;
 
-function isPro() { return false; }  // will come from the server after Google sign-in
+function isPro() { return !!(ME && ME.pro); }
+function serverCounts() { return !!(ME && PRO.paymentsLive && typeof ME.looks_left === 'number'); }
+
+async function refreshMe() {
+  try {
+    const r = await fetch('/api/me', { cache: 'no-store' });
+    applyMe(await r.json());
+  } catch (e) { /* offline or an older server: keep the local counter */ }
+}
+function applyMe(data) {
+  if (!data || data.error === 'unavailable') return;
+  ME = data;
+  PRO.paymentsLive = !!data.payments_live;
+  if (data.prices) { PRO.monthly = data.prices.monthly; PRO.yearly = data.prices.yearly; }
+  if (data.intl_prices) { PRO.intlMonthly = data.intl_prices.monthly; PRO.intlYearly = data.intl_prices.yearly; }
+  if (data.free_per_day) PRO.freeLooksPerDay = data.free_per_day;
+  if (data.regions && PRO.paymentsLive) {
+    if (!data.regions.in && data.regions.intl) proRegion = 'intl';
+    if (data.regions.in && !data.regions.intl) proRegion = 'in';
+  }
+  updateLooksMeter();
+  updateProPill();
+  if (document.getElementById('pro-overlay').classList.contains('active')) renderPaywall();
+}
 
 function todayKey() {
   const d = new Date();
@@ -3304,18 +3463,35 @@ function readUsage() {
   } catch (e) {}
   return { day: todayKey(), looks: 0 };
 }
-function looksLeft() { return Math.max(0, PRO.freeLooksPerDay - readUsage().looks); }
+function looksLeft() {
+  if (serverCounts()) return ME.looks_left;
+  return Math.max(0, PRO.freeLooksPerDay - readUsage().looks);
+}
 function countLook() {
   if (isPro()) return;
+  if (serverCounts()) { ME.looks_left = Math.max(0, ME.looks_left - 1); updateLooksMeter(); return; }
   const u = readUsage();
   u.looks += 1;
   try { localStorage.setItem('el_usage', JSON.stringify(u)); } catch (e) {}
   updateLooksMeter();
 }
 function lookAllowed(retry) {
-  if (isPro() || betaPass || looksLeft() > 0) return true;
+  if (isPro() || looksLeft() > 0) return true;
+  if (!PRO.paymentsLive && betaPass) return true;
   openPaywall('limit', retry);
   return false;
+}
+// A look request the server refused (402): show the right sheet instead of an error.
+async function lookError(res) {
+  const err = new Error('API error');
+  if (res.status === 402) {
+    err.limit = true;
+    let body = {};
+    try { body = await res.json(); } catch (e) {}
+    if (ME && !body.pro) { ME.looks_left = 0; updateLooksMeter(); }
+    setTimeout(() => openPaywall(body.pro ? 'fairuse' : 'limit'), 60);
+  }
+  return err;
 }
 function updateLooksMeter() {
   const el = document.getElementById('looks-meter');
@@ -3327,53 +3503,298 @@ function updateLooksMeter() {
     ? 'No free looks left today · resets at midnight'
     : `${n} free look${n === 1 ? '' : 's'} left today`;
 }
-function setBilling(which) {
-  proBilling = which;
-  document.querySelectorAll('.pro-billing button').forEach(b => b.classList.toggle('on', b.dataset.bill === which));
-  const yearly = which === 'yearly';
-  document.getElementById('pp-amount').textContent = '₹' + (yearly ? PRO.yearly : PRO.monthly).toLocaleString('en-IN');
+function updateProPill() {
+  const pill = document.querySelector('.pro-pill');
+  if (pill) pill.textContent = isPro() ? '✦ Pro' : '✦ Get Pro';
+}
+
+function money(amount, intl) {
+  return intl ? '$' + Number(amount).toFixed(2) : '₹' + Math.round(amount).toLocaleString('en-IN');
+}
+function niceDate(ts) {
+  return new Date(ts * 1000).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+}
+function inAppBrowser() {
+  return /Instagram|FBAN|FBAV|FB_IAB|Snapchat|musical_ly|BytedanceWebview|TikTok|Line\//i.test(navigator.userAgent || '');
+}
+function showProError(msg) {
+  const el = document.getElementById('pro-error');
+  el.textContent = msg || '';
+  el.hidden = !msg;
+}
+function setProBusy(on) {
+  proBusy = on;
+  const cta = document.getElementById('pp-cta');
+  cta.disabled = on;
+  if (on) cta.textContent = 'Opening checkout…';
+  else renderPaywall();
+}
+function setBilling(which) { proBilling = which; renderPaywall(); }
+function setRegion(which) { proRegion = which; renderPaywall(); }
+
+function renderPaywall() {
+  const intl = proRegion === 'intl';
+  const m = intl ? PRO.intlMonthly : PRO.monthly;
+  const y = intl ? PRO.intlYearly : PRO.yearly;
+  const yearly = proBilling === 'yearly';
+  const pro = isPro();
+  const signedIn = !!(ME && ME.signed_in);
+  const regions = (ME && ME.regions) || {};
+  const heads = {
+    limit: [`That's your ${PRO.freeLooksPerDay} free looks for today.`, `Go Pro to keep styling right now, or come back tomorrow for ${PRO.freeLooksPerDay} more.`],
+    fairuse: ["That's a lot of looks for one day.", 'You’ve reached today’s fair-use limit. Ella and Léon will be back tomorrow.'],
+    welcome: ['Welcome to Pro ✦', 'Unlimited looks, starting now.'],
+    pending: ['Payment received. Finishing up…', 'Pro switches on as soon as the payment clears, usually within a minute.'],
+    browse: ['Unlimited looks, every day.', 'Ella and Léon, on call whenever you need a look.']
+  };
+  const [head, sub] = pro && proReason !== 'welcome' && proReason !== 'fairuse'
+    ? ["You're Pro.", 'Unlimited looks, every day.']
+    : (heads[proReason] || heads.browse);
+  document.getElementById('pro-head').textContent = head;
+  document.getElementById('pro-sub').textContent = sub;
+
+  document.querySelectorAll('.pro-billing button').forEach(b => b.classList.toggle('on', b.dataset.bill === proBilling));
+  document.querySelector('.pro-billing').hidden = pro;
+  document.getElementById('pp-save').textContent = `save ${Math.round((1 - y / (m * 12)) * 100)}%`;
+  document.getElementById('pp-amount').textContent = money(yearly ? y : m, intl);
   document.getElementById('pp-per').textContent = yearly ? '/year' : '/month';
   document.getElementById('pp-note').textContent = yearly
-    ? `Just ₹${Math.round(PRO.yearly / 12)} a month, billed yearly`
-    : 'Billed monthly';
-}
-function openPaywall(reason, retry) {
-  proRetry = retry || null;
-  const limit = reason === 'limit';
-  document.getElementById('pro-head').textContent = limit
-    ? `That's your ${PRO.freeLooksPerDay} free looks for today.`
-    : 'Unlimited looks, every day.';
-  document.getElementById('pro-sub').textContent = limit
-    ? `Go Pro to keep styling right now, or come back tomorrow for ${PRO.freeLooksPerDay} more.`
-    : 'Ella and Léon, on call whenever you need a look.';
-  document.getElementById('pp-save').textContent = `save ${Math.round((1 - PRO.yearly / (PRO.monthly * 12)) * 100)}%`;
+    ? `Just ${intl ? '$' + (y / 12).toFixed(2) : '₹' + Math.round(y / 12)} a month, billed yearly`
+    : (intl ? 'Billed monthly · local tax added at checkout' : 'Billed monthly');
+  document.getElementById('pp-free-price').textContent = intl ? '$0' : '₹0';
   document.getElementById('pp-free-looks').textContent = `${PRO.freeLooksPerDay} looks`;
-  document.getElementById('pp-cta').hidden = false;
+  document.getElementById('pp-free-cta').textContent = pro ? 'Free plan' : 'Your plan';
+
+  const region = document.getElementById('pro-region');
+  region.hidden = pro || (PRO.paymentsLive && !(regions.in && regions.intl));
+  region.textContent = intl ? 'In India? Pay in ₹ with UPI' : 'Outside India? Pay in US$';
+
+  const cta = document.getElementById('pp-cta');
+  const signin = document.getElementById('pp-signin');
+  const manage = document.getElementById('pp-manage');
+  const soon = document.getElementById('pp-soon');
+  cta.hidden = signin.hidden = manage.hidden = true;
+  if (!PRO.paymentsLive) {
+    cta.hidden = !soon.hidden;
+    cta.textContent = 'Get Pro';
+  } else if (pro) {
+    manage.hidden = false;
+    const end = ME.period_end || ME.pro_until;
+    document.getElementById('pp-renew').textContent = ME.renews
+      ? `Renews on ${niceDate(end)}`
+      : `Pro until ${niceDate(end)}. It won't renew.`;
+    document.getElementById('pp-cancel').hidden = !ME.renews;
+  } else if (!signedIn) {
+    signin.hidden = false;
+    renderGoogleButton();
+  } else {
+    cta.hidden = false;
+    cta.disabled = proBusy;
+    cta.textContent = proBusy ? 'Opening checkout…' : `Get Pro · ${money(yearly ? y : m, intl)}`;
+  }
+
+  const acct = document.getElementById('pro-account');
+  acct.hidden = !(PRO.paymentsLive && signedIn);
+  if (signedIn) {
+    acct.innerHTML = '';
+    acct.append(`Signed in as ${ME.email} · `);
+    const out = document.createElement('button');
+    out.type = 'button'; out.textContent = 'Sign out'; out.onclick = signOut;
+    acct.append(out);
+  }
+  document.getElementById('pro-test').hidden = !(ME && ME.test_mode);
+  document.getElementById('pro-skip').hidden = !(proReason === 'limit' && !PRO.paymentsLive);
+}
+
+function openPaywall(reason, retry) {
+  proReason = reason || 'browse';
+  proRetry = retry || null;
   document.getElementById('pp-soon').hidden = true;
-  document.getElementById('pro-skip').hidden = !(limit && !PRO.paymentsLive);
-  setBilling(proBilling);
+  showProError('');
+  renderPaywall();
   document.getElementById('pro-overlay').classList.add('active');
 }
 function closePaywall() {
   document.getElementById('pro-overlay').classList.remove('active');
   proRetry = null;
+  cancelArmed = false;
 }
-function startUpgrade() {
+
+// ── Google sign-in ──
+let gisLoading = null;
+let gisReady = false;
+function loadScript(src) {
+  return new Promise((resolve, reject) => {
+    const el = document.createElement('script');
+    el.src = src; el.async = true; el.onload = resolve; el.onerror = reject;
+    document.head.appendChild(el);
+  });
+}
+async function renderGoogleButton() {
+  const box = document.getElementById('pp-google');
+  const note = document.getElementById('pp-signin-note');
+  note.classList.remove('warn');
+  if (inAppBrowser()) {
+    box.innerHTML = '';
+    note.classList.add('warn');
+    note.textContent = "Google sign-in doesn't work inside this app's browser. Tap ⋯ (or the share icon) and choose Open in browser, then get Pro there.";
+    return;
+  }
+  note.textContent = 'Sign in with Google to subscribe. Already Pro? Sign in to get it back.';
+  if (!ME || !ME.google_client_id) return;
+  try {
+    if (!(window.google && google.accounts && google.accounts.id)) {
+      gisLoading = gisLoading || loadScript('https://accounts.google.com/gsi/client');
+      await gisLoading;
+    }
+    if (!gisReady) {
+      google.accounts.id.initialize({ client_id: ME.google_client_id, callback: onGoogleCredential, ux_mode: 'popup', auto_select: false, itp_support: true });
+      gisReady = true;
+    }
+    box.innerHTML = '';
+    google.accounts.id.renderButton(box, { theme: 'outline', size: 'large', shape: 'rectangular', text: 'continue_with', width: Math.min(300, Math.max(200, box.clientWidth || 260)) });
+  } catch (e) {
+    gisLoading = null;
+    note.classList.add('warn');
+    note.textContent = "Couldn't load Google sign-in. Check your connection and reopen this screen.";
+  }
+}
+async function onGoogleCredential(resp) {
+  showProError('');
+  try {
+    const r = await fetch('/api/auth/google', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ credential: resp.credential }) });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || 'Sign-in failed. Please try again.');
+    applyMe(data);
+    if (!isPro()) startUpgrade();   // straight on to payment
+  } catch (e) { showProError(e.message); }
+}
+async function signOut() {
+  try {
+    const r = await fetch('/api/auth/logout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+    applyMe(await r.json());
+    if (window.google && google.accounts && google.accounts.id) google.accounts.id.disableAutoSelect();
+  } catch (e) {}
+}
+
+// ── Checkout ──
+async function startUpgrade() {
   if (!PRO.paymentsLive) {
     document.getElementById('pp-cta').hidden = true;
     document.getElementById('pp-soon').hidden = false;
     return;
   }
-  // Live path (next step): Google sign-in → server creates a Razorpay subscription → checkout.
+  if (!ME || !ME.signed_in) { renderPaywall(); return; }
+  if (proBusy) return;
+  showProError('');
+  setProBusy(true);
+  try {
+    const r = await fetch('/api/pro/subscribe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ plan: proBilling, region: proRegion }) });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || 'Could not start checkout. Please try again.');
+    if (data.provider === 'dodo') { location.href = data.checkout_url; return; }
+    if (!window.Razorpay) await loadScript('https://checkout.razorpay.com/v1/checkout.js');
+    const rzp = new Razorpay({
+      key: data.key_id,
+      subscription_id: data.subscription_id,
+      name: 'E&L',
+      description: data.description,
+      prefill: { name: data.name || '', email: data.email || '' },
+      theme: { color: '#1E1712' },
+      handler: confirmRazorpay,
+      modal: { ondismiss: () => setProBusy(false) }
+    });
+    rzp.on('payment.failed', resp => showProError(((resp && resp.error && resp.error.description) || 'The payment didn’t go through.') + ' Please try again.'));
+    rzp.open();
+  } catch (e) {
+    showProError(e.message);
+    setProBusy(false);
+  }
 }
+async function confirmRazorpay(resp) {
+  try {
+    const r = await fetch('/api/pro/verify', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(resp) });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || 'Could not confirm the payment.');
+    applyMe(data);
+    welcomePro();
+  } catch (e) {
+    showProError(e.message + ' If money left your account, Pro switches on within a few minutes.');
+  } finally {
+    setProBusy(false);
+  }
+}
+function welcomePro() {
+  try { spawnSparkles(); } catch (e) {}
+  const retry = proRetry;
+  if (retry) { closePaywall(); retry(); return; }
+  proReason = 'welcome';
+  renderPaywall();
+}
+
+let cancelArmed = false;
+async function cancelPro() {
+  const btn = document.getElementById('pp-cancel');
+  if (!cancelArmed) {
+    cancelArmed = true;
+    btn.textContent = 'Tap again to stop renewal';
+    setTimeout(() => { if (cancelArmed) { cancelArmed = false; btn.textContent = 'Cancel renewal'; } }, 5000);
+    return;
+  }
+  cancelArmed = false;
+  btn.disabled = true;
+  btn.textContent = 'Cancelling…';
+  try {
+    const r = await fetch('/api/pro/cancel', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || 'Could not cancel right now.');
+    applyMe(data);
+  } catch (e) {
+    showProError(e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Cancel renewal';
+    renderPaywall();
+  }
+}
+
 function continueFree() {
   betaPass = true;
   const retry = proRetry;
   closePaywall();
   if (retry) retry();
 }
+
+// Back from Dodo's checkout page: ?pro=welcome&subscription_id=...&status=...
+async function handleProReturn() {
+  const q = new URLSearchParams(location.search);
+  if (!q.has('pro')) return;
+  const sub = q.get('subscription_id');
+  const kind = q.get('pro');
+  history.replaceState(null, '', location.pathname + location.hash);
+  if (kind !== 'welcome') return;
+  if (sub) {
+    try {
+      const r = await fetch('/api/pro/dodo-return', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ subscription_id: sub }) });
+      applyMe(await r.json());
+    } catch (e) {}
+  }
+  openPaywall(isPro() ? 'welcome' : 'pending');
+  if (!isPro()) {
+    let tries = 0;
+    const poll = setInterval(async () => {
+      tries += 1;
+      await refreshMe();
+      if (isPro()) { clearInterval(poll); proReason = 'welcome'; renderPaywall(); try { spawnSparkles(); } catch (e) {} }
+      else if (tries >= 24) clearInterval(poll);
+    }, 5000);
+  }
+}
+
+document.querySelector('.pro-pill').onclick = () => openPaywall(isPro() ? 'manage' : 'browse');
 document.getElementById('pro-overlay').addEventListener('click', e => { if (e.target.id === 'pro-overlay') closePaywall(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && document.getElementById('pro-overlay').classList.contains('active')) closePaywall(); });
 updateLooksMeter();
+refreshMe().then(handleProReturn);
 
 </script>
