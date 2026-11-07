@@ -217,10 +217,22 @@ HOUSE_STYLE_COUPLE = (" This is for HER look. Style HIM to match her glamour, Ch
                       "satin-lapel jacket, an open collar or a loosened silk tie, polished loafers, one sharp accessory.")
 
 
-def house_style(gender, mode=''):
+def house_style(gender, mode='', budget='', country=''):
     if mode == 'dupe' or gender == 'men':
         return ''
-    return HOUSE_STYLE + (HOUSE_STYLE_COUPLE if gender == 'couple' else '')
+    return HOUSE_STYLE + (HOUSE_STYLE_COUPLE if gender == 'couple' else '') + signature_brands(budget, country)
+
+
+def signature_brands(budget, country):
+    """Ella's favourite luxury label, named outright so it actually turns up: only for luxury budgets and
+    only where it delivers (Annie's Ibiza doesn't ship to India)."""
+    from brand_atlas import ships_to
+    if budget != 'luxury' or not ships_to("Annie's Ibiza", country):
+        return ''
+    return ("\n- Ella's favourite luxury label for this mood is Annie's Ibiza (anniesibiza.com): hand-beaded silk "
+            "chiffon, ruffled tiers, Victorian and Ottoman-inspired embellishment, feather boas and statement "
+            "accessories. When it suits the occasion, make the hero piece (or a statement accessory) Annie's Ibiza, "
+            "with its store set to anniesibiza.com.")
 
 
 def variation(gender, occasion):
@@ -245,13 +257,13 @@ def muse_rule(muse):
             f"so the same muse never gives a repeat. In ella_note, name the real {m} look or signature you're channelling.")
 
 
-def rules(gender, occasion, muse, who, mode=''):
+def rules(gender, occasion, muse, who, mode='', budget='', country=''):
     try:
         given = avoid_list(gender, occasion, who)
     except Exception as e:
         print('[looks] avoid list skipped:', e)
         given = []
-    text = house_style(gender, mode) + muse_rule(muse)
+    text = house_style(gender, mode, budget, country) + muse_rule(muse)
     text += ("\n\nNEVER REPEAT A LOOK: every look must be new, for this person and for everyone else, even for the same "
              "occasion asked again. The same main pieces in a different colour or fabric still count as a repeat.")
     if given:
@@ -285,7 +297,8 @@ def _who_and_rules(data):
         who = identity()[1]
     except Exception:
         who = 'unknown'
-    return gender, occasion, muse, who, rules(gender, occasion, muse, who, str(data.get('mode') or ''))
+    return gender, occasion, muse, who, rules(gender, occasion, muse, who, str(data.get('mode') or ''),
+                                              str(data.get('budget') or ''), str(data.get('country') or '')[:2])
 
 
 def _clash(text, kind, gender, occasion, muse, who):

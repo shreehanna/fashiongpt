@@ -716,6 +716,8 @@ ATLAS = [
     ("Kuna", "PE", "midrange", "fashion"),
     ("Arabian Oud", "SA", "midrange", "beauty"),
     ("Bevza", "UA", "midrange", "fashion"),
+    # Added at the owner's request (not in the Brand Atlas PDF). Ibiza label, ships from London.
+    ("Annie's Ibiza", "ES", "luxury", "fashion"),
 ]
 
 # Websites that aren't simply the brand's name (or that a search could confuse with another brand).
@@ -733,7 +735,21 @@ SITE_OVERRIDES = {
     'QV': 'qvskincare.com', 'Next': 'next.co.uk', 'Fresh': 'fresh.com', 'Coach': 'coach.com', 'Hera': 'hera.com',
     'Saint Laurent': 'ysl.com', 'Marks & Spencer': 'marksandspencer.com', '& Other Stories': 'stories.com',
     'Banana Republic': 'bananarepublic.gap.com', 'Reformation': 'thereformation.com',
+    "Annie's Ibiza": 'anniesibiza.com', "Annie's Collection": 'anniesibiza.com',
 }
+
+# Brands that only deliver to some countries: they're left out for shoppers anywhere else.
+# Annie's Ibiza: the 'Ship to' list on anniesibiza.com/pages/delivery-shipping (checked Nov 2026; India isn't on it).
+SHIPS_TO = {
+    "Annie's Ibiza": {'GB', 'ES', 'US', 'AE', 'AU', 'AT', 'BE', 'CA', 'FR', 'DE', 'IE', 'IT', 'NL', 'PT'},
+}
+
+
+def ships_to(brand, country_code):
+    """True unless we know this brand doesn't deliver to that country."""
+    only = SHIPS_TO.get(brand)
+    cc = (country_code or '').upper()
+    return not only or not cc or cc in only
 
 TIER_FOR_BUDGET = {'everyday': 'affordable', 'midrange': 'midrange', 'luxury': 'luxury'}
 _LABELS = [('fashion', 'Clothes, shoes & bags'), ('jewellery', 'Watches & jewellery'),
@@ -747,8 +763,8 @@ def pool_for(budget, country_code=None):
     cc = (country_code or '').upper()
     lines = []
     for cat, label in _LABELS:
-        home = [b for b, c, t, k in ATLAS if t == tier and k == cat and c == cc]
-        rest = [b for b, c, t, k in ATLAS if t == tier and k == cat and c != cc]
+        home = [b for b, c, t, k in ATLAS if t == tier and k == cat and c == cc and ships_to(b, cc)]
+        rest = [b for b, c, t, k in ATLAS if t == tier and k == cat and c != cc and ships_to(b, cc)]
         if not home and not rest:
             continue
         text = ''
