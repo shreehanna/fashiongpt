@@ -366,6 +366,9 @@ body {
 }
 .era-tile:hover { border-color: var(--accent); }
 .era-tile-wide { grid-column: 1 / -1; }
+.era-tile[hidden], .era-own-wrap[hidden] { display: none; }
+.era-own-wrap { width: 100%; margin: -12px 0 24px; }
+.era-own-wrap input { padding-right: 18px; }
 .era-tile.selected { border-color: var(--accent); background: var(--accent); }
 .era-tile.selected .era-name, .era-tile.selected .era-decade { color: var(--bg); }
 .era-decade { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--fg3); margin-bottom: 4px; }
@@ -1531,6 +1534,12 @@ body::after {
     <div class="era-tile" data-val="Cottagecore" onclick="selectEra(this)"><div class="era-decade">Soft</div><div class="era-name">Cottagecore</div></div>
     <div class="era-tile" data-val="1990s Grunge" onclick="selectEra(this)"><div class="era-decade">1990s</div><div class="era-name">Grunge</div></div>
     <div class="era-tile era-tile-wide" data-val="Upper East Side Glam" onclick="selectEra(this)"><div class="era-decade">Ella's pick</div><div class="era-name">Upper East Side</div></div>
+    <div class="era-tile" id="era-celeb-only" data-val="No specific aesthetic (dress me like my muse)" onclick="selectEra(this)" hidden><div class="era-decade">No specific aesthetic</div><div class="era-name" id="era-celeb-name">Just like my celeb</div></div>
+    <div class="era-tile" id="era-own" data-val="" onclick="selectEra(this)"><div class="era-decade">Something else</div><div class="era-name">Type your own</div></div>
+  </div>
+  <div class="celeb-input-wrap era-own-wrap" id="era-own-wrap" hidden>
+    <input id="era-own-input" maxlength="60" autocomplete="off" placeholder="e.g. Coastal grandmother" aria-label="Your aesthetic"
+           onkeydown="if (event.key === 'Enter') goToMode()" />
   </div>
 
   <button class="btn-primary w100" onclick="goToMode()">Next: Closet or Discover →</button>
@@ -1966,12 +1975,23 @@ function goToCeleb() {
 }
 function goToEra() {
   state.celeb = document.getElementById('celeb-input').value.trim() || 'No specific muse';
+  const hasCeleb = state.celeb && state.celeb !== 'No specific muse';
+  const tile = document.getElementById('era-celeb-only');
+  tile.hidden = !hasCeleb;
+  if (hasCeleb) document.getElementById('era-celeb-name').textContent = `Just like ${state.celeb}`;
+  else if (tile.classList.contains('selected')) tile.classList.remove('selected');
   goTo('screen-era');
 }
 function goToMode() {
-  const sel = document.querySelector('.era-tile.selected');
+  const sel = document.querySelector('.era-tile.selected:not([hidden])');
   if (!sel) { alert('Pick an aesthetic to continue.'); return; }
-  state.era = sel.dataset.val;
+  if (sel.id === 'era-own') {
+    const typed = document.getElementById('era-own-input').value.replace(/\s+/g, ' ').trim();
+    if (!typed) { document.getElementById('era-own-input').focus(); alert('Type your aesthetic, or pick one above.'); return; }
+    state.era = typed.slice(0, 60);
+  } else {
+    state.era = sel.dataset.val;
+  }
   selectMode('discover');
   selectBudget('everyday');
   selectCurrency('INR');
@@ -2070,6 +2090,9 @@ function selectGender(g) {
 function selectEra(el) {
   document.querySelectorAll('.era-tile').forEach(t => t.classList.remove('selected'));
   el.classList.add('selected');
+  const own = el.id === 'era-own';
+  document.getElementById('era-own-wrap').hidden = !own;
+  if (own) document.getElementById('era-own-input').focus();
 }
 
 // ── Mode / Budget / Currency ──

@@ -685,7 +685,7 @@ Return ONLY valid JSON:
   "celeb": "any celebrity name mentioned as style muse. Default: ''",
   "city": "city or location mentioned. Default: ''",
   "season": "season mentioned (Summer, Winter, Monsoon, etc). Default: ''",
-  "era": "the aesthetic, one of: 'Clean Girl Aesthetic', 'Quiet Luxury', '2000s Y2K', 'Goth', 'Cottagecore', '1990s Grunge', 'Upper East Side Glam'. Pick the closest one to what they said. Default: 'Upper East Side Glam'",
+  "era": "the aesthetic: one of 'Clean Girl Aesthetic', 'Quiet Luxury', '2000s Y2K', 'Goth', 'Cottagecore', '1990s Grunge', 'Upper East Side Glam' if what they said matches one; their own words (a few words) for any other aesthetic they name; 'No specific aesthetic (dress me like my muse)' if they name a celebrity but no aesthetic. Otherwise 'Upper East Side Glam'",
   "ella_greeting": "Ella's short 1-sentence spoken response confirming she heard the request — warm, Gossip Girl-coded. Start with 'Got it —' or 'On it —' etc. Under 20 words."
 }}"""
 

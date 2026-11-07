@@ -272,6 +272,8 @@ def aesthetic_key(era):
     """Which of the seven aesthetics was picked. Nothing picked (or Ella's automatic Indian festive) means
     Upper East Side, Ella's own. Anything else (an older saved look's era) returns None and leads on its own."""
     e = (era or '').lower()
+    if 'no specific aesthetic' in e:
+        return 'celeb'                     # "just dress me like my celeb"
     for key, words in _AESTHETIC_WORDS:
         if any(w in e for w in words):
             return key
@@ -281,11 +283,18 @@ def aesthetic_key(era):
 
 
 def aesthetic_rule(era):
-    a = AESTHETICS.get(aesthetic_key(era))
-    if not a:
-        return ''
-    return (f"\n\nAESTHETIC: the user picked {a['name']}, so every piece, colour and accessory must read as {a['name']}: "
-            f"{a['brief']}")
+    key = aesthetic_key(era)
+    a = AESTHETICS.get(key)
+    if a:
+        return (f"\n\nAESTHETIC: the user picked {a['name']}, so every piece, colour and accessory must read as {a['name']}: "
+                f"{a['brief']}")
+    if key == 'celeb':
+        return ("\n\nAESTHETIC: none. The user wants to be dressed purely like their chosen muse, so the muse decides "
+                "everything: silhouettes, colours, labels, hair and makeup.")
+    if key is None and (era or '').strip():
+        return (f"\n\nAESTHETIC: the user typed their own: {era.strip()}. Make every piece, colour and accessory read "
+                f"as {era.strip()}, the way fashion people use the term.")
+    return ''
 
 
 # Ella dresses women like an Upper East Side party girl, not an office. Every look prompt gets this except
@@ -329,7 +338,13 @@ def signature_brands(budget, country):
             "with its store set to anniesibiza.com.")
 
 
-def variation(gender, occasion, era=''):
+def variation(gender, occasion, era='', muse=''):
+    if aesthetic_key(era) == 'celeb':
+        return (f"\nStarting point for this look (to keep every look new): channel a real {muse} outfit that isn't the "
+                f"obvious one: a different event, year or designer from last time.")
+    if aesthetic_key(era) is None and (era or '').strip():
+        return (f"\nStarting point for this look (to keep every look new): build it around a key piece that isn't the "
+                f"most obvious {era.strip()} choice, in colours true to {era.strip()}.")
     ethnic = bool(ETHNIC_WORDS.search(occasion or ''))
     side = 'men' if gender == 'men' else 'women'          # a couple's starting point is her look
     key = aesthetic_key(era)
@@ -354,8 +369,10 @@ def muse_rule(muse, era=''):
     if not muse or muse.strip().lower() in ('no specific muse', 'none', ''):
         return ''
     m = muse.strip()[:60]
-    a = AESTHETICS.get(aesthetic_key(era))
-    look = a['name'] if a else (era or '').strip()[:60]
+    key = aesthetic_key(era)
+    a = AESTHETICS.get(key)
+    look = a['name'] if a else ('' if key in ('celeb', 'ues') and 'upper east side' not in (era or '').lower()
+                                else (era or '').strip()[:60])
     text = (f"\n\nMUSE RULE (this comes first): dress the user exactly the way {m} really dresses. Base every piece on "
             f"{m}'s actual signature style: the silhouettes, colours, fabrics, labels, accessories, hair and makeup they're "
             f"known for in real red-carpet, street-style and off-duty looks. Every item must be something {m} would "
@@ -378,14 +395,16 @@ def rules(gender, occasion, muse, who, mode='', budget='', country='', era=''):
     except Exception as e:
         print('[looks] avoid list skipped:', e)
         given = []
-    if mode == 'dupe':
-        era = ''                                   # Dupe copies its inspiration as it is
+    era = re.sub(r'[\r\n"\u201c\u201d]+', ' ', era or '').strip()[:60]
+    real_muse = bool(muse) and muse.strip().lower() not in ('no specific muse', 'none', '')
+    if mode == 'dupe' or (aesthetic_key(era) == 'celeb' and not real_muse):
+        era = ''                                   # Dupe copies its inspiration; "like my celeb" without a celeb = Ella's own
     text = house_style(gender, mode, budget, country, era) + aesthetic_rule(era) + muse_rule(muse, era)
     text += ("\n\nNEVER REPEAT A LOOK: every look must be new, for this person and for everyone else, even for the same "
              "occasion asked again. The same main pieces in a different colour or fabric still count as a repeat.")
     if given:
         text += " These have already been given, so don't recreate any of them or their main combination of pieces:\n" + '\n'.join(given)
-    return text + variation(gender, occasion, era)
+    return text + variation(gender, occasion, era, (muse or '').strip()[:60])
 
 
 # ── One call that only ever returns a new look ────────────────────────────────
