@@ -365,6 +365,7 @@ body {
   background: var(--card);
 }
 .era-tile:hover { border-color: var(--accent); }
+.era-tile-wide { grid-column: 1 / -1; }
 .era-tile.selected { border-color: var(--accent); background: var(--accent); }
 .era-tile.selected .era-name, .era-tile.selected .era-decade { color: var(--bg); }
 .era-decade { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--fg3); margin-bottom: 4px; }
@@ -1127,6 +1128,15 @@ body::after {
 .pp-small.warn { color: #8A3B12; }
 .pp-status { font-family: var(--serif); font-size: 22px; text-align: center; color: var(--ink); }
 .pp-cancel { justify-content: center; font-size: 12px; padding: 10px 16px; }
+.pp-once {
+  display: block; width: 100%; margin: 0 0 12px; padding: 11px 12px; cursor: pointer;
+  background: transparent; border: 1px solid rgba(30,23,18,0.38); color: var(--ink);
+  font: 500 11.5px var(--sans); letter-spacing: 0.1em; text-transform: uppercase;
+}
+.pp-once:hover { border-color: var(--ink); }
+.pp-once[disabled] { opacity: 0.55; cursor: default; }
+.pp-once[hidden], .pp-methods[hidden] { display: none; }
+.pp-methods { margin-bottom: 12px; }
 .pro-error { color: #8A3B12; font-size: 13px; margin-top: 14px; }
 .pro-account { font-size: 12.5px; color: var(--fg2); margin-top: 12px; }
 .pro-account button { background: none; border: none; padding: 0; color: var(--gold-ink); font: inherit; text-decoration: underline; cursor: pointer; }
@@ -1509,26 +1519,18 @@ body::after {
   <button class="nav-back" onclick="goTo('screen-celeb')">← Back</button>
   <div class="progress-bar"><div class="progress-fill" style="width:66%"></div></div>
   <div class="section-head">
-    <div class="step-label">Step 4 of 6 — Era</div>
-    <h2 class="section-title">Pick your <em>aesthetic era</em></h2>
+    <div class="step-label">Step 4 of 6 — Aesthetic</div>
+    <h2 class="section-title">Pick your <em>aesthetic</em></h2>
   </div>
 
   <div class="era-grid" id="era-grid">
-    <div class="era-tile" data-val="Upper East Side Glam" onclick="selectEra(this)"><div class="era-decade">Ella's pick</div><div class="era-name">Upper East Side</div></div>
-    <div class="era-tile" data-val="1900s Edwardian" onclick="selectEra(this)"><div class="era-decade">1900s</div><div class="era-name">Edwardian</div></div>
-    <div class="era-tile" data-val="1920s Flapper" onclick="selectEra(this)"><div class="era-decade">1920s</div><div class="era-name">Flapper</div></div>
-    <div class="era-tile" data-val="1950s Old Hollywood" onclick="selectEra(this)"><div class="era-decade">1950s</div><div class="era-name">Old Hollywood</div></div>
-    <div class="era-tile" data-val="1960s Mod" onclick="selectEra(this)"><div class="era-decade">1960s</div><div class="era-name">Mod</div></div>
-    <div class="era-tile" data-val="1970s Disco" onclick="selectEra(this)"><div class="era-decade">1970s</div><div class="era-name">Disco</div></div>
-    <div class="era-tile" data-val="1980s Power Dressing" onclick="selectEra(this)"><div class="era-decade">1980s</div><div class="era-name">Power Dressing</div></div>
-    <div class="era-tile" data-val="1990s Grunge" onclick="selectEra(this)"><div class="era-decade">1990s</div><div class="era-name">Grunge</div></div>
-    <div class="era-tile" data-val="2000s Y2K" onclick="selectEra(this)"><div class="era-decade">2000s</div><div class="era-name">Y2K</div></div>
-    <div class="era-tile" data-val="2010s Tumblr Aesthetic" onclick="selectEra(this)"><div class="era-decade">2010s</div><div class="era-name">Tumblr Aesthetic</div></div>
-    <div class="era-tile" data-val="Dark Academia" onclick="selectEra(this)"><div class="era-decade">2015s</div><div class="era-name">Dark Academia</div></div>
     <div class="era-tile" data-val="Clean Girl Aesthetic" onclick="selectEra(this)"><div class="era-decade">Now</div><div class="era-name">Clean Girl</div></div>
     <div class="era-tile" data-val="Quiet Luxury" onclick="selectEra(this)"><div class="era-decade">Now</div><div class="era-name">Quiet Luxury</div></div>
+    <div class="era-tile" data-val="2000s Y2K" onclick="selectEra(this)"><div class="era-decade">2000s</div><div class="era-name">Y2K</div></div>
     <div class="era-tile" data-val="Goth" onclick="selectEra(this)"><div class="era-decade">Alt</div><div class="era-name">Goth</div></div>
-    <div class="era-tile" data-val="Cottagecore" onclick="selectEra(this)"><div class="era-decade">Alt</div><div class="era-name">Cottagecore</div></div>
+    <div class="era-tile" data-val="Cottagecore" onclick="selectEra(this)"><div class="era-decade">Soft</div><div class="era-name">Cottagecore</div></div>
+    <div class="era-tile" data-val="1990s Grunge" onclick="selectEra(this)"><div class="era-decade">1990s</div><div class="era-name">Grunge</div></div>
+    <div class="era-tile era-tile-wide" data-val="Upper East Side Glam" onclick="selectEra(this)"><div class="era-decade">Ella's pick</div><div class="era-name">Upper East Side</div></div>
   </div>
 
   <button class="btn-primary w100" onclick="goToMode()">Next: Closet or Discover →</button>
@@ -1844,6 +1846,8 @@ body::after {
           <p class="pp-small" id="pp-renew"></p>
           <button class="btn-secondary pp-cancel" id="pp-cancel" onclick="cancelPro()">Cancel renewal</button>
         </div>
+        <button class="pp-once" id="pp-once" type="button" hidden>Pay once instead · any debit or credit card</button>
+        <p class="pp-small pp-methods" id="pp-methods" hidden></p>
         <div class="pp-soon" id="pp-soon" hidden>Pro opens soon. Payments aren't switched on yet.</div>
         <ul class="pp-list">
           <li><span><b>Unlimited looks</b>, every day</span></li>
@@ -1857,7 +1861,7 @@ body::after {
     <p class="pro-account" id="pro-account" hidden></p>
     <p class="pro-test" id="pro-test" hidden>Test mode: no real money moves. Use the test card or UPI ID from your payment dashboard.</p>
     <button class="pro-skip" id="pro-skip" hidden onclick="continueFree()">Keep styling free for now</button>
-    <p class="pro-legal">Renews automatically until you cancel. Cancel anytime.<br><a href="/pricing">Pricing</a> · <a href="/terms">Terms</a> · <a href="/refunds">Refunds</a> · <a href="/privacy">Privacy</a></p>
+    <p class="pro-legal"><span id="pro-terms-line">Renews automatically until you cancel. Cancel anytime.</span><br><a href="/pricing">Pricing</a> · <a href="/terms">Terms</a> · <a href="/refunds">Refunds</a> · <a href="/privacy">Privacy</a></p>
   </div>
 </div>
 
@@ -1966,7 +1970,7 @@ function goToEra() {
 }
 function goToMode() {
   const sel = document.querySelector('.era-tile.selected');
-  if (!sel) { alert('Pick an era to continue.'); return; }
+  if (!sel) { alert('Pick an aesthetic to continue.'); return; }
   state.era = sel.dataset.val;
   selectMode('discover');
   selectBudget('everyday');
@@ -4116,8 +4120,9 @@ function showProError(msg) {
 function setProBusy(on) {
   proBusy = on;
   const cta = document.getElementById('pp-cta');
-  cta.disabled = on;
-  if (on) cta.textContent = 'Opening checkout…';
+  const once = document.getElementById('pp-once');
+  cta.disabled = once.disabled = on;
+  if (on) { if (!cta.hidden) cta.textContent = 'Opening checkout…'; if (!once.hidden) once.textContent = 'Opening checkout…'; }
   else renderPaywall();
 }
 function setBilling(which) { proBilling = which; renderPaywall(); }
@@ -4168,6 +4173,16 @@ function renderPaywall() {
   const manage = document.getElementById('pp-manage');
   const soon = document.getElementById('pp-soon');
   cta.hidden = signin.hidden = manage.hidden = true;
+  const once = document.getElementById('pp-once');
+  const methods = document.getElementById('pp-methods');
+  once.hidden = methods.hidden = true;
+  const inr = !intl && !!regions.in;      // Pay once is offered wherever Razorpay (₹) is open
+  const showOnce = (label, plan) => {
+    once.hidden = false;
+    once.disabled = proBusy;
+    once.textContent = proBusy ? 'Opening checkout…' : label;
+    once.onclick = () => startOnce(plan);
+  };
   const canSignIn = !!(ME && ME.signin && ME.google_client_id);
   if (owner) {
     soon.hidden = true;
@@ -4188,8 +4203,13 @@ function renderPaywall() {
     const end = ME.period_end || ME.pro_until;
     document.getElementById('pp-renew').textContent = ME.renews
       ? `Renews on ${niceDate(end)}`
+      : ME.once ? `Pro until ${niceDate(end)}. Paid once, so it won't renew.`
       : `Pro until ${niceDate(end)}. It won't renew.`;
     document.getElementById('pp-cancel').hidden = !ME.renews;
+    if (ME.once && regions.in) {
+      const yr = ME.plan === 'yearly';
+      showOnce(`Add another ${yr ? 'year' : 'month'} · ${money(yr ? PRO.yearly : PRO.monthly, false)}`, yr ? 'yearly' : 'monthly');
+    }
   } else if (!signedIn) {
     signin.hidden = false;
     renderGoogleButton();
@@ -4197,7 +4217,18 @@ function renderPaywall() {
     cta.hidden = false;
     cta.disabled = proBusy;
     cta.textContent = proBusy ? 'Opening checkout…' : `Get Pro · ${money(yearly ? y : m, intl)}`;
+    if (inr) showOnce('Pay once instead · any debit or credit card', proBilling);
   }
+  if (PRO.paymentsLive && !pro && !owner) {
+    methods.hidden = false;
+    methods.textContent = intl
+      ? 'Debit or credit cards (Visa, Mastercard, Amex) and popular wallets.'
+      : !signedIn ? 'Visa, Mastercard and RuPay debit or credit cards, UPI and net banking.'
+      : 'Get Pro renews by UPI Autopay, credit card or a supported debit card. Pay once works with any Visa, Mastercard or RuPay debit or credit card, UPI or net banking.';
+  }
+  document.getElementById('pro-terms-line').textContent = intl || !PRO.paymentsLive || !regions.in
+    ? 'Renews automatically until you cancel. Cancel anytime.'
+    : 'Get Pro renews until you cancel. Pay once never renews.';
 
   const acct = document.getElementById('pro-account');
   acct.innerHTML = '';
@@ -4287,7 +4318,9 @@ async function onGoogleCredential(resp) {
     if (!r.ok) throw new Error(data.error || 'Sign-in failed. Please try again.');
     signinOpen = false;
     applyMe(data);
-    if (!isPro() && PRO.paymentsLive) startUpgrade();   // straight on to payment
+    // Outside India there's one way to pay, so go straight to it. In India the person chooses:
+    // auto-renew (Get Pro) or Pay once (any debit card), so show both instead of opening one.
+    if (!isPro() && PRO.paymentsLive && (proRegion === 'intl' || !(ME.regions && ME.regions.in))) startUpgrade();
   } catch (e) { showProError(e.message); }
 }
 async function signOut() {
@@ -4325,10 +4358,53 @@ async function startUpgrade() {
       handler: confirmRazorpay,
       modal: { ondismiss: () => setProBusy(false) }
     });
-    rzp.on('payment.failed', resp => showProError(((resp && resp.error && resp.error.description) || 'The payment didn’t go through.') + ' Please try again.'));
+    rzp.on('payment.failed', resp => showProError(((resp && resp.error && resp.error.description) || 'The payment didn’t go through.') + (proRegion === 'intl' ? ' Please try again.' : ' Debit card not working? Many banks don’t allow auto-renew on debit cards. Tap Pay once instead, which works with any card.')));
     rzp.open();
   } catch (e) {
     showProError(e.message);
+    setProBusy(false);
+  }
+}
+// Pay once (India): any Visa, Mastercard or RuPay debit or credit card, UPI or net banking. No renewal.
+async function startOnce(plan) {
+  if (!PRO.paymentsLive || !ME || !ME.signed_in) { renderPaywall(); return; }
+  if (proBusy) return;
+  showProError('');
+  setProBusy(true);
+  try {
+    const r = await fetch('/api/pro/order', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ plan: plan || proBilling }) });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || 'Could not start checkout. Please try again.');
+    if (!window.Razorpay) await loadScript('https://checkout.razorpay.com/v1/checkout.js');
+    const rzp = new Razorpay({
+      key: data.key_id,
+      order_id: data.order_id,
+      amount: data.amount,
+      currency: data.currency,
+      name: 'E&L',
+      description: data.description,
+      prefill: { name: data.name || '', email: data.email || '' },
+      theme: { color: '#1E1712' },
+      handler: confirmOnce,
+      modal: { ondismiss: () => setProBusy(false) }
+    });
+    rzp.on('payment.failed', resp => showProError(((resp && resp.error && resp.error.description) || 'The payment didn’t go through.') + ' Please try again, or use another card or UPI.'));
+    rzp.open();
+  } catch (e) {
+    showProError(e.message);
+    setProBusy(false);
+  }
+}
+async function confirmOnce(resp) {
+  try {
+    const r = await fetch('/api/pro/verify-order', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(resp) });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || 'Could not confirm the payment.');
+    applyMe(data);
+    welcomePro();
+  } catch (e) {
+    showProError(e.message + ' If money left your account, Pro switches on within a few minutes.');
+  } finally {
     setProBusy(false);
   }
 }

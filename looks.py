@@ -194,6 +194,100 @@ WOMEN_PALETTES = ['champagne and gold', 'blush and rose gold', 'ivory and pearl'
                   'red and pink', 'silver and ice blue', 'emerald and gold', 'burgundy and blush', 'monochrome head to toe',
                   'pastels with gold', 'nude and crystal', 'cobalt and silver', 'all-white with sparkle', 'lilac and silver']
 
+# The seven aesthetics on the picker. Each has a one-line definition for Ella and its own starting points,
+# so the variety that stops repeats stays inside the aesthetic (a Goth look never drifts toward sequins).
+AESTHETICS = {
+    'clean girl': {
+        'name': 'Clean Girl',
+        'brief': 'polished minimalism: fitted basics, tailored trousers, slip skirts, crisp shirts and fine knits in neutral '
+                 'tones; gold hoops, a sleek bun, dewy skin, brushed-up brows and lip oil. No loud prints or heavy embellishment.',
+        'women': ['a ribbed tank with tailored trousers', 'a slip skirt with a fitted tee', 'a crisp white shirt', 'a monochrome knit set',
+                  'a linen co-ord', 'a bodysuit with straight-leg jeans', 'a minimalist slip dress', 'an oversized blazer over a tank',
+                  'a fine-gauge knit dress', 'a column skirt with a cropped knit'],
+        'men': ['a fitted white tee with pleated trousers', 'a knit polo', 'a crisp Oxford shirt', 'a monochrome knit set',
+                'a linen shirt with tailored shorts', 'a fine-gauge crewneck', 'a minimal overshirt'],
+        'palettes': ['white and cream', 'beige and camel', 'soft grey and white', 'black and white', 'sage and cream',
+                     'tonal taupe', 'butter yellow and cream', 'baby blue and white']},
+    'quiet luxury': {
+        'name': 'Quiet Luxury',
+        'brief': 'old-money understatement: impeccable fabrics (cashmere, silk, fine wool, suede), perfect tailoring, no visible '
+                 'logos, muted tones; loafers, a structured leather bag, fine gold jewellery, natural hair and makeup.',
+        'women': ['a cashmere crewneck', 'a camel coat', 'tailored wide-leg trousers', 'a silk shirt', 'a knit polo',
+                  'a merino turtleneck', 'a double-faced wool coat', 'a column maxi skirt', 'a suede jacket', 'a bias-cut silk skirt'],
+        'men': ['a cashmere crewneck', 'a camel overcoat', 'a suede bomber', 'pleated wool trousers', 'a knit polo',
+                'an unstructured blazer', 'a merino turtleneck'],
+        'palettes': ['camel and cream', 'navy and ivory', 'chocolate and oatmeal', 'charcoal and white', 'olive and stone',
+                     'tonal greige', 'black and camel']},
+    'y2k': {
+        'name': 'Y2K',
+        'brief': 'early-2000s fun: low-rise everything, baby tees, butterfly and halter tops, velour, denim minis, metallics and '
+                 'mesh; tinted sunglasses, butterfly clips, a shoulder bag, platform sandals, glossy lips.',
+        'women': ['a low-rise mini skirt', 'a baby tee', 'a velour tracksuit', 'a butterfly top', 'a satin halter',
+                  'low-rise flared jeans', 'a mesh top', 'a metallic mini', 'cargo pants with a crop top', 'a slip dress over a tee',
+                  'a denim mini'],
+        'men': ['baggy jeans with a graphic tee', 'a velour tracksuit', 'a track jacket', 'a mesh jersey', 'cargo pants',
+                'a bowling shirt', 'a zip hoodie with a trucker cap'],
+        'palettes': ['baby pink and silver', 'lilac and chrome', 'baby blue and white', 'hot pink and black', 'metallics',
+                     'butter yellow and pink']},
+    'goth': {
+        'name': 'Goth',
+        'brief': 'dark and romantic, Victorian or punk: black lace, velvet, leather, mesh and corsetry; silver jewellery and '
+                 'chokers, platform or buckled boots, a dark lip and smoky eyes.',
+        'women': ['a lace slip dress', 'a corset with a long skirt', 'a velvet maxi dress', 'a mesh top with a leather skirt',
+                  'a long black coat', 'a ruffled Victorian blouse', 'platform boots with a tulle skirt', 'a leather mini',
+                  'a fishnet layered look', 'a high-neck lace gown'],
+        'men': ['a long black coat', 'a mesh top under a leather jacket', 'black skinny jeans with boots', 'a ruffled poet shirt',
+                'a velvet blazer', 'black cargo pants with platform boots'],
+        'palettes': ['all black', 'black and oxblood', 'black and deep purple', 'black and silver', 'black and blood red',
+                     'charcoal and black']},
+    'cottagecore': {
+        'name': 'Cottagecore',
+        'brief': 'romantic countryside: prairie and milkmaid dresses, puff sleeves, smocking, gingham, florals, eyelet, crochet '
+                 'and embroidered knits; ribbons, a straw or basket bag, Mary Janes, soft natural makeup.',
+        'women': ['a prairie dress', 'a puff-sleeve blouse with a midi skirt', 'a smocked sundress', 'a gingham dress',
+                  'an embroidered cardigan', 'a linen pinafore', 'a floral milkmaid dress', 'a crochet top with a tiered skirt',
+                  'a lace-collar dress', 'an eyelet midi'],
+        'men': ['a linen shirt with suspenders', 'a cable-knit cardigan', 'corduroy trousers', 'a chore jacket',
+                'a grandad-collar shirt', 'a knitted vest'],
+        'palettes': ['sage and cream', 'floral pastels', 'butter yellow and white', 'dusty rose and ivory', 'red gingham and white',
+                     'lavender and cream', 'earth tones']},
+    'grunge': {
+        'name': 'Grunge',
+        'brief': '90s Seattle undone: plaid flannel, band tees, ripped jeans, slip dresses over tees, oversized knits and a '
+                 'leather jacket; combat boots, layered silver, messy hair, smudged liner.',
+        'women': ['a plaid flannel shirt', 'a slip dress with a cardigan', 'ripped jeans with a band tee', 'a leather jacket',
+                  'combat boots with a mini skirt', 'an oversized knit', 'a babydoll dress with tights', 'a denim jacket over a slip',
+                  'a mesh layered top', 'cargo pants with a thermal'],
+        'men': ['a plaid flannel', 'ripped jeans with a band tee', 'a leather jacket', 'a thermal with cargo pants',
+                'an oversized knit', 'a denim jacket', 'combat boots with straight jeans'],
+        'palettes': ['black and plaid red', 'washed black and grey', 'olive and black', 'burgundy and black',
+                     'faded denim and black', 'forest green and brown']},
+}
+_AESTHETIC_WORDS = [('clean girl', ('clean girl',)), ('quiet luxury', ('quiet luxury', 'old money')), ('y2k', ('y2k',)),
+                    ('goth', ('goth',)), ('cottagecore', ('cottagecore', 'cottage core')), ('grunge', ('grunge',)),
+                    ('ues', ('upper east side',))]
+
+
+def aesthetic_key(era):
+    """Which of the seven aesthetics was picked. Nothing picked (or Ella's automatic Indian festive) means
+    Upper East Side, Ella's own. Anything else (an older saved look's era) returns None and leads on its own."""
+    e = (era or '').lower()
+    for key, words in _AESTHETIC_WORDS:
+        if any(w in e for w in words):
+            return key
+    if not e.strip() or 'indian festive' in e:
+        return 'ues'
+    return None
+
+
+def aesthetic_rule(era):
+    a = AESTHETICS.get(aesthetic_key(era))
+    if not a:
+        return ''
+    return (f"\n\nAESTHETIC: the user picked {a['name']}, so every piece, colour and accessory must read as {a['name']}: "
+            f"{a['brief']}")
+
+
 # Ella dresses women like an Upper East Side party girl, not an office. Every look prompt gets this except
 # Dupe (which must copy its inspiration) and men's looks.
 HOUSE_STYLE = (
@@ -217,8 +311,8 @@ HOUSE_STYLE_COUPLE = (" This is for HER look. Style HIM to match her glamour, Ch
                       "satin-lapel jacket, an open collar or a loosened silk tie, polished loafers, one sharp accessory.")
 
 
-def house_style(gender, mode='', budget='', country=''):
-    if mode == 'dupe' or gender == 'men':
+def house_style(gender, mode='', budget='', country='', era=''):
+    if mode == 'dupe' or gender == 'men' or aesthetic_key(era) != 'ues':
         return ''
     return HOUSE_STYLE + (HOUSE_STYLE_COUPLE if gender == 'couple' else '') + signature_brands(budget, country)
 
@@ -235,40 +329,60 @@ def signature_brands(budget, country):
             "with its store set to anniesibiza.com.")
 
 
-def variation(gender, occasion):
+def variation(gender, occasion, era=''):
     ethnic = bool(ETHNIC_WORDS.search(occasion or ''))
-    pool = HEROES.get(f"{'men' if gender == 'men' else 'women'}{'_ethnic' if ethnic else ''}")
-    if gender == 'couple':
-        pool = HEROES['women_ethnic' if ethnic else 'women']
-    palettes = PALETTES if gender == 'men' else WOMEN_PALETTES
-    return (f"\nStarting point for this look (to keep every look new): build it around {random.choice(pool)} with a "
-            f"{random.choice(palettes)} palette, unless the muse or occasion clearly calls for something else.")
+    side = 'men' if gender == 'men' else 'women'          # a couple's starting point is her look
+    key = aesthetic_key(era)
+    a = AESTHETICS.get(key)
+    if ethnic:
+        pool = HEROES[f'{side}_ethnic']
+        palettes = a['palettes'] if a else (PALETTES if side == 'men' else WOMEN_PALETTES)
+    elif a:
+        pool, palettes = a[side], a['palettes']
+    elif key == 'ues':
+        pool, palettes = HEROES[side], (PALETTES if side == 'men' else WOMEN_PALETTES)
+    else:
+        pool, palettes = None, PALETTES
+    piece = f"build it around {random.choice(pool)}" if pool else "build it around a key piece that isn't the most obvious choice"
+    palette = random.choice(palettes)
+    article = 'an' if palette[0] in 'aeiou' else 'a'
+    return (f"\nStarting point for this look (to keep every look new): {piece} with {article} {palette} palette, "
+            f"unless the muse or occasion clearly calls for something else.")
 
 
-def muse_rule(muse):
+def muse_rule(muse, era=''):
     if not muse or muse.strip().lower() in ('no specific muse', 'none', ''):
         return ''
     m = muse.strip()[:60]
-    return (f"\n\nMUSE RULE (this comes first): dress the user exactly the way {m} really dresses. Base every piece on "
+    a = AESTHETICS.get(aesthetic_key(era))
+    look = a['name'] if a else (era or '').strip()[:60]
+    text = (f"\n\nMUSE RULE (this comes first): dress the user exactly the way {m} really dresses. Base every piece on "
             f"{m}'s actual signature style: the silhouettes, colours, fabrics, labels, accessories, hair and makeup they're "
             f"known for in real red-carpet, street-style and off-duty looks. Every item must be something {m} would "
-            f"genuinely wear. If the aesthetic era or anything else clashes with {m}'s style, {m} wins. At this budget and in "
-            f"this country, use the closest pieces the shopper can buy. Channel a different real {m} outfit each time, "
-            f"so the same muse never gives a repeat. In ella_note, name the real {m} look or signature you're channelling.")
+            f"genuinely wear.")
+    if look:
+        text += (f" The user also picked {look}, so dress them the way {m} would wear {look}: keep {m}'s real signatures "
+                 f"and express them through {look}. If {m} has really worn {look}-style looks, channel those; if not, imagine "
+                 f"how {m} would do {look}, still unmistakably {m}.")
+    return text + (f" At this budget and in this country, use the closest pieces the shopper can buy. Channel a different "
+                   f"real {m} outfit each time, so the same muse never gives a repeat. In ella_note, name the real {m} look "
+                   f"or signature you're channelling.")
 
 
-def rules(gender, occasion, muse, who, mode='', budget='', country=''):
+def rules(gender, occasion, muse, who, mode='', budget='', country='', era=''):
     try:
         given = avoid_list(gender, occasion, who)
     except Exception as e:
         print('[looks] avoid list skipped:', e)
         given = []
-    text = house_style(gender, mode, budget, country) + muse_rule(muse)
+    if mode == 'dupe':
+        era = ''                                   # Dupe copies its inspiration as it is
+    text = house_style(gender, mode, budget, country, era) + aesthetic_rule(era) + muse_rule(muse, era)
     text += ("\n\nNEVER REPEAT A LOOK: every look must be new, for this person and for everyone else, even for the same "
              "occasion asked again. The same main pieces in a different colour or fabric still count as a repeat.")
     if given:
         text += " These have already been given, so don't recreate any of them or their main combination of pieces:\n" + '\n'.join(given)
-    return text + variation(gender, occasion)
+    return text + variation(gender, occasion, era)
 
 
 # ── One call that only ever returns a new look ────────────────────────────────
@@ -298,7 +412,8 @@ def _who_and_rules(data):
     except Exception:
         who = 'unknown'
     return gender, occasion, muse, who, rules(gender, occasion, muse, who, str(data.get('mode') or ''),
-                                              str(data.get('budget') or ''), str(data.get('country') or '')[:2])
+                                              str(data.get('budget') or ''), str(data.get('country') or '')[:2],
+                                              str(data.get('era') or '')[:80])
 
 
 def _clash(text, kind, gender, occasion, muse, who):
