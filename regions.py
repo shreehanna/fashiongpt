@@ -133,7 +133,7 @@ def prompt_note(data):
     c = country_of(data)
     pool = pool_for(budget, c[0] if c else None)
     atlas = ("\nBrand Atlas brands for this budget. Pick mainly from these; use another brand only if it suits "
-             "the look better:\n" + pool + "\n")
+             "the look better or a chosen muse really wears it:\n" + pool + "\n")
     if not c:
         return atlas
     code, name = c

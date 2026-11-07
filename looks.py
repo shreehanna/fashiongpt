@@ -359,12 +359,15 @@ def muse_rule(muse, era=''):
     text = (f"\n\nMUSE RULE (this comes first): dress the user exactly the way {m} really dresses. Base every piece on "
             f"{m}'s actual signature style: the silhouettes, colours, fabrics, labels, accessories, hair and makeup they're "
             f"known for in real red-carpet, street-style and off-duty looks. Every item must be something {m} would "
-            f"genuinely wear.")
+            f"genuinely wear. If {m} really wears a particular label for this kind of occasion (a designer they keep "
+            f"returning to for events like this), use that label itself, not a lookalike, whenever the shopper can buy it "
+            f"in their country at this budget, even if it isn't in the brand list, and set its store to that label's own site.")
     if look:
         text += (f" The user also picked {look}, so dress them the way {m} would wear {look}: keep {m}'s real signatures "
                  f"and express them through {look}. If {m} has really worn {look}-style looks, channel those; if not, imagine "
                  f"how {m} would do {look}, still unmistakably {m}.")
-    return text + (f" At this budget and in this country, use the closest pieces the shopper can buy. Channel a different "
+    return text + (f" When a label {m} wears isn't sold in the shopper's country or is far over their budget, use the closest "
+                   f"piece they can buy instead. Channel a different "
                    f"real {m} outfit each time, so the same muse never gives a repeat. In ella_note, name the real {m} look "
                    f"or signature you're channelling.")
 
