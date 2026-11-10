@@ -340,8 +340,8 @@ def signature_brands(budget, country):
 
 def variation(gender, occasion, era='', muse=''):
     if aesthetic_key(era) == 'celeb':
-        return (f"\nStarting point for this look (to keep every look new): channel a real {muse} outfit that isn't the "
-                f"obvious one: a different event, year or designer from last time.")
+        return (f"\nStarting point for this look (to keep every look new): pick pieces true to {muse}'s style that "
+                f"aren't the most obvious ones, without leaving that style.")
     if aesthetic_key(era) is None and (era or '').strip():
         return (f"\nStarting point for this look (to keep every look new): build it around a key piece that isn't the "
                 f"most obvious {era.strip()} choice, in colours true to {era.strip()}.")
@@ -365,25 +365,10 @@ def variation(gender, occasion, era='', muse=''):
             f"unless the muse or occasion clearly calls for something else.")
 
 
-# Muses whose name the styling model may not know (a recent name change) or may mix up with someone else.
-# Key: the name in lower case, as typed or tapped. Value: who they really are.
-_LECLERC = ("Alexandra Leclerc is Alexandra Saint Mleux: she took the name Leclerc when she married Formula 1 driver "
-            "Charles Leclerc in Monaco in 2026. She is the French-Italian content creator and paddock 'It girl' "
-            "you may know as Alexandra Saint Mleux. Style her exactly the way Alexandra Saint Mleux dresses. She is NOT "
-            "Alessandra Ambrosio (a different person, a Brazilian model).")
-MUSE_IDS = {
-    'alexandra leclerc': _LECLERC,
-    'alexandra saint mleux': _LECLERC,
-    'alexandra saint-mleux': _LECLERC,
-    'alex leclerc': _LECLERC,
-}
+from muses import muse_identity, style_file   # who the muse really is, and what they really wear
 
 
-def muse_identity(muse):
-    return MUSE_IDS.get(' '.join((muse or '').lower().split()), '')
-
-
-def muse_rule(muse, era=''):
+def muse_rule(muse, era='', file=None):
     if not muse or muse.strip().lower() in ('no specific muse', 'none', ''):
         return ''
     m = muse.strip()[:60]
@@ -392,22 +377,39 @@ def muse_rule(muse, era=''):
     a = AESTHETICS.get(key)
     look = a['name'] if a else ('' if key in ('celeb', 'ues') and 'upper east side' not in (era or '').lower()
                                 else (era or '').strip()[:60])
-    text = (f"\n\nMUSE RULE (this comes first): dress the user exactly the way {m} really dresses. Base every piece on "
-            f"{m}'s actual signature style: the silhouettes, colours, fabrics, labels, accessories, hair and makeup they're "
-            f"known for in real red-carpet, street-style and off-duty looks. Every item must be something {m} would "
-            f"genuinely wear. If {m} really wears a particular label for this kind of occasion (a designer they keep "
-            f"returning to for events like this), use that label itself, not a lookalike, whenever the shopper can buy it "
-            f"in their country at this budget, even if it isn't in the brand list, and set its store to that label's own site.")
+    text = (f"\n\nMUSE RULE (this comes first): dress the user exactly the way {m} really dresses. It overrides every "
+            f"other style rule.")
+    if who:
+        text += f" WHO THIS IS: {who}"
+    else:
+        text += f" Be sure you have the right person: style exactly {m}, never someone with a similar name."
+    if file:
+        text += (f"\nSTYLE FILE for {m}, written from real fashion coverage and photos of them. Trust it over your own "
+                 f"memory:\n{file}\n"
+                 f"Build the look from this file: its silhouettes, colours, fabrics, labels, shoes, bags, jewellery, hair "
+                 f"and makeup. Respect its 'Never' line. If the file doesn't cover this occasion, dress {m} for it the way "
+                 f"the file says they dress, never in a style the file doesn't show (for example, no dramatic couture if "
+                 f"they dress understated).")
+        labels = (f" When {m} has actually been seen in a label (from the file), use that label itself, not a lookalike, "
+                  f"whenever the shopper can buy it in their country at this budget, even if it isn't in the brand list, "
+                  f"with its store set to that label's own site; otherwise use the closest piece in the same spirit.")
+    else:
+        text += (f" Base every piece on {m}'s real, widely documented style: the silhouettes, colours, fabrics, accessories, "
+                 f"hair and makeup they're known for. If you aren't sure how {m} dresses, keep to what is certain and "
+                 f"keep it understated rather than inventing a dramatic look.")
+        labels = (f" If you're certain {m} really wears a particular label for this kind of occasion, use that label "
+                  f"itself, not a lookalike, whenever the shopper can buy it in their country at this budget, even if it "
+                  f"isn't in the brand list, with its store set to that label's own site. Never call a label \"theirs\" "
+                  f"unless you're certain.")
     if look:
-        text += (f" The user also picked {look}, so dress them the way {m} would wear {look}: keep {m}'s real signatures "
-                 f"and express them through {look}. If {m} has really worn {look}-style looks, channel those; if not, imagine "
-                 f"how {m} would do {look}, still unmistakably {m}.")
-    text += (f" WHO THIS IS: {who}" if who else
-             f" Be sure you have the right person: style exactly {m}, never someone with a similar name.")
-    return text + (f" When a label {m} wears isn't sold in the shopper's country or is far over their budget, use the closest "
-                   f"piece they can buy instead. Channel a different "
-                   f"real {m} outfit each time, so the same muse never gives a repeat. In ella_note, name the real {m} look "
-                   f"or signature you're channelling.")
+        text += (f" The user also picked {look}, so dress them the way {m} would wear {look}, keeping {m}'s real "
+                 f"signatures.")
+    return text + labels + (
+        f" When a label {m} wears isn't sold in the shopper's country or is far over their budget, use the closest piece "
+        f"they can buy instead."
+        f" NEVER invent facts: no made-up appearances, events, outfits or brand loyalties. In ella_note, mention one real "
+        f"signature of {m}'s style{' from the style file' if file else ''}, not a specific event unless you're certain it "
+        f"happened. Vary the pieces from look to look, so the same muse never gives a repeat.")
 
 
 def character_rule(char, era=''):
@@ -435,8 +437,14 @@ def rules(gender, occasion, muse, who, mode='', budget='', country='', era='', c
     real_muse = bool(muse) and muse.strip().lower() not in ('no specific muse', 'none', '')
     if mode in ('dupe', 'reel') or (aesthetic_key(era) == 'celeb' and not real_muse and not character):
         era = ''                                   # Dupe copies its inspiration; "like my celeb" without a celeb = Ella's own
+    file = None
+    if real_muse and not character and mode not in COPY_MODES:
+        try:
+            file = style_file(muse)
+        except Exception as e:
+            print('[looks] style file skipped:', e)
     text = (house_style(gender, mode, budget, country, era) + aesthetic_rule(era) +
-            (character_rule(character, era) if character else muse_rule(muse, era)))
+            (character_rule(character, era) if character else muse_rule(muse, era, file)))
     if mode in COPY_MODES:
         # Dupe and Get this look copy something: no random starting piece or palette, no forcing it to be different
         return text + ("\n\nCOPY THE ORIGINAL: match it as closely as the shopper can buy it: the same hero piece, the same "

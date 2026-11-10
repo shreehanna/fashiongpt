@@ -2191,6 +2191,7 @@ body::after {
   <div class="panel"><div class="quiz-label">Ella's Sunday Edit</div><div id="own-edit"></div></div>
   <div class="panel"><div class="quiz-label">This week's challenge</div><div id="own-challenge"></div></div>
   <div class="panel"><div class="quiz-label">Characters from the series</div><div id="own-chars"></div></div>
+  <div class="panel"><div class="quiz-label">Muse style files</div><div id="own-muse"></div></div>
   <div class="panel"><div class="quiz-label">Reels</div><div id="own-reels"></div></div>
   <div class="panel"><div class="quiz-label">Reported pages</div><div id="own-reported"></div></div>
 </div>
@@ -6432,6 +6433,23 @@ async function loadOwnerContent(d) {
   const savec = document.createElement('button'); savec.className = 'btn-primary btn-small'; savec.textContent = 'Save characters';
   savec.onclick = async () => { await api('/api/owner/characters', { characters: list }); toast('Characters saved'); seriesCharacters = []; document.getElementById('tab-series')?.remove(); document.querySelectorAll('.celeb-sug[data-cat="series"]').forEach(e => e.remove()); loadCharacters(); };
   cr.append(addc, savec); cb.append(rows, cr);
+  // Muse style files: what Ella has learned about how each muse really dresses
+  const mb = document.getElementById('own-muse');
+  mb.innerHTML = '<p class="tiny" style="margin-bottom:8px">For each muse, E&amp;L reads real coverage and photos (once a month) and writes a style file that Ella follows. Check one here, and rebuild it if it looks wrong.</p>';
+  const mf = document.createElement('form'); mf.className = 'row';
+  mf.innerHTML = '<input class="quiz-input grow" name="name" maxlength="60" placeholder="e.g. Alexandra Leclerc" required><button class="btn-secondary btn-small" type="submit">Show</button><button class="link-btn" type="button" data-rebuild>Rebuild</button>';
+  const out = document.createElement('div'); out.className = 'muted'; out.style.whiteSpace = 'pre-wrap'; out.style.marginTop = '10px'; out.style.fontSize = '13px';
+  const showMuse = async rebuild => {
+    const name = mf.name.value.trim(); if (!name) return;
+    out.textContent = rebuild ? 'Reading up on ' + name + '… (up to a minute)' : 'Loading…';
+    try {
+      const d = rebuild ? await api('/api/owner/muse', { name, rebuild: true }) : await api('/api/owner/muse?name=' + encodeURIComponent(name));
+      out.textContent = (d.identity ? 'Who: ' + d.identity + '\n\n' : '') + (d.text || 'Nothing found about how ' + name + ' dresses. Ella will stay understated and won\u2019t invent anything.');
+    } catch (e) { out.textContent = e.message; }
+  };
+  mf.onsubmit = ev => { ev.preventDefault(); showMuse(false); };
+  mf.querySelector('[data-rebuild]').onclick = () => showMuse(true);
+  mb.append(mf, out);
   // Reels
   const rb = document.getElementById('own-reels');
   rb.innerHTML = `<p class="tiny" style="margin-bottom:8px">${d.youtube ? 'YouTube Shorts: on.' : 'YouTube Shorts: off. Add YOUTUBE_API_KEY in Render to fill the feed automatically.'} Paste Instagram reels or YouTube links you want at the top of the feed.</p>`;
@@ -6511,6 +6529,12 @@ goTo = function (id) {
   if (id !== 'screen-results' && id !== 'screen-generating') { const b = document.getElementById('plan-banner'); if (b) b.hidden = true; }
   if (id === 'screen-results' && !state.planContext) { const b = document.getElementById('plan-banner'); if (b) b.hidden = true; }
   _goTo(id);
+};
+// As soon as someone picks a muse, the server starts reading up on how that person really dresses
+const _goToEra = goToEra;
+goToEra = function () {
+  _goToEra();
+  if (state.celeb && state.celeb !== 'No specific muse' && !state.character) api('/api/muse/prepare', { name: state.celeb }).catch(() => {});
 };
 const _switchTab = switchTab;
 switchTab = function (tab) { if (tab === 'closet') { openCloset('screen-results'); return; } _switchTab(tab); };

@@ -13,6 +13,7 @@ from looks import create_unique, stream_unique, RepeatError, STYLE_MODEL   # eve
 from alerts import watch_claude, voice_result, ServiceDown, bp as alerts_bp   # tells the owner when an API runs low
 from growth import sign_look, track, bp as growth_bp   # shareable "Rate my fit" links, boards, challenge, stats
 import daily                                            # today's fit, Sunday Edit, characters, reels
+import muses                                            # real style files, so muses are dressed like themselves
 from push import bp as push_bp                          # Home Screen app + morning notifications
 
 # static_folder=None: only index.html is served, so app.py, pro.py and any data files can't be downloaded
@@ -969,6 +970,8 @@ app.register_blueprint(growth_bp)   # /l/<id> Rate my fit, /b/<id> boards, /api/
 daily.init(client, QUICK_MODEL, STYLE_MODEL)
 app.register_blueprint(daily.bp)    # /api/daily-fit, /api/edit, /api/reels, /api/characters, /api/weather
 app.register_blueprint(push_bp)     # /manifest.webmanifest, /sw.js, icons, /api/push/*, /api/cron/tick
+muses.init(client, STYLE_MODEL)
+app.register_blueprint(muses.bp)    # /api/muse/prepare, /api/owner/muse
 
 
 if __name__ == '__main__':
