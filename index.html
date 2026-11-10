@@ -1422,6 +1422,25 @@ body::after {
 .rate-hint { font-size: 12px; color: var(--fg3); text-align: center; margin-top: 4px; }
 .rate-link { width: 100%; font: 13px var(--sans); padding: 9px 10px; border: 1px solid var(--border); border-radius: var(--r); background: var(--bg2); color: var(--fg); margin-top: 8px; }
 
+/* Get the app */
+.get-app { display: block; margin: 12px auto 0; font: 500 12px var(--sans); letter-spacing: .12em; text-transform: uppercase; cursor: pointer;
+  color: var(--ink); background: transparent; border: 1px dashed var(--gold); border-radius: 999px; padding: 9px 16px; text-shadow: none; }
+.get-app:hover { border-style: solid; }
+.install-card { text-align: left; }
+.install-steps { list-style: none; display: grid; gap: 12px; margin: 6px 0 4px; counter-reset: st; }
+.install-steps li { display: grid; grid-template-columns: 30px 1fr; gap: 10px; align-items: start; font-size: 15px; line-height: 1.45; }
+.install-steps li::before { counter-increment: st; content: counter(st); width: 30px; height: 30px; border-radius: 50%; display: flex;
+  align-items: center; justify-content: center; background: var(--ink); color: var(--bg); font: 500 14px var(--sans); }
+.install-steps .glyph { display: inline-flex; align-items: center; justify-content: center; min-width: 26px; height: 24px; padding: 0 5px;
+  border: 1px solid var(--border); border-radius: 6px; font-size: 14px; vertical-align: -3px; margin: 0 2px; background: var(--card); }
+.install-why { font-size: 13px; color: var(--fg2); margin-top: 12px; }
+.install-arrow { position: fixed; left: 50%; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%);
+  width: 52px; height: 52px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  font: 500 28px/1 var(--sans); background: #D9BD86; color: #1A130D; text-shadow: none;
+  box-shadow: 0 0 0 4px rgba(217,189,134,.35), 0 10px 24px rgba(0,0,0,.45); animation: nudge 1.1s ease-in-out infinite; pointer-events: none; }
+@keyframes nudge { 0%, 100% { transform: translate(-50%, 0); } 50% { transform: translate(-50%, 10px); } }
+@media (prefers-reduced-motion: reduce) { .install-arrow { animation: none; } }
+
 /* Board picker + toast */
 .toast { position: fixed; left: 50%; bottom: calc(22px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); z-index: 400;
   background: var(--ink); color: #F7F0E3; padding: 11px 18px; border-radius: 999px; font-size: 14px; box-shadow: 0 10px 30px rgba(0,0,0,.3);
@@ -1589,6 +1608,7 @@ body::after {
       <button class="today-tile" type="button" onclick="openChallenge()"><span class="tt-ico" aria-hidden="true">🏆</span><span class="tt-name">Challenge</span><span class="tt-sub" id="tt-ch">This week's theme</span></button>
     </div>
     <div class="install-banner" id="install-banner" hidden></div>
+    <button class="get-app" id="get-app" type="button" onclick="installApp()" hidden>📲 Get the E&amp;L app</button>
     <div style="margin-top:16px">
       <button class="btn-secondary" style="font-size:20px;line-height:1;padding:9px 22px;border-color:var(--accent);color:var(--accent)" onclick="openVoiceMode()" aria-label="Talk" title="Talk">🎙</button>
     </div>
@@ -2418,6 +2438,20 @@ body::after {
     <p class="rate-msg" id="own-msg" role="status"></p>
     <p class="tiny" style="text-align:center">Your screenshot only goes to Ella to make your look. It isn't saved or shown to anyone. Uses one look.</p>
   </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     GET THE APP (Home Screen): one tap where the browser allows it, a short guide where it doesn't
+═══════════════════════════════════════════════════════════════ -->
+<div class="overlay" id="install-overlay" role="dialog" aria-modal="true" aria-labelledby="install-title">
+  <div class="share-card install-card">
+    <div class="sc-header">
+      <div class="sc-title" id="install-title">Get the E&amp;L app</div>
+      <button class="sc-close" onclick="closeInstall()" aria-label="Close">✕</button>
+    </div>
+    <div id="install-body"></div>
+  </div>
+  <div class="install-arrow" id="install-arrow" hidden aria-hidden="true">↓</div>
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════════
@@ -5658,8 +5692,10 @@ function renderPushPanel(id) {
   box.appendChild(label);
   if (isIOS && !isStandalone()) {
     const p = document.createElement('p'); p.className = 'muted';
-    p.innerHTML = 'To get your fit every morning on iPhone, add E&amp;L to your Home Screen first: tap <b>Share</b> <span aria-hidden="true">⎙</span>, then <b>Add to Home Screen</b>, and open E&amp;L from there.';
-    box.appendChild(p); return;
+    p.innerHTML = 'On iPhone, morning notifications work once E&amp;L is on your Home Screen.';
+    const g = document.createElement('button'); g.type = 'button'; g.className = 'btn-primary btn-small'; g.style.marginTop = '10px';
+    g.textContent = '📲 Get the app'; g.onclick = installApp;
+    box.append(p, g); return;
   }
   if (!pushSupported()) { const p = document.createElement('p'); p.className = 'muted'; p.textContent = 'This browser can’t show notifications. Open E&L in Chrome or Safari to get your morning fit.'; box.appendChild(p); return; }
   const row = document.createElement('div'); row.className = 'push-row';
@@ -5712,7 +5748,74 @@ async function syncPush() {
 let installPrompt = null;
 window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installPrompt = e; renderInstallBanner(); });
 window.addEventListener('appinstalled', () => { track('install'); installPrompt = null; renderInstallBanner(); });
+// ── Get the app ──
+// Android and computers (Chrome, Edge, Samsung Internet): one tap, the browser's own "Install" box.
+// iPhone and iPad: Apple doesn't let any website add itself to the Home Screen, so the button shows the two taps
+// it takes, with an arrow to Safari's Share button. Inside Instagram or WhatsApp nothing can be installed, so the
+// button first moves the page into Chrome or Safari.
+const inAppBrowser_ = /Instagram|FBAN|FBAV|FB_IAB|FBIOS|Line\/|WhatsApp|Snapchat|TikTok|musical_ly|Twitter|LinkedInApp/i.test(navigator.userAgent);
+const isAndroid = /Android/i.test(navigator.userAgent);
+function renderGetApp() {
+  const b = document.getElementById('get-app');
+  if (b) b.hidden = isStandalone();
+}
+async function installApp() {
+  if (installPrompt) {
+    const p = installPrompt;
+    installPrompt = null;
+    try { p.prompt(); const c = await p.userChoice; if (c && c.outcome === 'accepted') toast('E&L is on your Home Screen ✦'); } catch (e) {}
+    renderInstallBanner(); renderGetApp();
+    return;
+  }
+  openInstallGuide();
+}
+function openInstallGuide() {
+  const body = document.getElementById('install-body');
+  const arrow = document.getElementById('install-arrow');
+  arrow.hidden = true;
+  const here = location.origin + '/?source=homescreen';
+  const glyph = g => `<span class="glyph">${g}</span>`;
+  let html = '';
+  if (isStandalone()) {
+    html = '<p class="muted">You\u2019re already using the E&amp;L app ✦</p>';
+  } else if (inAppBrowser_ && isAndroid) {
+    const intent = `intent://${location.host}/?source=homescreen#Intent;scheme=https;package=com.android.chrome;S.browser_fallback_url=${encodeURIComponent(here)};end`;
+    html = `<p class="muted" style="margin-bottom:12px">Apps can\u2019t be added from inside Instagram or WhatsApp. Open E&amp;L in Chrome first, then tap <b>Get the app</b> again.</p>
+      <a class="btn-primary" style="width:100%;justify-content:center" href="${intent}">Open in Chrome</a>
+      <p class="install-why">If that doesn\u2019t work: tap ${glyph('⋮')} at the top, then <b>Open in Chrome</b> (or <b>Open in browser</b>).</p>`;
+  } else if (inAppBrowser_ && isIOS) {
+    html = `<p class="muted" style="margin-bottom:12px">Apps can\u2019t be added from inside Instagram or WhatsApp. Open E&amp;L in Safari first, then tap <b>Get the app</b> again.</p>
+      <a class="btn-primary" style="width:100%;justify-content:center" href="x-safari-${here}">Open in Safari</a>
+      <p class="install-why">If that doesn\u2019t work: tap ${glyph('•••')} or ${glyph('⎋')} in the corner, then <b>Open in browser</b>.</p>`;
+  } else if (isIOS) {
+    const chrome = /CriOS/i.test(navigator.userAgent);
+    html = `<ol class="install-steps">
+        <li><span>Tap the <b>Share</b> button ${glyph('⎙')} ${chrome ? 'at the top right' : 'at the bottom of Safari (on newer iPhones it\u2019s inside the ' + glyph('•••') + ' menu)'}.</span></li>
+        <li><span>Scroll down and tap <b>Add to Home Screen</b> ${glyph('＋')}, then <b>Add</b>.</span></li>
+        <li><span>Open E&amp;L from your Home Screen. That\u2019s it.</span></li>
+      </ol>
+      <p class="install-why">Apple doesn\u2019t let websites add themselves, so it takes these two taps. You\u2019ll get your fit every morning as a notification, and E&amp;L opens full screen like an app.</p>`;
+    arrow.hidden = chrome;
+  } else if (isAndroid) {
+    html = `<ol class="install-steps">
+        <li><span>Tap ${glyph('⋮')} at the top right of your browser.</span></li>
+        <li><span>Tap <b>Install app</b> or <b>Add to Home screen</b>.</span></li>
+      </ol>
+      <p class="install-why">If you don\u2019t see it, open E&amp;L in Chrome and try again.</p>`;
+  } else {
+    html = `<ol class="install-steps">
+        <li><span>In Chrome or Edge, click the install icon ${glyph('⊕')} at the right of the address bar.</span></li>
+        <li><span>Or open E&amp;L on your phone and tap <b>Get the app</b> there.</span></li>
+      </ol>`;
+  }
+  body.innerHTML = html;
+  document.getElementById('install-overlay').classList.add('active');
+}
+function closeInstall() { document.getElementById('install-overlay').classList.remove('active'); document.getElementById('install-arrow').hidden = true; }
+document.getElementById('install-overlay').addEventListener('click', e => { if (e.target.id === 'install-overlay') closeInstall(); });
+
 function renderInstallBanner() {
+  renderGetApp();
   const box = document.getElementById('install-banner');
   if (!box) return;
   const hidden = lsGet('el_install_hidden', 0);
@@ -5728,8 +5831,10 @@ function renderInstallBanner() {
     b.onclick = async () => { installPrompt.prompt(); try { await installPrompt.userChoice; } catch (e) {} installPrompt = null; renderInstallBanner(); };
     box.append(ico, p, b);
   } else {
-    p.innerHTML = 'Add E&amp;L to your Home Screen: tap <b>Share</b>, then <b>Add to Home Screen</b>.';
-    box.append(ico, p);
+    p.innerHTML = 'Get E&amp;L on your Home Screen, and your fit every morning.';
+    const b = document.createElement('button'); b.className = 'btn-primary btn-small'; b.textContent = 'How';
+    b.onclick = openInstallGuide;
+    box.append(ico, p, b);
   }
   const x = document.createElement('button'); x.className = 'x'; x.textContent = '✕'; x.setAttribute('aria-label', 'Hide');
   x.onclick = () => { lsSet('el_install_hidden', Date.now()); renderInstallBanner(); };

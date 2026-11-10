@@ -342,9 +342,20 @@ MANIFEST = {
                   {'name': 'Reels', 'url': '/?open=reels'}],
 }
 
-SW = """// E&L service worker: shows notifications and opens the right screen when one is tapped.
-self.addEventListener('install', function () { self.skipWaiting(); });
+SW = """// E&L service worker: shows notifications, opens the right screen when one is tapped, and shows a
+// friendly page when there's no internet (which also lets Android and desktop browsers install E&L in one tap).
+var OFFLINE = 'el-offline-v1';
+self.addEventListener('install', function (e) {
+  self.skipWaiting();
+  e.waitUntil(caches.open(OFFLINE).then(function (c) { return c.addAll(['/offline']); }).catch(function () {}));
+});
 self.addEventListener('activate', function (e) { e.waitUntil(self.clients.claim()); });
+self.addEventListener('fetch', function (e) {
+  if (e.request.mode !== 'navigate') return;          // everything else goes straight to the network
+  e.respondWith(fetch(e.request).catch(function () {
+    return caches.match('/offline').then(function (r) { return r || Response.error(); });
+  }));
+});
 self.addEventListener('push', function (e) {
   var d = {};
   try { d = e.data ? e.data.json() : {}; } catch (_) { d = { title: 'E&L', body: e.data ? e.data.text() : '' }; }
@@ -368,6 +379,29 @@ self.addEventListener('notificationclick', function (e) {
   }));
 });
 """
+
+
+OFFLINE_PAGE = """<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><title>E&amp;L · offline</title>
+<style>
+:root { color-scheme: light dark; }
+body { margin: 0; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+  padding: 24px max(16px, env(safe-area-inset-left)) 24px max(16px, env(safe-area-inset-right)); text-align: center;
+  background: #F7F0E3; color: #1E1712; font: 16px/1.5 Futura, system-ui, sans-serif; }
+@media (prefers-color-scheme: dark) { body { background: #14100C; color: #F3E9D8; } }
+h1 { font: 500 64px/1 Didot, 'Bodoni 72', Georgia, serif; margin: 0; } h1 em { color: #9A7433; font-style: italic; font-weight: 400; }
+p { max-width: 22em; margin: 0; opacity: .8; }
+button { margin-top: 14px; font: 500 13px Futura, system-ui, sans-serif; letter-spacing: .14em; text-transform: uppercase;
+  padding: 13px 26px; border: 1px solid currentColor; background: none; color: inherit; border-radius: 2px; cursor: pointer; }
+</style></head><body>
+<h1>E<em>&amp;</em>L</h1><p>You're offline. Ella and Léon will be right here when you're back online.</p>
+<button type="button" onclick="location.reload()">Try again</button>
+</body></html>"""
+
+
+@bp.get('/offline')
+def offline_page():
+    return Response(OFFLINE_PAGE, mimetype='text/html', headers={'Cache-Control': 'no-cache'})
 
 
 @bp.get('/manifest.webmanifest')
