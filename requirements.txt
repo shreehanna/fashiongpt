@@ -4,3 +4,5 @@ gunicorn
 requests
 psycopg[binary]>=3.2
 google-auth>=2.30
+Pillow>=10.0
+cryptography>=42.0

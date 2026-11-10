@@ -321,7 +321,7 @@ HOUSE_STYLE_COUPLE = (" This is for HER look. Style HIM to match her glamour, Ch
 
 
 def house_style(gender, mode='', budget='', country='', era=''):
-    if mode == 'dupe' or gender == 'men' or aesthetic_key(era) != 'ues':
+    if mode in ('dupe', 'reel') or gender == 'men' or aesthetic_key(era) != 'ues':
         return ''
     return HOUSE_STYLE + (HOUSE_STYLE_COUPLE if gender == 'couple' else '') + signature_brands(budget, country)
 
@@ -389,7 +389,22 @@ def muse_rule(muse, era=''):
                    f"or signature you're channelling.")
 
 
-def rules(gender, occasion, muse, who, mode='', budget='', country='', era=''):
+def character_rule(char, era=''):
+    """A muse from E&L's own drama series: Ella can't know them, so the owner describes their style."""
+    name, style = char['name'][:40], (char.get('style') or '')[:300]
+    key = aesthetic_key(era)
+    a = AESTHETICS.get(key)
+    look = a['name'] if a else ('' if key in ('celeb', 'ues') else (era or '').strip()[:60])
+    text = (f"\n\nMUSE RULE (this comes first): the muse is {name}, a character from E&L's drama series "
+            f"\"The Social Representation\". Their style: {style or 'polished, confident, unmistakably Upper East Side'}. "
+            f"Dress the user exactly the way {name} dresses in the series: their silhouettes, colours, labels, "
+            f"accessories, hair and makeup.")
+    if look:
+        text += f" The user also picked {look}, so dress them the way {name} would wear {look}."
+    return text + f" In ella_note, mention {name} by name, the way a society columnist would."
+
+
+def rules(gender, occasion, muse, who, mode='', budget='', country='', era='', character=None):
     try:
         given = avoid_list(gender, occasion, who)
     except Exception as e:
@@ -397,9 +412,10 @@ def rules(gender, occasion, muse, who, mode='', budget='', country='', era=''):
         given = []
     era = re.sub(r'[\r\n"\u201c\u201d]+', ' ', era or '').strip()[:60]
     real_muse = bool(muse) and muse.strip().lower() not in ('no specific muse', 'none', '')
-    if mode == 'dupe' or (aesthetic_key(era) == 'celeb' and not real_muse):
+    if mode in ('dupe', 'reel') or (aesthetic_key(era) == 'celeb' and not real_muse and not character):
         era = ''                                   # Dupe copies its inspiration; "like my celeb" without a celeb = Ella's own
-    text = house_style(gender, mode, budget, country, era) + aesthetic_rule(era) + muse_rule(muse, era)
+    text = (house_style(gender, mode, budget, country, era) + aesthetic_rule(era) +
+            (character_rule(character, era) if character else muse_rule(muse, era)))
     text += ("\n\nNEVER REPEAT A LOOK: every look must be new, for this person and for everyone else, even for the same "
              "occasion asked again. The same main pieces in a different colour or fabric still count as a repeat.")
     if given:
@@ -429,16 +445,42 @@ def _who_and_rules(data):
     occasion = str(data.get('occasion') or data.get('schedule') or data.get('new_occasion') or data.get('anchor_item')
                    or data.get('inspo_look') or '')[:200]
     muse = str(data.get('celebrity') or data.get('celeb') or '')
+    character = data.get('_character') if isinstance(data.get('_character'), dict) else None
+    if character:
+        muse = character['name']
     try:
         who = identity()[1]
     except Exception:
         who = 'unknown'
     return gender, occasion, muse, who, rules(gender, occasion, muse, who, str(data.get('mode') or ''),
                                               str(data.get('budget') or ''), str(data.get('country') or '')[:2],
-                                              str(data.get('era') or '')[:80])
+                                              str(data.get('era') or '')[:80], character)
 
 
-def _clash(text, kind, gender, occasion, muse, who):
+def plan_looks(data):
+    """Looks already planned for other functions of the same wedding: this one must not repeat them."""
+    out = []
+    for l in (data.get('plan_looks') or [])[:10] if isinstance(data.get('plan_looks'), list) else []:
+        if isinstance(l, dict) and isinstance(l.get('items'), list):
+            items = [{'category': str(i.get('category') or '')[:60], 'name': str(i.get('name') or '')[:120],
+                      'brand': str(i.get('brand') or '')[:60]} for i in l['items'][:14] if isinstance(i, dict)]
+            if items:
+                out.append({'items': items})
+    return out
+
+
+def _content(text, image_url):
+    if not image_url:
+        return text
+    return [{'type': 'image', 'source': {'type': 'url', 'url': image_url}}, {'type': 'text', 'text': text}]
+
+
+def _image_failed(e):
+    from alerts import ServiceDown
+    return not isinstance(e, ServiceDown)
+
+
+def _clash(text, kind, gender, occasion, muse, who, planned=()):
     """None if this answer can go out (and it's remembered); otherwise the earlier look it repeats."""
     parsed = _parse(text)
     if parsed is None:
@@ -447,7 +489,7 @@ def _clash(text, kind, gender, occasion, muse, who):
     looks = [l for l in looks or [] if isinstance(l, dict)]
     try:
         for k, look in enumerate(looks):
-            clash = find_repeat(look, gender, looks[:k])
+            clash = find_repeat(look, gender, list(planned) + looks[:k])
             if clash:
                 return clash
         for look in looks:
@@ -465,16 +507,25 @@ def _clash_note(clash):
 GAVE_UP = "Ella couldn't find a look that hasn't been given before. Change a detail and try again."
 
 
-def create_unique(client, data, prompt, max_tokens, model=None, kind='look'):
+def create_unique(client, data, prompt, max_tokens, model=None, kind='look', image_url=None):
     """Like client.messages.create, but the look (or each look of a day plan) is guaranteed new.
     Returns an object with .content[0].text, so the existing parsing code works unchanged."""
     gender, occasion, muse, who, extra = _who_and_rules(data)
+    planned = plan_looks(data)
     model = model or STYLE_MODEL
     clash_note = ''
     for attempt in range(MAX_TRIES):
-        message = client.messages.create(model=model, max_tokens=max_tokens,
-                                         messages=[{'role': 'user', 'content': prompt + extra + clash_note}])
-        clash = _clash(message.content[0].text, kind, gender, occasion, muse, who)
+        try:
+            message = client.messages.create(model=model, max_tokens=max_tokens, messages=[
+                {'role': 'user', 'content': _content(prompt + extra + clash_note, image_url)}])
+        except Exception as e:
+            if not (image_url and _image_failed(e)):
+                raise
+            print('[looks] the picture could not be used, styling from the text:', repr(e)[:160])
+            image_url = None
+            message = client.messages.create(model=model, max_tokens=max_tokens,
+                                             messages=[{'role': 'user', 'content': prompt + extra + clash_note}])
+        clash = _clash(message.content[0].text, kind, gender, occasion, muse, who, planned)
         if not clash:
             return message
         print(f'[looks] try {attempt + 1}: repeat of "{clash}", restyling')
@@ -482,21 +533,33 @@ def create_unique(client, data, prompt, max_tokens, model=None, kind='look'):
     raise RepeatError(GAVE_UP)
 
 
-def stream_unique(client, data, prompt, max_tokens, model=None, kind='look'):
+def stream_unique(client, data, prompt, max_tokens, model=None, kind='look', image_url=None):
     """The same guarantee, written live: yields ('delta', text) while Ella writes, ('restart', clash) if
     what she wrote repeats an earlier look (she then starts over), and finally ('done', full_text)."""
     gender, occasion, muse, who, extra = _who_and_rules(data)
+    planned = plan_looks(data)
     model = model or STYLE_MODEL
     clash_note = ''
     for attempt in range(MAX_TRIES):
         chunks = []
-        with client.messages.stream(model=model, max_tokens=max_tokens,
-                                    messages=[{'role': 'user', 'content': prompt + extra + clash_note}]) as s:
-            for text in s.text_stream:
-                chunks.append(text)
-                yield 'delta', text
+        try:
+            with client.messages.stream(model=model, max_tokens=max_tokens, messages=[
+                    {'role': 'user', 'content': _content(prompt + extra + clash_note, image_url)}]) as s:
+                for text in s.text_stream:
+                    chunks.append(text)
+                    yield 'delta', text
+        except Exception as e:
+            if chunks or not (image_url and _image_failed(e)):
+                raise
+            print('[looks] the picture could not be used, styling from the text:', repr(e)[:160])
+            image_url = None
+            with client.messages.stream(model=model, max_tokens=max_tokens, messages=[
+                    {'role': 'user', 'content': prompt + extra + clash_note}]) as s:
+                for text in s.text_stream:
+                    chunks.append(text)
+                    yield 'delta', text
         full = ''.join(chunks)
-        clash = _clash(full, kind, gender, occasion, muse, who)
+        clash = _clash(full, kind, gender, occasion, muse, who, planned)
         if not clash:
             yield 'done', full
             return

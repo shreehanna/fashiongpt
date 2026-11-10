@@ -1,6 +1,8 @@
 from flask import Flask, request, jsonify, send_from_directory, Response, g, stream_with_context
 import anthropic
 import json
+import hashlib
+import base64
 import os
 import requests as req
 from shop import country_code, find_image
@@ -9,6 +11,9 @@ import re
 from pro import owner_request, refund_look
 from looks import create_unique, stream_unique, RepeatError, STYLE_MODEL   # every look checked against every look ever given
 from alerts import watch_claude, voice_result, ServiceDown, bp as alerts_bp   # tells the owner when an API runs low
+from growth import sign_look, track, bp as growth_bp   # shareable "Rate my fit" links, boards, challenge, stats
+import daily                                            # today's fit, Sunday Edit, characters, reels
+from push import bp as push_bp                          # Home Screen app + morning notifications
 
 # static_folder=None: only index.html is served, so app.py, pro.py and any data files can't be downloaded
 app = Flask(__name__, static_folder=None)
@@ -166,13 +171,25 @@ def _line(ev):
     return json.dumps(ev, ensure_ascii=False) + '\n'
 
 
-def look_response(data, prompt, max_tokens):
+def _finished(data, text):
+    """The finished look, signed so it can be shared, and counted."""
+    look = json.loads(_strip_fences(text))
+    try:
+        from pro import identity
+        sign_look(look, data)
+        track('look', identity()[1])
+    except Exception as e:
+        print('[look] could not sign the look:', e)
+    return look
+
+
+def look_response(data, prompt, max_tokens, image_url=None):
     """The look as one JSON reply, or written live when the page sends "stream": true."""
     if not data.get('stream'):
-        message = create_unique(client, data, prompt, max_tokens)
-        return jsonify(json.loads(_strip_fences(message.content[0].text)))
+        message = create_unique(client, data, prompt, max_tokens, image_url=image_url)
+        return jsonify(_finished(data, message.content[0].text))
     ticket = getattr(g, 'look_ticket', None)
-    events = stream_unique(client, data, prompt, max_tokens)
+    events = stream_unique(client, data, prompt, max_tokens, image_url=image_url)
 
     def gen():
         live = LiveLook()
@@ -186,7 +203,7 @@ def look_response(data, prompt, max_tokens):
                     live = LiveLook()
                     yield _line({'t': 'restart'})
                 else:
-                    yield _line({'t': 'done', 'look': json.loads(_strip_fences(payload))})
+                    yield _line({'t': 'done', 'look': _finished(data, payload)})
                     return
             raise RuntimeError('the look ended early')
         except Exception as e:
@@ -220,6 +237,9 @@ def get_outfit():
     closet_context = data.get('closet_context', '')
     recent_look_names = data.get('recent_look_names', [])
     body_profile = data.get('body_profile', '')
+    data['_character'] = daily.find_character(data.get('character'))   # only the owner's own list, never the page's text
+    if data['_character']:
+        celebrity = f"{data['_character']['name']} (from The Social Representation)"
 
     # Budget brand guidance
     budget_brands_women = {
@@ -261,7 +281,78 @@ def get_outfit():
         names_list = ', '.join(recent_look_names[-5:])
         no_repeat_instruction = f"\n\nNO-REPEAT RADAR: The user recently wore looks called: {names_list}. Do NOT repeat the same vibe, color palette, or silhouette. Make this look feel fresh and different."
 
+    # A whole wedding, planned function by function: no two functions get the same outfit
+    plan_instruction = ''
+    plan = data.get('plan') if isinstance(data.get('plan'), dict) else None
+    if plan:
+        clip = lambda v, n: ' '.join(str(v or '').split())[:n]
+        fn, role, when, notes = clip(plan.get('function'), 40), clip(plan.get('role'), 40), clip(plan.get('date'), 24), clip(plan.get('notes'), 160)
+        plan_instruction = (f"\n\nWEDDING SEASON PLAN: this look is for the {fn or 'function'}"
+                            + (f" on {when}" if when else '') + " of a wedding the user is planning a whole set of outfits for"
+                            + (f", as {role}" if role else '') + '.'
+                            + (f" Notes for this function: {notes}." if notes else '')
+                            + f" Make it exactly right for a {fn or 'wedding function'}: the right formality, the colours hosts expect "
+                              "(yellow for a haldi, greens and brights for a mehendi, sparkle for a sangeet), and Indian or "
+                              "Indo-western wear when the function calls for it.")
+        others = [f"- {clip(o.get('function'), 40)}: {clip(o.get('summary'), 180)}"
+                  for o in (plan.get('others') or [])[:8] if isinstance(o, dict) and o.get('summary')]
+        if others:
+            plan_instruction += (" Outfits already planned for the other functions (never repeat their hero piece, silhouette "
+                                 "or main colour; the set should feel like one wardrobe story with its own colour for each "
+                                 "function):\n" + '\n'.join(others))
+
     # Mode-specific prompt overrides
+    if mode == 'reel':
+        reel = daily.reel_for_look(data.get('reel'))
+        if not reel:
+            return jsonify({'error': 'That reel is not available.'}), 400
+        data['occasion'] = f"the look from a reel: {reel['title'] or 'a fashion video'}"[:120]
+        by = f" by {reel['channel']}" if reel['channel'] else ''
+        what = ("The picture is the video's thumbnail: recreate the main outfit in it. If it shows several outfits, take "
+                "the most striking one; if it shows no outfit clearly, build the look the title describes."
+                if reel['image'] else "Recreate the kind of outfit this video is about.")
+        reel_prompt = f"""You are Ella, a Gossip Girl-coded AI fashion stylist.
+
+The user is watching a fashion video, "{reel['title'] or 'a fashion reel'}"{by}, and wants that look.
+{what}
+
+Budget: {budget} ({brands})
+Currency: {currency} (price range per piece: {price_guide}){region_note}
+Styling for: {gender}
+{style_instruction}{body_instruction}
+
+Rebuild the outfit piece by piece with real products the shopper can buy: the same silhouettes, colours and vibe.
+
+Return ONLY valid JSON:
+{{
+  "look_name": "a name for this look",
+  "ella_note": "Ella's 2-sentence note: what makes the look in the video work and how this version gets it. Gossip Girl energy.",
+  "items": [
+    {{
+      "category": "category name",
+      "name": "specific product name",
+      "brand": "exact brand name",
+      "store": "website to buy it from in the shopper's country, as a bare domain like zara.com",
+      "price": "price with currency symbol",
+      "description": "one sentence on which part of the video's look this recreates"
+    }}
+  ],
+  "styling_notes": {{
+    "accessories": "accessory suggestions",
+    "hair": "hair direction",
+    "makeup": "makeup direction",
+    "fragrance": "a fragrance that fits the vibe"
+  }}
+}}
+
+Include 5-7 items."""
+        try:
+            return look_response(data, reel_prompt, 2000, image_url=reel['image'])
+        except json.JSONDecodeError as e:
+            return jsonify({"error": f"Parse error: {str(e)}"}), 500
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+
     if mode == 'dupe':
         inspo_look = data.get('inspo_look', '')
         dupe_prompt = f"""You are Ella, a Gossip Girl-coded AI fashion stylist.
@@ -388,7 +479,7 @@ Aesthetic era: {era}
 Mode: {mode}
 Budget: {budget} ({brands})
 Currency: {currency} (price range per piece: {price_guide}){region_note}
-{style_instruction}{body_instruction}{closet_instruction}{no_repeat_instruction}{photo_tip_instruction}
+{style_instruction}{body_instruction}{closet_instruction}{no_repeat_instruction}{photo_tip_instruction}{plan_instruction}
 
 Build a complete head-to-toe outfit. Return ONLY valid JSON in exactly this structure:
 
@@ -719,6 +810,27 @@ import time
 from collections import deque
 
 _tts_cache = {}            # short fixed lines ("Hi babe", loading lines) are only paid for once
+# Flash costs half as many ElevenLabs credits per character as Multilingual v2 and starts speaking faster.
+# For the richer (pricier) voice, set TTS_MODEL=eleven_multilingual_v2 in Render.
+TTS_MODEL = os.environ.get('TTS_MODEL') or 'eleven_flash_v2_5'
+
+
+def _saved_voice(key):
+    """Short fixed lines are also kept in the database, so a restart or redeploy doesn't pay for them again."""
+    try:
+        from pro import kv_get
+        v = kv_get(key)
+        return base64.b64decode(v) if v else None
+    except Exception:
+        return None
+
+
+def _save_voice(key, audio):
+    try:
+        from pro import kv_set
+        kv_set(key, base64.b64encode(audio).decode())
+    except Exception as e:
+        print('[tts] could not keep the clip:', e)
 _tts_hits = {}             # ip -> recent request times, to stop anyone burning your credits
 TTS_MAX_CHARS = 400
 TTS_PER_IP = 20            # requests per 10 minutes per visitor
@@ -750,6 +862,14 @@ def tts():
     cache_key = f'{who}:{text}'
     if cache_key in _tts_cache:
         return Response(_tts_cache[cache_key], mimetype='audio/mpeg')
+    short = len(text) <= 120
+    db_key = 'tts:' + hashlib.sha1(f'{voice_id}|{TTS_MODEL}|{text}'.encode()).hexdigest()
+    if short:
+        audio = _saved_voice(db_key)
+        if audio:
+            if len(_tts_cache) < 64:
+                _tts_cache[cache_key] = audio
+            return Response(audio, mimetype='audio/mpeg')
     ip = (request.headers.get('X-Forwarded-For') or request.remote_addr or '').split(',')[0].strip()
     if not owner_request() and not _tts_allowed(ip):
         return jsonify({'error': 'slow down'}), 429
@@ -759,7 +879,7 @@ def tts():
             headers={'xi-api-key': key, 'Content-Type': 'application/json', 'Accept': 'audio/mpeg'},
             json={
                 'text': text,
-                'model_id': 'eleven_multilingual_v2',
+                'model_id': TTS_MODEL,
                 'voice_settings': voice['settings']
             },
             timeout=30
@@ -769,8 +889,10 @@ def tts():
     voice_result(r)
     if r.status_code != 200:
         return jsonify({'error': 'voice service error', 'status': r.status_code}), 502
-    if len(text) <= 120 and len(_tts_cache) < 64:
-        _tts_cache[cache_key] = r.content
+    if short:
+        if len(_tts_cache) < 64:
+            _tts_cache[cache_key] = r.content
+        _save_voice(db_key, r.content)
     return Response(r.content, mimetype='audio/mpeg')
 
 
@@ -830,6 +952,10 @@ init_pro(app, ['get_outfit', 'restyle'])
 app.register_blueprint(legal)
 app.register_blueprint(shop)   # /api/shop-links: real product pages for the Shop buttons
 app.register_blueprint(alerts_bp)   # /api/owner/*: API status, balances, test alert (owner only)
+app.register_blueprint(growth_bp)   # /l/<id> Rate my fit, /b/<id> boards, /api/challenge, /api/track, owner stats
+daily.init(client, QUICK_MODEL, STYLE_MODEL)
+app.register_blueprint(daily.bp)    # /api/daily-fit, /api/edit, /api/reels, /api/characters, /api/weather
+app.register_blueprint(push_bp)     # /manifest.webmanifest, /sw.js, icons, /api/push/*, /api/cron/tick
 
 
 if __name__ == '__main__':

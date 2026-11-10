@@ -18,7 +18,7 @@ from flask import Blueprint, Response
 from pro import FREE_PER_DAY, PRICES, PRO_PER_DAY, intl_prices
 
 legal = Blueprint('legal', __name__)
-UPDATED = '4 November 2026'
+UPDATED = '10 November 2026'
 
 
 def _v(name, fallback):
@@ -49,8 +49,13 @@ PAGES = {
   <tr><td>Pro, yearly</td><td>₹{y} a year</td><td>US${uy} a year</td><td>The same as monthly Pro, billed once a year.</td></tr>
 </table>
 <p>Indian prices include all applicable taxes. Outside India, sales tax or VAT is added at checkout where your country requires it, and the price may be shown in your local currency.</p>
-<p>Pro renews automatically at the end of each billing period until you cancel. You can cancel at any time from the Pro screen in the app; you keep Pro until the end of the period you've paid for. See <a href="/refunds">Cancellation &amp; Refunds</a>.</p>
-<p>In India, payments are processed by Razorpay (UPI, debit or credit card, or net banking where your bank supports recurring payments). Outside India, our online reseller Dodo Payments is the merchant of record for your order and accepts cards and popular wallets.</p>
+<p>In India you can choose how to pay:</p>
+<ul>
+  <li><b>Auto-renew:</b> Pro renews automatically at the end of each billing period until you cancel. You can cancel at any time from the Pro screen in the app; you keep Pro until the end of the period you've paid for.</li>
+  <li><b>Pay once:</b> you pay ₹{m} for one month or ₹{y} for one year of Pro. It doesn't renew and there's nothing to cancel; buy again whenever you like, and the new time is added to any time you have left.</li>
+</ul>
+<p>Outside India, Pro renews automatically until you cancel. See <a href="/refunds">Cancellation &amp; Refunds</a>.</p>
+<p>In India, payments are processed by Razorpay: Visa, Mastercard and RuPay debit or credit cards, UPI and net banking. Auto-renew needs a credit card, UPI Autopay or a debit card whose bank supports recurring payments; Pay once works with all of them. Outside India, our online reseller Dodo Payments is the merchant of record for your order and accepts debit and credit cards and popular wallets.</p>
 """),
     'terms': ('Terms &amp; Conditions', """
 <p>These terms apply when you use {brand} at {site} (the "Service"), run by {owner} ("we", "us"). By using the Service you agree to them.</p>
@@ -61,13 +66,15 @@ PAGES = {
 <h2>Pro subscriptions</h2>
 <ul>
   <li>Pro costs ₹{m} a month or ₹{y} a year in India, and US${um} a month or US${uy} a year elsewhere (plus any local tax), as shown on the <a href="/pricing">Pricing</a> page when you subscribe.</li>
-  <li>In India, your subscription renews automatically through a payment mandate you approve with Razorpay, and your bank or UPI app notifies you before each renewal charge. Outside India, Dodo Payments sells Pro to you as merchant of record and charges your saved payment method on each renewal date; their buyer terms also apply to that purchase.</li>
+  <li>In India, you can buy Pro once for a month or a year (it ends on its own and is never charged again), or subscribe so it renews automatically through a payment mandate you approve with Razorpay; your bank or UPI app notifies you before each renewal charge. Outside India, Dodo Payments sells Pro to you as merchant of record and charges your saved payment method on each renewal date; their buyer terms also apply to that purchase.</li>
   <li>You can cancel at any time; Pro stays active until the end of the period you've paid for, and no further charges are made.</li>
   <li>"Unlimited" looks are subject to fair use of up to {cap} looks a day per account, to keep the Service running for everyone. Automated or scripted use isn't allowed.</li>
   <li>If we change the price, we'll tell you before your next renewal. You can cancel before it applies.</li>
 </ul>
 <h2>Acceptable use</h2>
-<p>Don't misuse the Service: no attempts to break, overload or reverse-engineer it, no unlawful or abusive content, and no reselling access.</p>
+<p>Don't misuse the Service: no attempts to break, overload or reverse-engineer it, no unlawful or abusive content, no fake or automated votes, and no reselling access.</p>
+<h2>Shared links, votes and challenges</h2>
+<p>A look or board you share gets a public page that anyone with the link can open. Only share what you're happy to be public, and take it down from My Looks whenever you like. Anyone can report a shared page with the Report link on it; we may hide or remove pages that are reported or break these terms. Weekly challenge rankings are just for fun, based on votes, and come with no prize unless we announce one.</p>
 <h2>Content</h2>
 <p>The {brand} name, the Ella and Léon characters, and the app's design belong to us or our licensors. You may share looks the Service creates for you for personal, non-commercial use.</p>
 <h2>Liability</h2>
@@ -82,18 +89,22 @@ PAGES = {
 <h2>What we collect</h2>
 <ul>
   <li><b>Google sign-in:</b> your name, email address and profile picture, used to run your account and Pro subscription.</li>
-  <li><b>Styling details:</b> your quiz answers, occasion, budget and any text or voice request you send, used only to create your looks. Voice recordings are sent for transcription and aren't stored by us. Saved looks and closet photos stay in your browser on your device.</li>
+  <li><b>Styling details:</b> your quiz answers, occasion, budget and any text or voice request you send, used only to create your looks. Voice recordings are sent for transcription and aren't stored by us. Saved looks, boards, wedding plans and closet photos stay in your browser on your device.</li>
+  <li><b>Your closet and today's fit:</b> when you ask for today's fit, the names of the clothes in your closet (not the photos), your plans and the weather are sent to Anthropic to pick the outfit. If you tap <b>Name it for me</b> on a closet photo, that one photo is sent to Anthropic to name the item; we don't keep it.</li>
+  <li><b>Weather:</b> for today's fit, if you allow location, your browser sends us a rough position (rounded to about 10 km). We pass it to MET Norway for the forecast and don't store it.</li>
+  <li><b>Shared looks and boards:</b> when you tap Share, the look (its name, Ella's note, the pieces and the occasion) gets a public page that anyone with the link can open. Your first name is shown only if you choose. Votes are anonymous; to stop vote-stuffing we keep a browser cookie and a one-way code made from the voter's network address, never the address itself. You can take a shared page down at any time from My Looks.</li>
+  <li><b>Notifications:</b> if you turn them on, we keep the push address your browser gives us, your time zone, the hour you picked and any reminders you set (such as wedding function dates), only to send those notifications. Turn them off any time in the app or in your phone's settings.</li>
   <li><b>Location:</b> if you allow it, your browser shares your position once; BigDataCloud turns it into your country and city so Ella only shows clothes you can buy and get delivered there. Only the country and city are kept, in your browser; your exact position is never stored or sent to us. You can pick your country by hand instead.</li>
-  <li><b>Usage:</b> how many looks you've made today, to apply the daily limit.</li>
+  <li><b>Usage:</b> how many looks you've made today, to apply the daily limit, and app statistics (which features are used and how many people come back), counted against a one-way code, never your name or email.</li>
   <li><b>Payments:</b> handled by Razorpay (in India) or Dodo Payments (outside India). We receive your subscription and payment IDs and their status; we never see or store your card, UPI or bank details. Dodo Payments also receives your billing country to work out local tax.</li>
   <li><b>Analytics:</b> Google Analytics records anonymous visit statistics.</li>
 </ul>
 <h2>Who processes it for us</h2>
-<p>Anthropic (AI that writes the looks), ElevenLabs (stylist voices, and turning your voice requests into text), Google (sign-in, product image search, analytics), Razorpay and Dodo Payments (payments), BigDataCloud (turning a location into a country), Serper (product search), Render (hosting) and Neon (database). They process data only to provide their service to us.</p>
+<p>Anthropic (AI that writes the looks), ElevenLabs (stylist voices, and turning your voice requests into text), Google (sign-in, product image search, analytics, YouTube videos in Reels, and Android notifications), Apple and Mozilla (notifications on their devices and browsers), Instagram (reels the app shows), MET Norway (weather), Razorpay and Dodo Payments (payments), BigDataCloud (turning a location into a country), Serper (product search), Render (hosting) and Neon (database). They process data only to provide their service to us.</p>
 <h2>Cookies</h2>
-<p>We use one essential cookie to keep you signed in and to count free looks, and analytics cookies from Google Analytics.</p>
+<p>We use one essential cookie to keep you signed in, to count free looks and to count one vote per person, and analytics cookies from Google Analytics. When you play a reel, YouTube (in privacy-enhanced mode) or Instagram may set their own cookies.</p>
 <h2>How long we keep it</h2>
-<p>Account and subscription records are kept while your account is active and for as long as tax and payment laws require afterwards. Daily look counts are deleted after 7 days.</p>
+<p>Account and subscription records are kept while your account is active and for as long as tax and payment laws require afterwards. Daily look counts are deleted after 7 days. Shared pages and their votes stay up until you take them down (or we remove them after a report). Notification details are deleted when you turn notifications off or your browser stops accepting them. App statistics are deleted after about a year.</p>
 <h2>Your rights</h2>
 <p>You can ask us to show, correct or delete your personal data, or withdraw consent, by emailing {email}. We reply within 7 days. {brand} is meant for people aged 18 and over.</p>
 <h2>Contact</h2>
@@ -101,7 +112,7 @@ PAGES = {
 """),
     'refunds': ('Cancellation &amp; Refunds', """
 <h2>Cancelling</h2>
-<p>You can cancel Pro at any time: open the app, tap <b>✦ Pro</b>, then <b>Cancel renewal</b>. You can also email {email}. Cancelling stops all future charges. You keep Pro until the end of the period you've already paid for.</p>
+<p>You can cancel an auto-renewing Pro subscription at any time: open the app, tap <b>✦ Pro</b>, then <b>Cancel renewal</b>. You can also email {email}. Cancelling stops all future charges. You keep Pro until the end of the period you've already paid for. Pro bought with <b>Pay once</b> never renews, so there's nothing to cancel.</p>
 <h2>Refunds</h2>
 <p>Because Pro starts working the moment you pay, we don't give refunds for partly used billing periods. We will refund you in full if:</p>
 <ul>

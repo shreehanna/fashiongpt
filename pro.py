@@ -1,7 +1,8 @@
 """E&L Pro: Google sign-in, worldwide subscriptions and the daily look limit.
 
 Two payment providers, chosen by where the customer pays from:
-  India              Razorpay       ₹199 / ₹1,999, UPI Autopay, cards, net banking (about 3.5% in fees)
+  India              Razorpay       ₹199 / ₹1,999 as an auto-renewing subscription (UPI Autopay, credit cards, some
+                                    debit cards) or paid once with no renewal (any debit/credit card, UPI, net banking)
   everywhere else    Dodo Payments  USD (shown in local currency), cards, Apple/Google Pay, PayPal.
                                     Dodo is the merchant of record, so it collects and pays foreign
                                     sales tax / VAT for you and pays out to your Indian bank.
@@ -112,6 +113,12 @@ def today():
     return datetime.now(IST).strftime('%Y-%m-%d')
 
 
+def next_reset():
+    """When the free looks come back: the next midnight in India (Unix seconds)."""
+    t = datetime.now(IST)
+    return int((t.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)).timestamp())
+
+
 def client_ip():
     return (request.headers.get('X-Forwarded-For') or request.remote_addr or '').split(',')[0].strip()
 
@@ -148,6 +155,27 @@ SCHEMA = [
          look_name TEXT, items TEXT, core_key TEXT)""",
     "CREATE INDEX IF NOT EXISTS el_looks_recent ON el_looks (gender, created_at)",
     "CREATE INDEX IF NOT EXISTS el_looks_core ON el_looks (gender, core_key)",
+    # growth.py: shared looks ("Rate my fit"), votes on them, shared boards, and first-party stats
+    """CREATE TABLE IF NOT EXISTS el_cards (
+         id TEXT PRIMARY KEY, who TEXT, created_at BIGINT, kind TEXT, look TEXT, name TEXT,
+         challenge TEXT NOT NULL DEFAULT '', fire INTEGER NOT NULL DEFAULT 0, cute INTEGER NOT NULL DEFAULT 0,
+         hmm INTEGER NOT NULL DEFAULT 0, views INTEGER NOT NULL DEFAULT 0, reports INTEGER NOT NULL DEFAULT 0,
+         hidden INTEGER NOT NULL DEFAULT 0, last_ping BIGINT NOT NULL DEFAULT 0)""",
+    "CREATE INDEX IF NOT EXISTS el_cards_who ON el_cards (who, created_at)",
+    "CREATE INDEX IF NOT EXISTS el_cards_challenge ON el_cards (challenge, fire)",
+    """CREATE TABLE IF NOT EXISTS el_votes (
+         card_id TEXT NOT NULL, voter TEXT NOT NULL, vote TEXT NOT NULL, ip TEXT, at BIGINT,
+         PRIMARY KEY (card_id, voter))""",
+    """CREATE TABLE IF NOT EXISTS el_boards (
+         id TEXT PRIMARY KEY, who TEXT, name TEXT, looks TEXT, created_at BIGINT,
+         views INTEGER NOT NULL DEFAULT 0, reports INTEGER NOT NULL DEFAULT 0, hidden INTEGER NOT NULL DEFAULT 0)""",
+    "CREATE TABLE IF NOT EXISTS el_active (who TEXT NOT NULL, day TEXT NOT NULL, PRIMARY KEY (who, day))",
+    "CREATE TABLE IF NOT EXISTS el_stats (day TEXT NOT NULL, event TEXT NOT NULL, n INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (day, event))",
+    # push.py: phones and browsers that asked for the morning fit (and other reminders)
+    """CREATE TABLE IF NOT EXISTS el_push (
+         endpoint TEXT PRIMARY KEY, who TEXT, sub TEXT, tz INTEGER NOT NULL DEFAULT 330, hour INTEGER NOT NULL DEFAULT 8,
+         last_day TEXT, reminders TEXT, prefs TEXT, created_at BIGINT, fails INTEGER NOT NULL DEFAULT 0)""",
+    "CREATE INDEX IF NOT EXISTS el_push_who ON el_push (who)",
 ]
 _local = threading.local()
 _schema_ready = False
@@ -470,7 +498,7 @@ def me_payload():
            'regions': {'in': razorpay_ready(), 'intl': dodo_ready()},
            'signin': signin, 'google_client_id': (env('GOOGLE_CLIENT_ID') or None) if signin else None,
            'prices': PRICES, 'intl_prices': intl_prices(), 'free_per_day': FREE_PER_DAY,
-           'signed_in': False, 'pro': False, 'looks_left': None}
+           'resets_at': next_reset(), 'signed_in': False, 'pro': False, 'looks_left': None}
     if not signin:
         return out
     # The owner is recognised from the Google-verified email in the login cookie alone, so it works
@@ -507,7 +535,8 @@ def me_payload():
         out.update(email=user['email'], name=user['name'], picture=user['picture'], plan=user['plan'],
                    provider=user['sub_provider'], pro_until=int(user['pro_until'] or 0),
                    period_end=end or (int(user['pro_until'] or 0) or None),
-                   renews=pro and user['sub_status'] in ('active', 'authenticated') and not user['cancelling'])
+                   renews=pro and user['sub_status'] in ('active', 'authenticated') and not user['cancelling'],
+                   once=user['sub_provider'] == 'razorpay_once')
     if not pro:
         out['looks_left'] = max(0, FREE_PER_DAY - _looks_used(who, today()))
     return out
@@ -549,6 +578,11 @@ def auth_google():
             return jsonify({'error': 'Sign-in is having trouble right now. Please try again.'}), 503
     session['email'] = email
     session.permanent = True
+    try:
+        from growth import track
+        track('signin', 'u:' + email)
+    except Exception as e:
+        print('[pro] stats skipped:', e)
     return jsonify(me_payload())
 
 
@@ -575,6 +609,9 @@ def subscribe():
         return jsonify({'error': "You're the owner, so everything's already unlocked."}), 409
     if is_pro(user) and user['sub_status'] in ('active', 'authenticated') and not user['cancelling']:
         return jsonify({'error': 'You already have Pro.'}), 409
+    if is_pro(user) and user['sub_provider'] == 'razorpay_once':
+        return jsonify({'error': "You already have Pro for the days you paid for. Add more time with Pay once, "
+                                 "or switch to auto-renew after it ends."}), 409
     try:
         if region == 'in':
             sub = rzp('POST', '/subscriptions', json={
@@ -633,6 +670,77 @@ def verify():
     return jsonify(me_payload())
 
 
+# ── Pay once (India): any debit or credit card, UPI or net banking, no renewal ─────
+# Auto-renew on Indian cards needs an RBI e-mandate, which most debit cards (SBI, HDFC, Axis...) don't
+# support. Paying once works with every card: Pro for a month or a year, then it simply ends.
+@bp.post('/api/pro/order')
+@login_required
+def order_once():
+    plan = (request.get_json(silent=True) or {}).get('plan')
+    if plan not in PRICES:
+        return jsonify({'error': 'unknown plan'}), 400
+    if not razorpay_ready():
+        return jsonify({'error': 'Paying in ₹ is not open yet.'}), 503
+    user = get_user(session['email'])
+    if is_owner(user['email']):
+        return jsonify({'error': "You're the owner, so everything's already unlocked."}), 409
+    if is_pro(user) and user['sub_status'] in ('active', 'authenticated') and not user['cancelling']:
+        return jsonify({'error': 'Your Pro already renews automatically.'}), 409
+    try:
+        order = rzp('POST', '/orders', json={
+            'amount': PRICES[plan] * 100, 'currency': 'INR', 'receipt': 'el-' + secrets.token_hex(8),
+            'notes': {'email': user['email'], 'plan': plan, 'kind': 'once'},
+        })
+    except ProviderError as e:
+        print('[pro] order failed:', e)
+        return jsonify({'error': 'Could not start checkout. Please try again.'}), 502
+    db("INSERT INTO el_subs (sub_id, email, plan, status, provider, created_at) "
+       "VALUES (%s, %s, %s, 'created', 'razorpay_once', %s)", (order['id'], user['email'], plan, now()))
+    return jsonify({'provider': 'razorpay', 'order_id': order['id'], 'amount': order['amount'], 'currency': 'INR',
+                    'key_id': env('RAZORPAY_KEY_ID'), 'name': user['name'], 'email': user['email'],
+                    'description': f"Pro · ₹{PRICES[plan]:,} for {'a month' if plan == 'monthly' else 'a year'}, no auto-renew"})
+
+
+def apply_once(order_id, email, plan):
+    """Add the paid days exactly once per order, even when the page and the webhook both report it."""
+    claimed = db("UPDATE el_subs SET status = 'paid' WHERE sub_id = %s AND provider = 'razorpay_once' "
+                 "AND status <> 'paid' RETURNING email", (order_id,), one=True)
+    if not claimed:
+        return False
+    u = get_user(email)
+    if not u or plan not in PERIOD_DAYS:
+        return False
+    until = max(now(), int(u['pro_until'] or 0)) + PERIOD_DAYS[plan] * 86400   # extends any time left
+    db('UPDATE el_subs SET current_end = %s WHERE sub_id = %s', (until, order_id))
+    db("UPDATE el_users SET pro_until = %s, plan = %s, sub_id = %s, sub_status = 'paid', "
+       "sub_provider = 'razorpay_once', cancelling = 0 WHERE email = %s", (until, plan, order_id, email))
+    return True
+
+
+@bp.post('/api/pro/verify-order')
+@login_required
+def verify_order():
+    body = request.get_json(silent=True) or {}
+    pay_id = body.get('razorpay_payment_id') or ''
+    order_id = body.get('razorpay_order_id') or ''
+    signature = body.get('razorpay_signature') or ''
+    row = db("SELECT plan FROM el_subs WHERE sub_id = %s AND email = %s AND provider = 'razorpay_once'",
+             (order_id, session['email']), one=True)
+    if not row:
+        return jsonify({'error': 'unknown order'}), 404
+    expected = hmac_hex(env('RAZORPAY_KEY_SECRET'), f'{order_id}|{pay_id}')
+    if not (pay_id and hmac.compare_digest(expected, signature)):
+        return jsonify({'error': 'payment could not be verified'}), 400
+    try:   # make sure the money is actually taken (accounts set to manual capture would refund it in 5 days)
+        p = rzp('GET', f'/payments/{pay_id}')
+        if p.get('status') == 'authorized':
+            rzp('POST', f'/payments/{pay_id}/capture', json={'amount': p['amount'], 'currency': p.get('currency', 'INR')})
+    except ProviderError as e:
+        print('[pro] capture check failed (the signature is valid, so Pro still starts):', e)
+    apply_once(order_id, session['email'], row[0])
+    return jsonify(me_payload())
+
+
 @bp.post('/api/pro/dodo-return')
 @login_required
 def dodo_return():
@@ -657,6 +765,8 @@ def cancel():
     user = get_user(session['email'])
     if not user['sub_id']:
         return jsonify({'error': 'no subscription to cancel'}), 404
+    if user['sub_provider'] == 'razorpay_once':
+        return jsonify({'error': "Nothing to cancel: pay-once Pro doesn't renew."}), 400
     try:
         if user['sub_provider'] == 'dodo':
             dodo('PATCH', f"/subscriptions/{user['sub_id']}", json={'cancel_at_next_billing_date': True})
@@ -688,6 +798,14 @@ def razorpay_webhook():
 
 
 def handle_razorpay_event(evt):
+    if evt.get('event') == 'order.paid':
+        order = ((evt.get('payload') or {}).get('order') or {}).get('entity') or {}
+        if (order.get('notes') or {}).get('kind') == 'once' and order.get('id'):
+            row = db("SELECT email, plan FROM el_subs WHERE sub_id = %s AND provider = 'razorpay_once'",
+                     (order['id'],), one=True)
+            if row and get_user(row[0]):
+                apply_once(order['id'], row[0], row[1])
+        return
     sub = ((evt.get('payload') or {}).get('subscription') or {}).get('entity') or {}
     sub_id = sub.get('id')
     if not sub_id:
