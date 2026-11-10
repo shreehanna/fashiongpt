@@ -365,10 +365,29 @@ def variation(gender, occasion, era='', muse=''):
             f"unless the muse or occasion clearly calls for something else.")
 
 
+# Muses whose name the styling model may not know (a recent name change) or may mix up with someone else.
+# Key: the name in lower case, as typed or tapped. Value: who they really are.
+_LECLERC = ("Alexandra Leclerc is Alexandra Saint Mleux: she took the name Leclerc when she married Formula 1 driver "
+            "Charles Leclerc in Monaco in 2026. She is the French-Italian content creator and paddock 'It girl' "
+            "you may know as Alexandra Saint Mleux. Style her exactly the way Alexandra Saint Mleux dresses. She is NOT "
+            "Alessandra Ambrosio (a different person, a Brazilian model).")
+MUSE_IDS = {
+    'alexandra leclerc': _LECLERC,
+    'alexandra saint mleux': _LECLERC,
+    'alexandra saint-mleux': _LECLERC,
+    'alex leclerc': _LECLERC,
+}
+
+
+def muse_identity(muse):
+    return MUSE_IDS.get(' '.join((muse or '').lower().split()), '')
+
+
 def muse_rule(muse, era=''):
     if not muse or muse.strip().lower() in ('no specific muse', 'none', ''):
         return ''
     m = muse.strip()[:60]
+    who = muse_identity(m)
     key = aesthetic_key(era)
     a = AESTHETICS.get(key)
     look = a['name'] if a else ('' if key in ('celeb', 'ues') and 'upper east side' not in (era or '').lower()
@@ -383,6 +402,8 @@ def muse_rule(muse, era=''):
         text += (f" The user also picked {look}, so dress them the way {m} would wear {look}: keep {m}'s real signatures "
                  f"and express them through {look}. If {m} has really worn {look}-style looks, channel those; if not, imagine "
                  f"how {m} would do {look}, still unmistakably {m}.")
+    text += (f" WHO THIS IS: {who}" if who else
+             f" Be sure you have the right person: style exactly {m}, never someone with a similar name.")
     return text + (f" When a label {m} wears isn't sold in the shopper's country or is far over their budget, use the closest "
                    f"piece they can buy instead. Channel a different "
                    f"real {m} outfit each time, so the same muse never gives a repeat. In ella_note, name the real {m} look "
