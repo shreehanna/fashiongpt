@@ -365,35 +365,61 @@ def variation(gender, occasion, era='', muse=''):
             f"unless the muse or occasion clearly calls for something else.")
 
 
-from muses import muse_data, muse_identity, outfit_line, used   # who the muse is, what they wear, what they've worn
+from muses import muse_data, muse_identity, outfit_line, piece_line, used   # who the muse is, what they wear, what they've worn
+
+# Every look: a product only gets a name if it really exists under it (a made-up name sends the shopper nowhere)
+HONEST_NAMES = ("\n\nPRODUCT NAMES: give a piece its exact product name only when you're sure that product really exists "
+                "under that name at that brand. Otherwise name it in plain words (\"Silver satin halter gown\"). Never make "
+                "up product, line or collection names: a made-up name can't be found in any store.")
 
 
-def real_outfit_rule(m, who, outfits, used_ids, occasion, look, file):
-    """The muse has a bank of real outfits: the look IS one of them, recreated piece by piece."""
+def real_pieces(m, pieces):
+    """The other real pieces the muse has been seen in, exact names only (for shoes, bags and jewellery)."""
+    named = [p for p in pieces or [] if p.get('name')][:24]
+    if not named:
+        return ''
+    return (f"\nOTHER REAL PIECES {m} HAS BEEN SEEN IN (exact names, from fashion coverage):\n" +
+            '\n'.join(f"- {p['category'] or 'Piece'}: {piece_line(p)}" + (f", worn at {p['event']}" if p.get('event') else '')
+                      for p in named))
+
+
+def real_outfit_rule(m, who, outfits, used_ids, occasion, look, file, pieces=()):
+    """The muse has a bank of real outfits: the look IS one of them, her exact pieces (app.py makes sure of it)."""
     text = f"\n\nMUSE RULE (this comes first, above every other rule): the user wants to dress exactly like {m}."
     text += f" WHO THIS IS: {who}" if who else f" Be sure you have the right person: {m}, never someone with a similar name."
     text += (f"\nREAL OUTFITS {m} HAS ACTUALLY WORN (from fashion coverage, with the event and date):\n" +
              '\n'.join(outfit_line(o) for o in outfits[:20]))
-    text += (f"\nTHIS LOOK MUST BE ONE OF THESE REAL OUTFITS, recreated exactly. Pick the one that best suits "
-             f"\"{occasion or 'their day'}\": its formality, setting and season" + (f", and the {look} aesthetic they picked if one fits" if look else '') + '.')
+    text += real_pieces(m, pieces)
+    text += (f"\nTHIS LOOK MUST BE ONE OF THESE REAL OUTFITS, worn exactly as {m} wore it. Pick the one that best suits "
+             f"\"{occasion or 'their day'}\": its formality, setting and season" + (f", and the {look} aesthetic they picked if one fits" if look else '') +
+             ". If none is a perfect match, pick the closest (an evening outfit for any evening event, a daytime one for any day event).")
     fresh = [o['id'] for o in outfits if o['id'] not in used_ids]
     if used_ids and fresh:
         text += f" This person has already been given {', '.join(used_ids[-8:])}, so pick a different one if another suits the occasion."
-    text += (f"\nRecreate it piece by piece: the same garment types, colours, fabrics, cuts and details, in the same order of "
-             f"importance. Where the exact piece or label is sold in the shopper's country at this budget, use it, with its "
-             f"store set to that label's own site. Otherwise use the closest version they can buy at their budget, and say what "
-             f"it recreates in the description (\"Her original: a pink Chanel tweed jacket\"). Add only what the article "
-             f"doesn't mention (shoes, bag, jewellery) in the same spirit, and use its hair and makeup if given.\n"
-             f"Add \"outfit_id\": \"<the id you picked, like o2>\" to the JSON. In ella_note, name the real event and date "
-             f"(\"what {m} wore to ...\"). Never change the outfit to suit a theme or a house style.\n"
-             f"Only if none of these outfits suits the occasion at all (for example a gym session when they're all evening "
-             f"looks), set \"outfit_id\": null and dress them from the style file below instead, without inventing facts.")
+    text += (f"\nTHE ITEMS ARE HER EXACT PIECES, one item per piece, in the outfit's order:"
+             f"\n- \"brand\": the brand exactly as given."
+             f"\n- \"name\": the product name in quotes above, word for word, with its colour (like \"Carousel Metallic Twist Gown in "
+             f"Silver\"). When the product name isn't known, name the piece in plain words, like \"Silver metallic halter gown\". "
+             f"NEVER make up a product, line or collection name."
+             f"\n- \"price\": its real retail price in the shopper's currency, as best you know it."
+             f"\n- \"description\": one sentence on how {m} wore it."
+             f"\nUse the exact pieces even if they cost more than the shopper's budget: they asked to dress exactly like {m}. Never "
+             f"swap a piece for a cheaper, similar or different one, never change a colour, and never restyle the outfit to suit a "
+             f"theme or a house style."
+             f"\nThen complete the look with what the coverage doesn't mention (shoes, bag, jewellery): first from the OTHER REAL "
+             f"PIECES {m} has been seen in, if any suit, named the same way; otherwise in plain words, in {m}'s style. Use the "
+             f"outfit's hair and makeup if given."
+             f"\nAdd \"outfit_id\": \"<the id you picked, like o2>\" to the JSON. In ella_note, name the real event and date "
+             f"(\"what {m} wore to ...\")."
+             f"\nOnly if every one of these outfits is wrong for the occasion (for example a gym session when they're all evening "
+             f"looks), set \"outfit_id\": null and build the look from the other real pieces {m} has worn and the style file below, "
+             f"naming anything you don't have an exact name for in plain words, never a made-up one.")
     if file:
         text += f"\nSTYLE FILE for {m} (for anything the outfit doesn't cover):\n{file}"
     return text
 
 
-def muse_rule(muse, era='', file=None):
+def muse_rule(muse, era='', file=None, pieces=()):
     if not muse or muse.strip().lower() in ('no specific muse', 'none', ''):
         return ''
     m = muse.strip()[:60]
@@ -429,6 +455,9 @@ def muse_rule(muse, era='', file=None):
     if look:
         text += (f" The user also picked {look}, so dress them the way {m} would wear {look}, keeping {m}'s real "
                  f"signatures.")
+    if real_pieces(m, pieces):
+        text += real_pieces(m, pieces) + (f"\nUse these real pieces of {m}'s, by their exact names, wherever they suit the "
+                                          f"occasion; anything else is named in plain words unless it's a real product.")
     return text + labels + (
         f" When a label {m} wears isn't sold in the shopper's country or is far over their budget, use the closest piece "
         f"they can buy instead."
@@ -474,12 +503,13 @@ def rules(gender, occasion, muse, who, mode='', budget='', country='', era='', c
             used_ids = used(who, muse)
         except Exception:
             used_ids = []
-        return real_outfit_rule(muse.strip()[:60], muse_identity(muse), outfits, used_ids, occasion, look, file)
+        return real_outfit_rule(muse.strip()[:60], muse_identity(muse), outfits, used_ids, occasion, look, file,
+                                info.get('pieces') or []) + HONEST_NAMES
     text = (house_style(gender, mode, budget, country, era) + aesthetic_rule(era) +
-            (character_rule(character, era) if character else muse_rule(muse, era, file)))
+            (character_rule(character, era) if character else muse_rule(muse, era, file, info.get('pieces') or [])))
     if mode in COPY_MODES:
         # Dupe and Get this look copy something: no random starting piece or palette, no forcing it to be different
-        return text + ("\n\nCOPY THE ORIGINAL: match it as closely as the shopper can buy it: the same hero piece, the same "
+        return text + HONEST_NAMES + ("\n\nCOPY THE ORIGINAL: match it as closely as the shopper can buy it: the same hero piece, the same "
                        "colours, the same silhouette and the same overall vibe. Never swap the hero piece for something else "
                        "and never change the colour story. Fill in only what the original doesn't show (shoes, bag, jewellery) "
                        "in the same spirit.")
@@ -487,7 +517,7 @@ def rules(gender, occasion, muse, who, mode='', budget='', country='', era='', c
              "occasion asked again. The same main pieces in a different colour or fabric still count as a repeat.")
     if given:
         text += " These have already been given, so don't recreate any of them or their main combination of pieces:\n" + '\n'.join(given)
-    return text + variation(gender, occasion, era, (muse or '').strip()[:60])
+    return text + variation(gender, occasion, era, (muse or '').strip()[:60]) + HONEST_NAMES
 
 
 COPY_MODES = ('dupe', 'reel')
@@ -526,10 +556,11 @@ def _who_and_rules(data):
     real_muse = bool(muse) and muse.strip().lower() not in ('no specific muse', 'none', '')
     if real_muse and not character and str(data.get('mode') or '') not in COPY_MODES:
         try:
-            info = muse_data(muse)
+            info = muse_data(muse, wait=40)       # usually ready: it started when they picked the muse
         except Exception as e:
             print('[looks] muse research skipped:', e)
     data['_muse_bank'] = info.get('outfits') or []
+    data['_muse_pieces'] = info.get('pieces') or []
     data['_muse_key'] = muse
     return gender, occasion, muse, who, rules(gender, occasion, muse, who, str(data.get('mode') or ''),
                                               str(data.get('budget') or ''), str(data.get('country') or '')[:2],

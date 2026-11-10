@@ -505,6 +505,7 @@ body {
 .outfit-item > .oi-category,
 .outfit-item > .oi-name,
 .outfit-item > .oi-brand,
+.outfit-item > .oi-worn,
 .outfit-item > .oi-price,
 .outfit-item > .oi-desc,
 .outfit-item > .oi-pinterest,
@@ -520,6 +521,7 @@ body {
   color: var(--fg); margin-bottom: 4px; line-height: 1.2;
 }
 .oi-brand { font-size: 13px; color: var(--fg2); margin-bottom: 4px; }
+.oi-worn { font-size: 10.5px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--gold-ink); margin: 2px 0 8px; }
 .oi-price { font-size: 14px; font-weight: 500; color: var(--accent); margin-bottom: 12px; }
 .oi-desc { font-size: 13px; color: var(--fg2); line-height: 1.5; margin-bottom: 16px; }
 
@@ -2850,6 +2852,7 @@ function addResultItem(item, anchors, draft) {
     <div class="oi-category"></div>
     <div class="oi-name"></div>
     <div class="oi-brand"></div>
+    <div class="oi-worn" hidden></div>
     <div class="oi-price"></div>
     <div class="oi-desc"></div>
     <a class="oi-pinterest" target="_blank" rel="noopener">
@@ -2871,6 +2874,8 @@ function fillResultItem(div, item) {
   set('.oi-category', item.category);
   set('.oi-name', item.name);
   set('.oi-brand', item.brand);
+  const worn = div.querySelector('.oi-worn');   // one of the muse's own real pieces (muses.apply_real)
+  if (worn) { worn.textContent = item.worn ? '✦ Worn by ' + item.worn : ''; worn.hidden = !item.worn; }
   set('.oi-price', item.price);
   set('.oi-desc', item.description);
   div.querySelector('.oi-pinterest').href = `https://pinterest.com/search/pins/?q=${encodeURIComponent(`${item.name || ''} ${item.brand || ''} fashion`)}`;
@@ -6451,9 +6456,13 @@ async function loadOwnerContent(d) {
     out.textContent = rebuild ? 'Reading up on ' + name + '… (up to a minute)' : 'Loading…';
     try {
       const d = rebuild ? await api('/api/owner/muse', { name, rebuild: true }) : await api('/api/owner/muse?name=' + encodeURIComponent(name));
-      const outfits = (d.outfits || []).map(o => `• ${o.event || 'Event not given'}${o.date ? ', ' + o.date : ''}: ` + o.pieces.map(p => p.item + (p.brand ? ' (' + p.brand + ')' : '')).join(' + ')).join('\n');
+      // exact product names in quotes; a piece without one shows "name not known" (Ella then uses plain words, never a made-up name)
+      const piece = p => p.name ? `${p.brand ? p.brand + ' ' : ''}“${p.name}”` : `${p.item}${p.brand ? ' (' + p.brand + ', name not known)' : ''}`;
+      const outfits = (d.outfits || []).map(o => `• ${o.event || 'Event not given'}${o.date ? ', ' + o.date : ''}: ` + o.pieces.map(piece).join(' + ')).join('\n');
+      const extras = (d.pieces || []).filter(p => p.name).map(p => `• ${piece(p)}${p.event ? ', ' + p.event : ''}`).join('\n');
       out.textContent = (d.identity ? 'Who: ' + d.identity + '\n\n' : '') + (d.text || 'Nothing found about how ' + name + ' dresses. Ella will stay understated and won\u2019t invent anything.')
-        + '\n\nREAL OUTFITS ELLA RECREATES (' + (d.outfits || []).length + '):\n' + (outfits || 'None found yet. Looks follow the style file.');
+        + '\n\nREAL OUTFITS ELLA RECREATES (' + (d.outfits || []).length + '):\n' + (outfits || 'None found yet. Looks follow the style file.')
+        + (extras ? '\n\nOTHER PIECES SHE\u2019S WORN (used for shoes, bags, jewellery):\n' + extras : '');
     } catch (e) { out.textContent = e.message; }
   };
   mf.onsubmit = ev => { ev.preventDefault(); showMuse(false); };

@@ -175,16 +175,21 @@ def _line(ev):
 def _finished(data, text):
     """The finished look, signed so it can be shared, and counted."""
     look = json.loads(_strip_fences(text))
+    import muses
+    bank = data.get('_muse_bank') or []
+    real = next((o for o in bank if o.get('id') == look.get('outfit_id')), None) if isinstance(look, dict) else None
+    try:
+        if real:      # her exact pieces, by their real names, whatever the model wrote (before signing, so shares match)
+            muses.apply_real(look, real, data.get('_muse_pieces') or [], str(data.get('_muse_key') or ''))
+    except Exception as e:
+        print('[look] could not match the real outfit:', repr(e))
     try:
         from pro import identity
         sign_look(look, data)
         track('look', identity()[1])
-        bank = data.get('_muse_bank') or []
-        real = next((o for o in bank if o['id'] == look.get('outfit_id')), None)
         if real:      # a recreation of a real outfit the muse wore: say which, and don't give it to this person again
             look['real_outfit'] = {'muse': str(data.get('_muse_key') or '')[:60], 'event': real['event'],
                                    'date': real['date'], 'url': real['url'], 'source': real['source']}
-            import muses
             muses.mark_used(identity()[1], data.get('_muse_key'), real['id'])
     except Exception as e:
         print('[look] could not sign the look:', e)
