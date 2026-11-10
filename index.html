@@ -1309,7 +1309,9 @@ body::after {
 .quick-add { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
 .quick-add .chip-btn { font-size: 12px; padding: 6px 11px; }
 .photo-add { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }
+.photo-add { position: relative; overflow: hidden; }
 .photo-add input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.own-upload { width: 100%; justify-content: center; margin-top: 16px; }
 
 /* Wedding season */
 .wed-plans { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-bottom: 14px; }
@@ -1485,6 +1487,7 @@ body::after {
       <button class="btn-secondary" style="font-size:11px;padding:9px 16px" onclick="openClosetShortcut()">🧺 My Closet</button>
       <button class="btn-secondary" style="font-size:11px;padding:9px 16px" onclick="openPlanDay()">📅 Plan My Day</button>
       <button class="btn-secondary" style="font-size:11px;padding:9px 16px" onclick="openDupeLook()">🪞 Dupe a Look</button>
+      <button class="btn-secondary" style="font-size:11px;padding:9px 16px" onclick="openOwnLook()">📸 Screenshot → Look</button>
       <button class="btn-secondary" style="font-size:11px;padding:9px 16px" onclick="openCompleteLook()">✨ Complete an Outfit</button>
       <button class="btn-secondary" style="font-size:11px;padding:9px 16px" onclick="openBrandMatch()">💎 Brand Match</button>
     </div>
@@ -2021,7 +2024,7 @@ body::after {
 <div id="screen-reels" class="screen">
   <div class="reels-top" style="max-width:420px">
     <button class="nav-back" onclick="leaveReels()">← Home</button>
-    <span class="tiny">Tap ✦ on any reel to get the look</span>
+    <button class="btn-secondary btn-small" type="button" onclick="openOwnLook()">📸 Your own look</button>
   </div>
   <div class="reels-feed" id="reels-feed" aria-label="Fashion reels"></div>
 </div>
@@ -2282,6 +2285,29 @@ body::after {
     <input class="rate-link" id="rate-link" readonly hidden aria-label="Vote link">
     <p class="rate-msg" id="rate-msg" role="status"></p>
     <p class="rate-hint" id="rate-hint">On Instagram: post the picture to your Story, then add the <b>Link</b> sticker and paste.</p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     GET THIS LOOK FROM ANYWHERE (a screenshot or a YouTube link)
+═══════════════════════════════════════════════════════════════ -->
+<div class="overlay" id="own-overlay" role="dialog" aria-modal="true" aria-labelledby="own-title">
+  <div class="share-card">
+    <div class="sc-header">
+      <div class="sc-title" id="own-title">Get this look ✦</div>
+      <button class="sc-close" onclick="closeOwnLook()" aria-label="Close">✕</button>
+    </div>
+    <p class="muted">Saw a look on Instagram, TikTok or Pinterest? Screenshot it, and Ella rebuilds it with pieces you can buy.</p>
+    <label class="btn-primary photo-add own-upload">📸 Upload a screenshot
+      <input type="file" accept="image/*" id="own-shot" onchange="ownShotPicked(event)">
+    </label>
+    <div class="divider-word" style="margin:18px 0">or</div>
+    <form class="row" onsubmit="event.preventDefault(); ownLinkLook();">
+      <input class="quiz-input grow" id="own-link" inputmode="url" autocomplete="off" placeholder="Paste a YouTube or Shorts link" aria-label="YouTube link">
+      <button class="btn-secondary btn-small" type="submit">Go</button>
+    </form>
+    <p class="rate-msg" id="own-msg" role="status"></p>
+    <p class="tiny" style="text-align:center">Your screenshot only goes to Ella to make your look. It isn't saved or shown to anyone. Uses one look.</p>
   </div>
 </div>
 
@@ -5906,19 +5932,49 @@ function loadInstagram(media) {
 }
 function reelLook(it) {
   if (!lookAllowed(() => reelLook(it))) return;
-  document.getElementById('gen-message').textContent = 'Ella is watching the reel…';
+  document.getElementById('gen-message').textContent = it.kind === 'shot' ? 'Ella is studying your screenshot…' : 'Ella is watching the reel…';
   goTo('screen-generating');
   document.querySelectorAll('#reels-feed iframe').forEach(f => { f.src = 'about:blank'; });
   reelsLoaded = false;
   track('reel_look');
+  const shot = it.kind === 'shot';
   requestLook('/api/outfit', {
-    mode: 'reel', reel: { kind: it.kind, id: it.id, title: it.title || it.caption || '', channel: it.channel || '' },
+    mode: 'reel', reel: shot ? { kind: 'shot', image: it.image } : { kind: it.kind, id: it.id, title: it.title || it.caption || '', channel: it.channel || '' },
     gender: state.gender || 'women', budget: state.budget, currency: state.currency,
     style_profile: buildQuizContext(), body_profile: state.quiz.styleSize || ''
-  }, () => { state.occasion = 'From a reel: ' + (it.title || it.caption || 'fashion reel').slice(0, 50); state.celeb = ''; state.era = ''; state.planContext = null; })
+  }, () => { state.occasion = shot ? 'From your screenshot' : 'From a reel: ' + (it.title || it.caption || 'fashion reel').slice(0, 50); state.celeb = ''; state.era = ''; state.planContext = null; })
     .then(() => { countLook(); goTo('screen-results'); switchTab('outfit'); spawnSparkles(); })
     .catch(err => { if (err.aborted) return; openReels(); if (!err.limit) alert(err.friendly || 'Ella hit a snag. Try again!'); });
 }
+
+// Get this look from anywhere: a screenshot (sent only to Claude) or any YouTube link
+function openOwnLook() {
+  document.getElementById('own-msg').textContent = '';
+  document.getElementById('own-link').value = '';
+  document.getElementById('own-overlay').classList.add('active');
+}
+function closeOwnLook() { document.getElementById('own-overlay').classList.remove('active'); }
+async function ownShotPicked(event) {
+  const f = (event.target.files || [])[0];
+  event.target.value = '';
+  if (!f) return;
+  const msg = document.getElementById('own-msg');
+  msg.textContent = 'Getting your screenshot ready…';
+  let image;
+  try { image = await shrinkImage(f, 1024, 0.8); } catch (e) { msg.textContent = 'That file isn\u2019t a picture. Try a screenshot.'; return; }
+  closeOwnLook();
+  reelLook({ kind: 'shot', image });
+}
+function ownLinkLook() {
+  const v = document.getElementById('own-link').value.trim();
+  const msg = document.getElementById('own-msg');
+  const m = v.match(/(?:youtube\.com\/(?:shorts\/|watch\?(?:.*&)?v=|embed\/|live\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/);
+  if (m) { closeOwnLook(); reelLook({ kind: 'yt', id: m[1], title: '', channel: '' }); return; }
+  msg.textContent = /instagram|tiktok|pinterest|pin\.it/i.test(v)
+    ? 'That app doesn\u2019t let Ella see the video. Take a screenshot of the outfit and upload it instead.'
+    : 'Paste a YouTube or Shorts link, or upload a screenshot.';
+}
+document.getElementById('own-overlay').addEventListener('click', e => { if (e.target.id === 'own-overlay') closeOwnLook(); });
 
 // ══ The weekly challenge ═════════════════════════════════════════════════════
 let challengeTheme = null, challengeData = null;

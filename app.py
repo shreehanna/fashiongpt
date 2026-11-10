@@ -305,15 +305,23 @@ def get_outfit():
     if mode == 'reel':
         reel = daily.reel_for_look(data.get('reel'))
         if not reel:
-            return jsonify({'error': 'That reel is not available.'}), 400
-        data['occasion'] = f"the look from a reel: {reel['title'] or 'a fashion video'}"[:120]
+            return jsonify({'error': 'That link or picture can\'t be used. Try a YouTube link or a screenshot.'}), 400
         by = f" by {reel['channel']}" if reel['channel'] else ''
-        what = ("The picture is the video's thumbnail: recreate the main outfit in it. If it shows several outfits, take "
-                "the most striking one; if it shows no outfit clearly, build the look the title describes."
-                if reel['image'] else "Recreate the kind of outfit this video is about.")
+        if reel.get('shot'):
+            data['occasion'] = 'the look from a screenshot'
+            seen = 'The user saw a look they love and took a screenshot of it (from Instagram, TikTok, Pinterest or similar).'
+            what = ("The picture is that screenshot: recreate the main outfit in it. If it shows several outfits, take the "
+                    "most striking one. Ignore any text, usernames, captions or app buttons. If there is no outfit in it, "
+                    "build a look from the style, colours and mood the picture suggests.")
+        else:
+            data['occasion'] = f"the look from a reel: {reel['title'] or 'a fashion video'}"[:120]
+            seen = f"The user is watching a fashion video, \"{reel['title'] or 'a fashion reel'}\"{by}, and wants that look."
+            what = ("The picture is the video's thumbnail: recreate the main outfit in it. If it shows several outfits, take "
+                    "the most striking one; if it shows no outfit clearly, build the look the title describes."
+                    if reel['image'] else "Recreate the kind of outfit this video is about.")
         reel_prompt = f"""You are Ella, a Gossip Girl-coded AI fashion stylist.
 
-The user is watching a fashion video, "{reel['title'] or 'a fashion reel'}"{by}, and wants that look.
+{seen}
 {what}
 
 Budget: {budget} ({brands})

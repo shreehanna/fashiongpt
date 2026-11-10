@@ -537,11 +537,26 @@ def reels():
     return jsonify({'items': (picks + feed)[:80], 'youtube': bool(env('YOUTUBE_API_KEY'))})
 
 
+SHOT = re.compile(r'^data:image/(jpeg|png|webp);base64,([A-Za-z0-9+/=]+)$')
+
+
 def reel_for_look(reel):
-    """What Ella should look at for "Get this look": the thumbnail of a YouTube video (by its id only), or the
-    owner's own caption for an Instagram pick. Nothing the browser sends is fetched as a URL."""
+    """What Ella should look at for "Get this look": the thumbnail of a YouTube video (by its id only), the
+    owner's own caption for an Instagram pick, or a screenshot the person uploaded (sent to Claude inline, never
+    stored). Nothing the browser sends is fetched as a URL."""
     if not isinstance(reel, dict):
         return None
+    if reel.get('kind') == 'shot':
+        img = str(reel.get('image') or '')
+        m = SHOT.match(img)
+        if not m or len(img) > 2_000_000:
+            return None
+        try:
+            base64.b64decode(m.group(2), validate=True)
+        except Exception:
+            return None
+        return {'image': {'type': 'base64', 'media_type': 'image/' + m.group(1), 'data': m.group(2)},
+                'title': '', 'channel': '', 'shot': True}
     rid = str(reel.get('id') or '')
     for p in reel_picks():
         if p['id'] == rid:

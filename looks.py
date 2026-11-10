@@ -469,10 +469,12 @@ def plan_looks(data):
     return out
 
 
-def _content(text, image_url):
-    if not image_url:
+def _content(text, image):
+    """The prompt, with a picture first if there is one: a URL (a YouTube thumbnail) or an inline screenshot."""
+    if not image:
         return text
-    return [{'type': 'image', 'source': {'type': 'url', 'url': image_url}}, {'type': 'text', 'text': text}]
+    source = image if isinstance(image, dict) else {'type': 'url', 'url': image}
+    return [{'type': 'image', 'source': source}, {'type': 'text', 'text': text}]
 
 
 def _image_failed(e):
@@ -519,7 +521,7 @@ def create_unique(client, data, prompt, max_tokens, model=None, kind='look', ima
             message = client.messages.create(model=model, max_tokens=max_tokens, messages=[
                 {'role': 'user', 'content': _content(prompt + extra + clash_note, image_url)}])
         except Exception as e:
-            if not (image_url and _image_failed(e)):
+            if not (isinstance(image_url, str) and _image_failed(e)):
                 raise
             print('[looks] the picture could not be used, styling from the text:', repr(e)[:160])
             image_url = None
@@ -549,7 +551,7 @@ def stream_unique(client, data, prompt, max_tokens, model=None, kind='look', ima
                     chunks.append(text)
                     yield 'delta', text
         except Exception as e:
-            if chunks or not (image_url and _image_failed(e)):
+            if chunks or not (isinstance(image_url, str) and _image_failed(e)):
                 raise
             print('[looks] the picture could not be used, styling from the text:', repr(e)[:160])
             image_url = None
