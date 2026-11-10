@@ -441,12 +441,15 @@ PAGE = """<!doctype html><html lang="en"><head><meta charset="utf-8">
 {og_image}
 <meta name="twitter:card" content="summary_large_image">
 <meta name="theme-color" content="#F7F0E3">
+<script>(function(){{var p='auto';try{{p=localStorage.getItem('el_theme')||'auto';}}catch(e){{}}var d=p==='dark'||(p==='auto'&&window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.setAttribute('data-theme',d?'dark':'light');}})();</script>
 <link rel="icon" href="/icon-192.png">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400..700;1,6..96,400..700&family=Jost:wght@300;400;500;600&family=Pinyon+Script&display=swap">
 <style>
 :root {{ --bg:#F7F0E3; --card:#FBF6EC; --fg:#1E1712; --fg2:#4E4134; --fg3:#6A5A48; --gold:#9A7433; --gold-ink:#7E5F27;
   --line:rgba(154,116,51,.34); --serif:'Bodoni Moda',Didot,'Bodoni 72',Georgia,serif; --sans:'Jost',Futura,system-ui,sans-serif;
   --script:'Pinyon Script','Snell Roundhand',cursive; color-scheme: light; }}
+:root[data-theme="dark"] {{ --bg:#14100C; --card:#1C1611; --fg:#F3E9D8; --fg2:#D9CAB0; --fg3:#B5A386; --gold:#D2AE6A;
+  --gold-ink:#E3C88F; --line:rgba(210,174,106,.32); color-scheme: dark; }}
 * {{ box-sizing:border-box; margin:0; padding:0; }}
 [hidden] {{ display:none !important; }}
 body {{ background:var(--bg); color:var(--fg); font:16px/1.6 var(--sans); padding-block:28px 56px;

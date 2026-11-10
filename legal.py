@@ -144,9 +144,11 @@ TEMPLATE = """<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{title} · E&amp;L</title>
+<script>(function(){{var p='auto';try{{p=localStorage.getItem('el_theme')||'auto';}}catch(e){{}}var d=p==='dark'||(p==='auto'&&window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.setAttribute('data-theme',d?'dark':'light');}})();</script>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400..700;1,6..96,400..700&family=Jost:wght@400;500&display=swap">
 <style>
   :root {{ --bg:#F7F0E3; --card:#FBF6EC; --ink:#1E1712; --fg2:#4E4134; --gold:#7E5F27; --line:#E2D5BF; color-scheme: light; }}
+  :root[data-theme="dark"] {{ --bg:#14100C; --card:#1C1611; --ink:#F3E9D8; --fg2:#D9CAB0; --gold:#E3C88F; --line:rgba(210,174,106,.3); color-scheme: dark; }}
   * {{ box-sizing: border-box; }}
   html {{ overflow-x: hidden; }}
   body {{ margin:0; background:var(--bg); color:var(--ink); font:16px/1.65 'Jost', 'Futura', system-ui, sans-serif;

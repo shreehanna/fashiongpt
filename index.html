@@ -9,11 +9,30 @@
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="icon" href="/icon-192.png" sizes="192x192">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-<meta name="theme-color" content="#1E1712">
+<meta name="theme-color" content="#EFE3CC">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="E&amp;L">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
+<script>
+// Light or dark, decided before the page draws so it never flashes the wrong one.
+// "auto" follows the phone's setting; the ◐ button on the home screen picks Light or Dark instead.
+(function () {
+  var pref = 'auto';
+  try { pref = localStorage.getItem('el_theme') || 'auto'; } catch (e) {}
+  var mq = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+  function apply() {
+    var dark = pref === 'dark' || (pref === 'auto' && !!mq && mq.matches);
+    document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+    var m = document.querySelector('meta[name="theme-color"]');
+    if (m) m.setAttribute('content', dark ? '#120E0A' : '#EFE3CC');
+  }
+  apply();
+  if (mq && mq.addEventListener) mq.addEventListener('change', function () { if (pref === 'auto') apply(); });
+  window.setThemePref = function (p) { pref = p; try { localStorage.setItem('el_theme', p); } catch (e) {} apply(); };
+  window.getThemePref = function () { return pref; };
+})();
+</script>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400..700;1,6..96,400..700&family=Jost:wght@300;400;500;600&family=Pinyon+Script&display=swap">
 
@@ -1436,6 +1455,88 @@ body::after {
   .closet-add { grid-template-columns: 1fr auto; }
   .closet-add select { grid-column: 1 / -1; grid-row: 2; width: 100%; }
 }
+
+/* ══ Dark mode: the palace at night, candle-lit gold ══
+   The page always carries data-theme="light" or "dark" (set before it draws, from the phone's setting or the
+   ◐ button), so one block of overrides covers both "Auto" and an explicit choice. */
+:root[data-theme="dark"] {
+  --bg: #14100C; --bg2: rgba(30,24,18,0.86); --fg: #F3E9D8; --fg2: #D9CAB0; --fg3: #B5A386;
+  --accent: #D2AE6A; --accent-dk: #E3C88F; --red: #D2AE6A; --ink: #F3E9D8;
+  --border: rgba(210,174,106,0.32); --card: rgba(30,24,18,0.9); --gold: #D2AE6A; --gold-ink: #E3C88F;
+  --shadow: 0 1px 2px rgba(0,0,0,0.35), 0 10px 28px rgba(0,0,0,0.45);
+  --on-gold: #1A130D; --gold-fill: #D9BD86; --surface: rgba(28,22,16,0.92);
+  color-scheme: dark;
+}
+[data-theme="dark"] body { background: #120E0A;
+  text-shadow: 0 0 2px rgba(18,13,9,1), 0 0 8px rgba(18,13,9,0.95), 0 0 18px rgba(18,13,9,0.9), 0 0 30px rgba(18,13,9,0.7); }
+[data-theme="dark"] body::before { background-color: #120E0A; filter: brightness(0.36) saturate(0.85) contrast(1.05); }
+[data-theme="dark"] body::after { background: radial-gradient(ellipse 50% 70% at 50% 34%, rgba(18,13,9,0.55), rgba(18,13,9,0) 100%); }
+@media (max-width: 760px) {
+  [data-theme="dark"] body::after { background: linear-gradient(180deg, rgba(18,13,9,0.45) 0%, rgba(18,13,9,0.3) 50%, rgba(18,13,9,0.45) 100%); }
+}
+[data-theme="dark"] .landing-inner::before, [data-theme="dark"] .section-head::before, [data-theme="dark"] .results-header::before {
+  background: radial-gradient(closest-side, rgba(18,13,9,0.82), rgba(18,13,9,0.5) 60%, rgba(18,13,9,0)); }
+[data-theme="dark"] .stylist-card::before { background: radial-gradient(closest-side, rgba(18,13,9,0.85), rgba(18,13,9,0.45) 60%, rgba(18,13,9,0)); }
+[data-theme="dark"] .stylist-avatar { filter: drop-shadow(0 0 18px rgba(210,174,106,0.35)) drop-shadow(0 6px 18px rgba(0,0,0,0.5)); }
+[data-theme="dark"] .stylist-name { text-shadow: 0 0 10px rgba(18,13,9,0.9); }
+[data-theme="dark"] .section-title em { color: var(--gold-ink); }
+
+/* buttons and anything "selected": gold with dark ink, the night version of black tie */
+[data-theme="dark"] .btn-primary, [data-theme="dark"] .oi-shop, [data-theme="dark"] .is-pro .pp-cta {
+  background: var(--gold-fill); color: var(--on-gold); box-shadow: inset 0 0 0 1px rgba(255,236,190,0.5), 0 8px 22px rgba(0,0,0,0.4); }
+[data-theme="dark"] .btn-primary:hover, [data-theme="dark"] .oi-shop:hover { background: #E8CF9C; }
+[data-theme="dark"] .btn-secondary { background: rgba(30,24,18,0.9); color: var(--fg); border-color: rgba(210,174,106,0.45); }
+[data-theme="dark"] .btn-secondary:hover { border-color: var(--gold-fill); }
+[data-theme="dark"] .quiz-chip.selected, [data-theme="dark"] .detail-chip.selected, [data-theme="dark"] .occasion-tile.selected,
+[data-theme="dark"] .era-tile.selected, [data-theme="dark"] .gender-btn.selected, [data-theme="dark"] .mode-card.selected,
+[data-theme="dark"] .currency-btn.selected, [data-theme="dark"] .budget-btn.selected, [data-theme="dark"] .chip-btn.on,
+[data-theme="dark"] .who-row .gender-btn.selected, [data-theme="dark"] .pro-billing button.on, [data-theme="dark"] .today-tile:first-child {
+  background: var(--gold-fill); border-color: var(--gold-fill); color: var(--on-gold); text-shadow: none; }
+[data-theme="dark"] .occasion-tile.selected .ot-name, [data-theme="dark"] .occasion-tile.selected .ot-icon,
+[data-theme="dark"] .era-tile.selected .era-name, [data-theme="dark"] .era-tile.selected .era-decade,
+[data-theme="dark"] .mode-card.selected .mc-title, [data-theme="dark"] .mode-card.selected .mc-desc { color: var(--on-gold); }
+[data-theme="dark"] .today-tile:first-child .tt-sub, [data-theme="dark"] .pro-billing button.on em { color: #5E4517; }
+[data-theme="dark"] .pro-pill { background: rgba(30,24,18,0.8); color: var(--fg); border-color: var(--fg3); }
+[data-theme="dark"] .pro-pill:hover { background: var(--gold-fill); color: var(--on-gold); }
+[data-theme="dark"] .toast { background: var(--gold-fill); color: var(--on-gold); }
+
+/* surfaces */
+[data-theme="dark"] .looks-meter, [data-theme="dark"] .results-ella-note, [data-theme="dark"] .where-pill, [data-theme="dark"] .who-row,
+[data-theme="dark"] .panel, [data-theme="dark"] .today-tile, [data-theme="dark"] .install-banner, [data-theme="dark"] .plan-banner,
+[data-theme="dark"] .reel-info, [data-theme="dark"] .oi-shop.is-search { background: var(--surface); }
+[data-theme="dark"] .who-row { border-color: rgba(210,174,106,0.45); box-shadow: 0 6px 18px rgba(0,0,0,0.35); }
+[data-theme="dark"] .who-row .gender-btn:hover { background: rgba(243,233,216,0.06); }
+[data-theme="dark"] .oi-shop.is-search { color: var(--fg); box-shadow: inset 0 0 0 1px var(--fg3); }
+[data-theme="dark"] .overlay { background: rgba(0,0,0,0.6); }
+[data-theme="dark"] .share-card, [data-theme="dark"] .pro-sheet { background: #1C1611; border-color: rgba(210,174,106,0.3); box-shadow: 0 30px 80px rgba(0,0,0,0.6); }
+[data-theme="dark"] .pro-plan.is-pro { background: linear-gradient(180deg, rgba(210,174,106,0.14), rgba(28,22,16,0) 60%); }
+[data-theme="dark"] .pp-once { border-color: rgba(243,233,216,0.38); color: var(--fg); }
+[data-theme="dark"] .closet-card input:focus { background: rgba(243,233,216,0.06); }
+[data-theme="dark"] .thumb-btn.rated-up { background: rgba(76,175,80,0.22); }
+[data-theme="dark"] .thumb-btn.rated-down { background: rgba(233,30,99,0.22); }
+[data-theme="dark"] .outfit-item:hover, [data-theme="dark"] .gallery-card:hover { box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+
+/* warnings and owner panel */
+[data-theme="dark"] .oi-match.is-nolink { color: #E6A77A; }
+[data-theme="dark"] .pp-small.warn, [data-theme="dark"] .pro-error, [data-theme="dark"] .oh-msg.warn { color: #F0A47E; }
+[data-theme="dark"] .oh-row { background: rgba(243,233,216,0.06); }
+[data-theme="dark"] .oh-form input { background: #120E0A; color: var(--fg); border-color: rgba(243,233,216,0.28); }
+[data-theme="dark"] .oh-row[data-level="low"] .oh-level { color: #E0B060; }
+[data-theme="dark"] .oh-row[data-level="out"] .oh-level, [data-theme="dark"] .oh-row[data-level="key"] .oh-level { color: #F0907A; }
+[data-theme="dark"] .owner-alert { box-shadow: 0 0 0 1px rgba(210,174,106,0.4), 0 10px 30px rgba(0,0,0,0.5); }
+
+/* the ◐ button that switches Auto / Light / Dark */
+.theme-pill {
+  position: absolute; top: calc(16px + env(safe-area-inset-top, 0px)); left: 0;
+  display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
+  font: 500 11px var(--sans); letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--ink); background: rgba(251,246,236,0.8); border: 1px solid var(--ink); border-radius: 999px; padding: 7px 12px;
+  text-shadow: none; transition: background 0.2s, color 0.2s;
+}
+.theme-pill:hover { background: var(--ink); color: #F7F0E3; }
+.theme-pill span { font-size: 13px; letter-spacing: 0; }
+[data-theme="dark"] .theme-pill { background: rgba(30,24,18,0.8); border-color: var(--fg3); }
+[data-theme="dark"] .theme-pill:hover { background: var(--gold-fill); color: var(--on-gold); }
 </style>
 
 <!-- ═══════════════════════════════════════════════════════════════
@@ -1443,6 +1544,7 @@ body::after {
 ═══════════════════════════════════════════════════════════════ -->
 <div id="stylist-stage" hidden></div>
 <div id="screen-landing" class="screen active">
+  <button class="theme-pill" id="theme-pill" type="button" onclick="cycleTheme()" aria-label="Theme">◐ Auto</button>
   <button class="pro-pill" onclick="openPaywall('browse')">✦ Get Pro</button>
   <div class="landing-inner">
     <div class="landing-eyebrow">Two stylists. One look.</div>
@@ -6340,6 +6442,21 @@ if ('serviceWorker' in navigator) {
     }
   });
 }
+// ◐ Auto → ☀ Light → ☾ Dark
+const THEME_LABEL = { auto: ['◐', 'Auto'], light: ['☀', 'Light'], dark: ['☾', 'Dark'] };
+function renderThemePill() {
+  const b = document.getElementById('theme-pill');
+  if (!b || !window.getThemePref) return;
+  const [icon, name] = THEME_LABEL[getThemePref()] || THEME_LABEL.auto;
+  b.innerHTML = `<span aria-hidden="true">${icon}</span>${name}`;
+  b.setAttribute('aria-label', `Theme: ${name}. Tap to change.`);
+}
+function cycleTheme() {
+  const order = ['auto', 'light', 'dark'];
+  setThemePref(order[(order.indexOf(getThemePref()) + 1) % order.length]);
+  renderThemePill();
+}
+renderThemePill();
 renderTodayRow();
 renderInstallBanner();
 loadChallenge();
