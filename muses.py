@@ -9,12 +9,21 @@ YSL"). So for each muse, once a month, the server looks them up:
      labels they've really been seen in, hair and makeup, and what they never wear;
   3. the file is kept in el_kv for 30 days and added to every look for that muse.
 The app asks for the file as soon as someone picks a muse, so it's usually ready before they finish the next steps.
+
+It also keeps a bank of REAL OUTFITS the muse has actually worn (read from the articles themselves: the event, the
+date and every piece). A look for that muse is then a recreation of the real outfit that best suits the occasion,
+not something Ella imagines in their style.
 """
+import html as htmllib
+import ipaddress
 import json
+import re
+import socket
 import threading
 import time
 from collections import deque
 from concurrent.futures import ThreadPoolExecutor
+from urllib.parse import urlparse
 
 import requests as req
 from flask import Blueprint, jsonify, request
@@ -27,7 +36,8 @@ EMPTY_TTL = 3 * 86400       # nothing found: try again in 3 days
 _ai = {}
 _events = {}
 _lock = threading.Lock()
-_pool = ThreadPoolExecutor(max_workers=4)
+_pool = ThreadPoolExecutor(max_workers=8)     # searches and article downloads
+_jobs = ThreadPoolExecutor(max_workers=4)     # the two Claude reads (they use _pool themselves, so they get their own)
 
 
 def init(client, model):
@@ -83,14 +93,18 @@ def _evidence(name):
     known = KNOWN.get(norm(name)) or {}
     names = [name.strip()] + [a for a in known.get('aka', []) if norm(a) != norm(name)]
     jobs = [('search', {'q': f'{names[0]} outfit style', 'num': 10}),
-            ('search', {'q': f'{names[0]} fashion designer wore', 'num': 10}),
+            ('search', {'q': f'{names[0]} wore dress designer', 'num': 10}),
+            ('news', {'q': f'{names[0]} outfit', 'num': 10}),
             ('images', {'q': f'{names[-1]} outfit', 'num': 10})]
     if len(names) > 1:
-        jobs.append(('search', {'q': f'{names[1]} outfit style', 'num': 10}))
+        jobs.append(('search', {'q': f'{names[1]} outfit wore', 'num': 10}))
     results = list(_pool.map(lambda j: _serper(*j), jobs))
-    snippets, seen = [], set()
+    snippets, seen, links = [], set(), []
     for res in results:
         for row in (res.get('organic') or []) + (res.get('news') or []):
+            link = row.get('link') or ''
+            if link and link not in [l for l, _ in links]:
+                links.append((link, row.get('title') or ''))
             text = ' '.join(f"{row.get('title', '')}: {row.get('snippet', '')}".split())
             if text and text not in seen:
                 seen.add(text)
@@ -105,7 +119,119 @@ def _evidence(name):
             url = img.get('thumbnailUrl') or ''
             if url.startswith('https://') and 'gstatic.com' in url and url not in photos:
                 photos.append(url)
-    return snippets[:36], photos[:6]
+    return snippets[:40], photos[:6], links
+
+
+# ── Real outfits, read from the articles ──────────────────────────────────────
+SKIP_HOSTS = ('instagram.com', 'tiktok.com', 'pinterest.', 'youtube.com', 'youtu.be', 'facebook.com', 'x.com',
+              'twitter.com', 'reddit.com', 'threads.net', 'wikipedia.org')
+
+
+def _public_https(url):
+    """Only public web pages: no internal addresses (the server never fetches anything else)."""
+    try:
+        u = urlparse(url)
+        if u.scheme not in ('https', 'http') or not u.hostname or u.port not in (None, 80, 443):
+            return False
+        if any(h in u.hostname for h in SKIP_HOSTS):
+            return False
+        for info in socket.getaddrinfo(u.hostname, None):
+            ip = ipaddress.ip_address(info[4][0])
+            if not ip.is_global:
+                return False
+        return True
+    except Exception:
+        return False
+
+
+_TAGS = re.compile(r'<(script|style|noscript|svg|nav|footer|header|form)[^>]*>.*?</\1>', re.S | re.I)
+_ANY_TAG = re.compile(r'<[^>]+>')
+_WORE = re.compile(r'\b(wore|wearing|wears|dressed|outfit|look|paired|styled|gown|dress|skirt|jacket|blazer|heels|bag|'
+                   r'trousers|jeans|top|coat|set|suit)\b', re.I)
+
+
+def _article_text(url, names):
+    """The parts of an article that talk about what this person wore (at most ~5,000 characters)."""
+    if not _public_https(url):
+        return ''
+    try:
+        r = req.get(url, timeout=6, headers={'User-Agent': 'Mozilla/5.0 (E&L stylist research)'}, stream=True)
+        if r.status_code != 200 or 'html' not in (r.headers.get('Content-Type') or ''):
+            return ''
+        raw = r.raw.read(1_500_000, decode_content=True).decode(r.encoding or 'utf-8', 'replace')
+    except Exception:
+        return ''
+    body = _ANY_TAG.sub('\n', _TAGS.sub(' ', raw))
+    lines = [' '.join(htmllib.unescape(l).split()) for l in body.split('\n')]
+    first = [n.split()[0].lower() for n in names if n.split()]
+    keep = []
+    for l in lines:
+        if len(l) < 40:
+            continue
+        low = l.lower()
+        if _WORE.search(l) and (any(f in low for f in first) or ' she ' in f' {low} ' or ' he ' in f' {low} '):
+            keep.append(l)
+    return '\n'.join(keep)[:5000]
+
+
+def _extract_outfits(name, articles):
+    who = muse_identity(name)
+    numbered = '\n\n'.join(f'[{i + 1}] {title}\n{text}' for i, (url, title, text) in enumerate(articles))
+    prompt = (
+        f"Below are fashion articles about {name}." + (f" {who}" if who else '') +
+        f"\n\nList every SPECIFIC outfit these articles say {name} actually wore. Only outfits the text really describes "
+        f"(a full dress, or at least two pieces), never guesses, never outfits worn by someone else. Keep brands exactly as "
+        f"the articles name them; if no brand is named, leave it empty.\n\n"
+        'Return ONLY valid JSON: {"outfits": [{"event": "where or what for, e.g. Australian Grand Prix paddock", '
+        '"date": "month and year if given, else \'\'", "formality": "one of: casual, smart, evening, black-tie, sport, beach, ethnic", '
+        '"pieces": [{"category": "e.g. Jacket", "item": "colour, fabric and cut, e.g. pink boucle tweed cropped jacket", '
+        '"brand": "brand or \'\'"}], "hair_makeup": "if described, else \'\'", "article": 1}]}\n'
+        'If the articles describe no specific outfit, return {"outfits": []}.\n\nArticles:\n' + numbered)
+    msg = _ai['client'].messages.create(model=_ai['model'], max_tokens=3000, messages=[{'role': 'user', 'content': prompt}])
+    t = (msg.content[0].text or '').strip()
+    if '```' in t:
+        t = t.split('```json')[1] if '```json' in t else t.split('```')[1]
+        t = t.split('```')[0]
+    try:
+        data = json.loads(t.strip())
+    except ValueError:
+        m = re.search(r'\{.*\}', t, re.S)
+        data = json.loads(m.group(0)) if m else {}
+    out = []
+    for o in (data.get('outfits') or [])[:24]:
+        if not isinstance(o, dict):
+            continue
+        pieces = [{'category': str(p.get('category') or '')[:40], 'item': str(p.get('item') or '')[:140],
+                   'brand': str(p.get('brand') or '')[:60]}
+                  for p in (o.get('pieces') or [])[:10] if isinstance(p, dict) and p.get('item')]
+        if not pieces:
+            continue
+        try:
+            src = articles[int(o.get('article') or 0) - 1]
+        except (ValueError, IndexError):
+            src = ('', '', '')
+        out.append({'id': f'o{len(out) + 1}', 'event': str(o.get('event') or '')[:120], 'date': str(o.get('date') or '')[:40],
+                    'formality': str(o.get('formality') or '')[:20], 'pieces': pieces,
+                    'hair_makeup': str(o.get('hair_makeup') or '')[:200], 'url': src[0][:300], 'source': src[1][:120]})
+    return out
+
+
+def _outfit_bank(name, links):
+    known = KNOWN.get(norm(name)) or {}
+    names = [name.strip()] + known.get('aka', [])
+    picked = [(u, t) for u, t in links if not any(h in u for h in SKIP_HOSTS)][:8]
+    texts = list(_pool.map(lambda lt: _article_text(lt[0], names), picked))
+    articles = [(u, t, x) for (u, t), x in zip(picked, texts) if len(x) > 80][:6]
+    if not articles:
+        return []
+    return _extract_outfits(name, articles)
+
+
+def outfit_line(o):
+    pieces = ' + '.join(f"{p['item']}" + (f" ({p['brand']})" if p['brand'] else '') for p in o['pieces'])
+    when = ', '.join(x for x in (o['event'], o['date']) if x)
+    return f"[{o['id']}] {when} ({o['formality'] or 'occasion not given'}): {pieces}" + (
+        f". Hair and makeup: {o['hair_makeup']}" if o.get('hair_makeup') else '')
 
 
 def _write_file(name, snippets, photos):
@@ -136,13 +262,23 @@ def _write_file(name, snippets, photos):
 
 
 def _build(key, name):
-    text = None
+    text, outfits = None, []
     try:
-        snippets, photos = _evidence(name)
+        snippets, photos, links = _evidence(name)
+        jobs = []
         if len(snippets) >= 3 or photos:
-            text = _write_file(name, snippets, photos)
-        kv_set('muse:' + key, json.dumps({'at': now(), 'name': name.strip()[:60], 'text': text}, ensure_ascii=False))
-        print(f'[muses] style file for {name!r}: {"ready" if text else "nothing found"}')
+            jobs.append(_jobs.submit(_write_file, name, snippets, photos))
+        bank = _jobs.submit(_outfit_bank, name, links) if links else None
+        if jobs:
+            text = jobs[0].result()
+        if bank:
+            try:
+                outfits = bank.result()
+            except Exception as e:
+                print(f'[muses] outfits for {name!r} failed: {e!r}')
+        kv_set('muse:' + key, json.dumps({'at': now(), 'name': name.strip()[:60], 'text': text, 'outfits': outfits},
+                                         ensure_ascii=False))
+        print(f'[muses] {name!r}: style file {"ready" if text else "not found"}, {len(outfits)} real outfits')
     except Exception as e:
         print(f'[muses] style file for {name!r} failed: {e!r}')
     finally:
@@ -153,7 +289,7 @@ def _build(key, name):
     return text
 
 
-def _cached(key):
+def _record(key):
     try:
         hit = json.loads(kv_get('muse:' + key) or 'null')
     except Exception:
@@ -161,8 +297,12 @@ def _cached(key):
     if not isinstance(hit, dict):
         return None, False
     age = now() - int(hit.get('at') or 0)
-    fresh = age < (TTL if hit.get('text') else EMPTY_TTL)
-    return hit.get('text'), fresh
+    return hit, age < (TTL if (hit.get('text') or hit.get('outfits')) else EMPTY_TTL)
+
+
+def _cached(key):
+    hit, fresh = _record(key)
+    return (hit or {}).get('text'), fresh
 
 
 def ready():
@@ -185,21 +325,40 @@ def prepare(name):
     return True
 
 
-def style_file(name, wait=14):
-    """This muse's style file, waiting up to `wait` seconds if it's being built right now."""
+def muse_data(name, wait=25):
+    """{'text': style file, 'outfits': real outfits}, waiting up to `wait` seconds if it's being built right now."""
     if not usable(name) or not ready():
-        return None
+        return {}
     key = norm(name)
-    text, fresh = _cached(key)
-    if fresh:
-        return text
-    prepare(name)
-    with _lock:
-        ev = _events.get(key)
-    if ev:
-        ev.wait(wait)
-    text, _ = _cached(key)
-    return text
+    hit, fresh = _record(key)
+    if not fresh:
+        prepare(name)
+        with _lock:
+            ev = _events.get(key)
+        if ev:
+            ev.wait(wait)
+        hit, _ = _record(key)
+    hit = hit or {}
+    return {'text': hit.get('text'), 'outfits': hit.get('outfits') or []}
+
+
+def style_file(name, wait=25):
+    return muse_data(name, wait).get('text')
+
+
+# Which real outfits this person has already been given, so asking again gives a different one
+def used(who, name):
+    from growth import hash_who
+    try:
+        return json.loads(kv_get(f'muse_used:{hash_who(who)}:{norm(name)}') or '[]')
+    except Exception:
+        return []
+
+
+def mark_used(who, name, outfit_id):
+    from growth import hash_who
+    ids = [i for i in used(who, name) if i != outfit_id] + [outfit_id]
+    kv_set(f'muse_used:{hash_who(who)}:{norm(name)}', json.dumps(ids[-30:]))
 
 
 # ── Routes ────────────────────────────────────────────────────────────────────
@@ -236,5 +395,5 @@ def owner_muse():
     key = norm(name)
     if request.method == 'POST' and body.get('rebuild'):
         kv_set('muse:' + key, json.dumps({'at': 0, 'name': name, 'text': None}))
-    text = style_file(name, wait=40)
-    return jsonify({'name': name, 'text': text, 'identity': muse_identity(name)})
+    d = muse_data(name, wait=60)
+    return jsonify({'name': name, 'text': d.get('text'), 'outfits': d.get('outfits') or [], 'identity': muse_identity(name)})

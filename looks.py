@@ -365,7 +365,32 @@ def variation(gender, occasion, era='', muse=''):
             f"unless the muse or occasion clearly calls for something else.")
 
 
-from muses import muse_identity, style_file   # who the muse really is, and what they really wear
+from muses import muse_data, muse_identity, outfit_line, used   # who the muse is, what they wear, what they've worn
+
+
+def real_outfit_rule(m, who, outfits, used_ids, occasion, look, file):
+    """The muse has a bank of real outfits: the look IS one of them, recreated piece by piece."""
+    text = f"\n\nMUSE RULE (this comes first, above every other rule): the user wants to dress exactly like {m}."
+    text += f" WHO THIS IS: {who}" if who else f" Be sure you have the right person: {m}, never someone with a similar name."
+    text += (f"\nREAL OUTFITS {m} HAS ACTUALLY WORN (from fashion coverage, with the event and date):\n" +
+             '\n'.join(outfit_line(o) for o in outfits[:20]))
+    text += (f"\nTHIS LOOK MUST BE ONE OF THESE REAL OUTFITS, recreated exactly. Pick the one that best suits "
+             f"\"{occasion or 'their day'}\": its formality, setting and season" + (f", and the {look} aesthetic they picked if one fits" if look else '') + '.')
+    fresh = [o['id'] for o in outfits if o['id'] not in used_ids]
+    if used_ids and fresh:
+        text += f" This person has already been given {', '.join(used_ids[-8:])}, so pick a different one if another suits the occasion."
+    text += (f"\nRecreate it piece by piece: the same garment types, colours, fabrics, cuts and details, in the same order of "
+             f"importance. Where the exact piece or label is sold in the shopper's country at this budget, use it, with its "
+             f"store set to that label's own site. Otherwise use the closest version they can buy at their budget, and say what "
+             f"it recreates in the description (\"Her original: a pink Chanel tweed jacket\"). Add only what the article "
+             f"doesn't mention (shoes, bag, jewellery) in the same spirit, and use its hair and makeup if given.\n"
+             f"Add \"outfit_id\": \"<the id you picked, like o2>\" to the JSON. In ella_note, name the real event and date "
+             f"(\"what {m} wore to ...\"). Never change the outfit to suit a theme or a house style.\n"
+             f"Only if none of these outfits suits the occasion at all (for example a gym session when they're all evening "
+             f"looks), set \"outfit_id\": null and dress them from the style file below instead, without inventing facts.")
+    if file:
+        text += f"\nSTYLE FILE for {m} (for anything the outfit doesn't cover):\n{file}"
+    return text
 
 
 def muse_rule(muse, era='', file=None):
@@ -427,7 +452,7 @@ def character_rule(char, era=''):
     return text + f" In ella_note, mention {name} by name, the way a society columnist would."
 
 
-def rules(gender, occasion, muse, who, mode='', budget='', country='', era='', character=None):
+def rules(gender, occasion, muse, who, mode='', budget='', country='', era='', character=None, info=None):
     try:
         given = avoid_list(gender, occasion, who)
     except Exception as e:
@@ -437,12 +462,19 @@ def rules(gender, occasion, muse, who, mode='', budget='', country='', era='', c
     real_muse = bool(muse) and muse.strip().lower() not in ('no specific muse', 'none', '')
     if mode in ('dupe', 'reel') or (aesthetic_key(era) == 'celeb' and not real_muse and not character):
         era = ''                                   # Dupe copies its inspiration; "like my celeb" without a celeb = Ella's own
-    file = None
-    if real_muse and not character and mode not in COPY_MODES:
+    info = info or {}
+    file, outfits = info.get('text'), info.get('outfits') or []
+    if outfits:
+        # A real outfit the muse wore, recreated: no house style, no theme on top, no random starting piece,
+        # and no "never repeat" (copying the real thing is the point; each person still gets a new one each time).
+        key = aesthetic_key(era)
+        a = AESTHETICS.get(key)
+        look = a['name'] if a else ('' if key in ('celeb', 'ues') else era)
         try:
-            file = style_file(muse)
-        except Exception as e:
-            print('[looks] style file skipped:', e)
+            used_ids = used(who, muse)
+        except Exception:
+            used_ids = []
+        return real_outfit_rule(muse.strip()[:60], muse_identity(muse), outfits, used_ids, occasion, look, file)
     text = (house_style(gender, mode, budget, country, era) + aesthetic_rule(era) +
             (character_rule(character, era) if character else muse_rule(muse, era, file)))
     if mode in COPY_MODES:
@@ -490,9 +522,18 @@ def _who_and_rules(data):
         who = identity()[1]
     except Exception:
         who = 'unknown'
+    info = {}
+    real_muse = bool(muse) and muse.strip().lower() not in ('no specific muse', 'none', '')
+    if real_muse and not character and str(data.get('mode') or '') not in COPY_MODES:
+        try:
+            info = muse_data(muse)
+        except Exception as e:
+            print('[looks] muse research skipped:', e)
+    data['_muse_bank'] = info.get('outfits') or []
+    data['_muse_key'] = muse
     return gender, occasion, muse, who, rules(gender, occasion, muse, who, str(data.get('mode') or ''),
                                               str(data.get('budget') or ''), str(data.get('country') or '')[:2],
-                                              str(data.get('era') or '')[:80], character)
+                                              str(data.get('era') or '')[:80], character, info)
 
 
 def plan_looks(data):
@@ -567,7 +608,7 @@ def create_unique(client, data, prompt, max_tokens, model=None, kind='look', ima
             message = client.messages.create(model=model, max_tokens=max_tokens,
                                              messages=[{'role': 'user', 'content': prompt + extra + clash_note}])
         clash = _clash(message.content[0].text, kind, gender, occasion, muse, who, planned,
-                       check=str(data.get('mode') or '') not in COPY_MODES)
+                       check=str(data.get('mode') or '') not in COPY_MODES and not data.get('_muse_bank'))
         if not clash:
             return message
         print(f'[looks] try {attempt + 1}: repeat of "{clash}", restyling')
@@ -602,7 +643,7 @@ def stream_unique(client, data, prompt, max_tokens, model=None, kind='look', ima
                     yield 'delta', text
         full = ''.join(chunks)
         clash = _clash(full, kind, gender, occasion, muse, who, planned,
-                       check=str(data.get('mode') or '') not in COPY_MODES)
+                       check=str(data.get('mode') or '') not in COPY_MODES and not data.get('_muse_bank'))
         if not clash:
             yield 'done', full
             return

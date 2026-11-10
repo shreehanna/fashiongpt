@@ -1422,6 +1422,12 @@ body::after {
 .rate-hint { font-size: 12px; color: var(--fg3); text-align: center; margin-top: 4px; }
 .rate-link { width: 100%; font: 13px var(--sans); padding: 9px 10px; border: 1px solid var(--border); border-radius: var(--r); background: var(--bg2); color: var(--fg); margin-top: 8px; }
 
+/* A look that recreates a real outfit the muse wore */
+.real-outfit { margin: 10px auto 0; max-width: 36em; font-size: 13px; color: var(--fg2); display: inline-flex; gap: 6px; flex-wrap: wrap; justify-content: center;
+  background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 6px 14px; text-shadow: none; }
+.real-outfit b { color: var(--fg); font-weight: 500; }
+.real-outfit a { color: var(--gold-ink); }
+
 /* Get the app */
 .get-app { display: block; margin: 12px auto 0; font: 500 12px var(--sans); letter-spacing: .12em; text-transform: uppercase; cursor: pointer;
   color: var(--ink); background: transparent; border: 1px dashed var(--gold); border-radius: 999px; padding: 9px 16px; text-shadow: none; }
@@ -1978,6 +1984,7 @@ body::after {
       <div class="ella-badge"><span class="ella-dot"></span> Ella's pick for you</div>
       <h2 class="section-title" id="result-title">Your Look</h2>
       <p class="section-desc" id="result-meta"></p>
+      <p class="real-outfit" id="real-outfit" hidden></p>
     </div>
     <div class="results-ella-note" id="ella-note"></div>
     <div class="outfit-grid" id="outfit-grid"></div>
@@ -2758,7 +2765,7 @@ function ethnicBrief(gender) {
 async function generateOutfit() {
   if (!lookAllowed(() => generateOutfit())) return;
   const selectedMode = state.mode || 'discover';
-  document.getElementById('gen-message').textContent = `Building your look for ${state.occasion}…`;
+  document.getElementById('gen-message').textContent = (state.celeb && state.celeb !== 'No specific muse' && !state.character) ? `Finding a real ${state.celeb} outfit for ${state.occasion}…` : `Building your look for ${state.occasion}…`;
   goTo('screen-generating');
 
   // Build context string
@@ -4149,7 +4156,7 @@ async function runVoiceRequest(transcript) {
   state.quiz = { body: '', skin: '', lifestyle: '', palette: [], styleSize: '' };
 
   closeVoiceMode();
-  document.getElementById('gen-message').textContent = `Building your look for ${state.occasion}…`;
+  document.getElementById('gen-message').textContent = (state.celeb && state.celeb !== 'No specific muse' && !state.character) ? `Finding a real ${state.celeb} outfit for ${state.occasion}…` : `Building your look for ${state.occasion}…`;
   goTo('screen-generating');
   await generateOutfitFromState();
 }
@@ -5160,7 +5167,7 @@ function isStandalone() { return (window.matchMedia && matchMedia('(display-mode
 const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
 // Looks keep their signature so they can be shared later
-const LOOK_KEYS = ['look_name', 'ella_note', 'items', 'styling_notes', 'photo_tip', 'sig', 'card_meta'];
+const LOOK_KEYS = ['look_name', 'ella_note', 'items', 'styling_notes', 'photo_tip', 'sig', 'card_meta', 'real_outfit'];
 function lookCopy(look, extra) {
   const out = {};
   LOOK_KEYS.forEach(k => { if (look && look[k] !== undefined) out[k] = look[k]; });
@@ -6444,7 +6451,9 @@ async function loadOwnerContent(d) {
     out.textContent = rebuild ? 'Reading up on ' + name + '… (up to a minute)' : 'Loading…';
     try {
       const d = rebuild ? await api('/api/owner/muse', { name, rebuild: true }) : await api('/api/owner/muse?name=' + encodeURIComponent(name));
-      out.textContent = (d.identity ? 'Who: ' + d.identity + '\n\n' : '') + (d.text || 'Nothing found about how ' + name + ' dresses. Ella will stay understated and won\u2019t invent anything.');
+      const outfits = (d.outfits || []).map(o => `• ${o.event || 'Event not given'}${o.date ? ', ' + o.date : ''}: ` + o.pieces.map(p => p.item + (p.brand ? ' (' + p.brand + ')' : '')).join(' + ')).join('\n');
+      out.textContent = (d.identity ? 'Who: ' + d.identity + '\n\n' : '') + (d.text || 'Nothing found about how ' + name + ' dresses. Ella will stay understated and won\u2019t invent anything.')
+        + '\n\nREAL OUTFITS ELLA RECREATES (' + (d.outfits || []).length + '):\n' + (outfits || 'None found yet. Looks follow the style file.');
     } catch (e) { out.textContent = e.message; }
   };
   mf.onsubmit = ev => { ev.preventDefault(); showMuse(false); };
@@ -6536,6 +6545,26 @@ goToEra = function () {
   _goToEra();
   if (state.celeb && state.celeb !== 'No specific muse' && !state.character) api('/api/muse/prepare', { name: state.celeb }).catch(() => {});
 };
+// "The real look": which real outfit the muse wore, and where it was reported
+function renderRealOutfit(data) {
+  const el = document.getElementById('real-outfit');
+  if (!el) return;
+  const r = data && data.real_outfit;
+  el.hidden = !r;
+  if (!r) return;
+  el.innerHTML = '';
+  const t = document.createElement('span');
+  t.innerHTML = `✦ The real look: <b>${esc(r.muse)}</b>${r.event ? ' at ' + esc(r.event) : ''}${r.date ? ', ' + esc(r.date) : ''}`;
+  el.appendChild(t);
+  if (/^https?:\/\//.test(r.url || '')) {
+    const a = document.createElement('a'); a.href = r.url; a.target = '_blank'; a.rel = 'noopener nofollow';
+    a.textContent = 'Source ↗'; el.appendChild(a);
+  }
+}
+const _beginResults = beginResults;
+beginResults = function (data) { renderRealOutfit(null); return _beginResults(data); };
+const _finishResults = finishResults;
+finishResults = function (data, anchors) { _finishResults(data, anchors); renderRealOutfit(data); };
 const _switchTab = switchTab;
 switchTab = function (tab) { if (tab === 'closet') { openCloset('screen-results'); return; } _switchTab(tab); };
 // generateOutfit and the voice flow also pass the series character, if one was picked
