@@ -33,9 +33,10 @@ from flask import Blueprint, jsonify, request
 from pro import client_ip, env, kv_get, kv_set, now, owner_request
 
 bp = Blueprint('muses', __name__)
-V = 2                       # record format; bump to rebuild every muse (2: exact product names, her other real pieces)
+V = 3                       # record format; bump to rebuild every muse (3: pages read through Serper when a site blocks us)
 TTL = 30 * 86400            # rebuild a muse's file once a month (style changes)
 EMPTY_TTL = 3 * 86400       # nothing found: try again in 3 days
+NO_OUTFITS_TTL = 2 * 86400  # a style file but no real outfits: try again in 2 days (coverage gets written all the time)
 _ai = {}
 _events = {}
 _lock = threading.Lock()
@@ -169,21 +170,78 @@ _WORE = re.compile(r'\b(wore|wearing|wears|dressed|outfit|look|paired|styled|car
 _HIM_HER = re.compile(r'\b(she|her|he|his)\b', re.I)
 
 
-def _article_text(url, names):
+_BROWSER = {'User-Agent': ('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) '
+                          'Chrome/126.0.0.0 Safari/537.36'),
+            'Accept': 'text/html,application/xhtml+xml', 'Accept-Language': 'en-GB,en;q=0.9'}
+_ROBOT_CHECK = re.compile(r'just a moment|enable javascript|access denied|are you a robot|captcha|verify you are human|'
+                          r'request blocked|attention required', re.I)
+_SENTENCE = re.compile(r'(?<=[.!?])\s+(?=[A-Z"\u201c])')
+
+
+def _lines(text):
+    """Text as short lines: a long paragraph is split into sentences."""
+    out = []
+    for l in text.split('\n'):
+        l = ' '.join(htmllib.unescape(l).split())
+        out += _SENTENCE.split(l) if len(l) > 400 else [l]
+    return out
+
+
+def _direct(url):
+    """The page's text lines, or None if it can't be read here (blocked, a robot check, not a web page)."""
+    if not _public_https(url):
+        return None
+    try:
+        r = req.get(url, timeout=6, headers=_BROWSER, stream=True)
+        if r.status_code != 200 or 'html' not in (r.headers.get('Content-Type') or ''):
+            return None
+        raw = r.raw.read(1_500_000, decode_content=True).decode(r.encoding or 'utf-8', 'replace')
+    except Exception:
+        return None
+    lines = _lines(_ANY_TAG.sub('\n', _TAGS.sub(' ', raw)))
+    text = ' '.join(lines)
+    if len(text) < 120 or (len(text) < 4000 and _ROBOT_CHECK.search(text)):     # "Just a moment...": a wall, not the page
+        return None
+    return lines
+
+
+def _scraped(url):
+    """The page read by Serper's scraper (same key as the searches): most sites that block servers let it in."""
+    if any(h in (urlparse(url).hostname or '') for h in SKIP_HOSTS) or not url.startswith(('https://', 'http://')):
+        return None
+    try:
+        r = req.post('https://scrape.serper.dev', json={'url': url}, timeout=20,
+                     headers={'X-API-KEY': env('SERPER_API_KEY'), 'Content-Type': 'application/json'})
+    except Exception:
+        return None
+    try:
+        from alerts import search_result
+        search_result(r)
+    except Exception:
+        pass
+    try:
+        d = r.json() if r.status_code == 200 else {}
+    except ValueError:
+        return None
+    text = str(d.get('text') or d.get('markdown') or '')
+    return _lines(text) if len(text) > 200 else None
+
+
+def _article_text(url, names, stats=None):
     """The parts of a page that talk about what this person wore (at most ~7,000 characters). On a page that's
     about them (their name all over it, like a "what she wore" site), product lines count too
     ("Zimmermann Sundance Frill Maxi Dress"), since that's where exact product names are."""
-    if not _public_https(url):
+    stats = {} if stats is None else stats
+    lines = _direct(url)
+    how = 'read'
+    if lines is None:
+        lines, how = _scraped(url), 'read_via_serper'
+    if lines is None:
+        with _lock:
+            stats['unreadable'] = stats.get('unreadable', 0) + 1
         return ''
-    try:
-        r = req.get(url, timeout=6, headers={'User-Agent': 'Mozilla/5.0 (E&L stylist research)'}, stream=True)
-        if r.status_code != 200 or 'html' not in (r.headers.get('Content-Type') or ''):
-            return ''
-        raw = r.raw.read(1_500_000, decode_content=True).decode(r.encoding or 'utf-8', 'replace')
-    except Exception:
-        return ''
-    body = _ANY_TAG.sub('\n', _TAGS.sub(' ', raw))
-    lines = [' '.join(htmllib.unescape(l).split()) for l in body.split('\n')]
+    with _lock:
+        stats[how] = stats.get(how, 0) + 1
     first = [n.split()[0].lower() for n in names if n.split()]
     whole = ' '.join(lines).lower()
     about = sum(whole.count(f) for f in first) >= 3
@@ -221,6 +279,25 @@ def _json(text):
 _QUOTES = '"\'\u201c\u201d\u2018\u2019 '
 
 
+def _salvage(t, key):
+    """Every complete {...} in the "key" list of an answer that was cut off half-way."""
+    i = (t or '').find(f'"{key}"')
+    j = t.find('[', i) if i >= 0 else -1
+    if j < 0:
+        return []
+    out, dec, k = [], json.JSONDecoder(), j + 1
+    while True:
+        while k < len(t) and t[k] in ' \n\r\t,':
+            k += 1
+        if k >= len(t) or t[k] != '{':
+            return out
+        try:
+            obj, k = dec.raw_decode(t, k)
+        except ValueError:
+            return out
+        out.append(obj)
+
+
 def _piece(p, source):
     """One piece, cleaned. A product name is kept only if it's written in the source itself (never made up)."""
     name = str(p.get('name') or '').strip(_QUOTES)[:90]
@@ -252,8 +329,11 @@ def _read_chunk(name, chunk):
         '"item": "colour, fabric and cut"}], "hair_makeup": "if described, else \'\'", "article": 1}], '
         '"extras": [{"category": "e.g. Bag", "name": "", "brand": "", "item": "", "event": "", "article": 1}]}\n'
         'If the articles describe nothing specific, return {"outfits": [], "extras": []}.\n\nArticles:\n' + numbered)
-    msg = _ai['client'].messages.create(model=_ai['model'], max_tokens=3000, messages=[{'role': 'user', 'content': prompt}])
-    data = _json(msg.content[0].text)
+    msg = _ai['client'].messages.create(model=_ai['model'], max_tokens=6000, messages=[{'role': 'user', 'content': prompt}])
+    answer = msg.content[0].text or ''
+    data = _json(answer)
+    if not data.get('outfits') and not data.get('extras'):      # cut off half-way (a page listing 200 pieces): keep what's complete
+        data = {'outfits': _salvage(answer, 'outfits'), 'extras': _salvage(answer, 'extras')}
     source = _plain(' '.join(f'{t} {x}' for _, t, x in chunk))
 
     def src(o):
@@ -291,7 +371,7 @@ def _named(o):
     return sum(1 for p in o['pieces'] if p['name'])
 
 
-def _extract_outfits(name, articles, snippets=()):
+def _extract_outfits(name, articles, snippets=(), stats=None):
     """Every article is read (two at a time, all at once), then the results merged: the same outfit from two
     articles is kept once, with every exact product name either article gave."""
     chunks = [articles[i:i + 2] for i in range(0, len(articles), 2)]
@@ -304,6 +384,8 @@ def _extract_outfits(name, articles, snippets=()):
             o, e = f.result()
         except Exception as ex:
             print(f'[muses] an article read failed: {ex!r}')
+            if stats is not None:
+                stats['reads_failed'] = stats.get('reads_failed', 0) + 1
             continue
         outfits += o
         extras += e
@@ -383,20 +465,17 @@ def _find_names(name, outfits):
             p['name'] = found
 
 
-def _outfit_bank(name, links, snippets=()):
+def _outfit_bank(name, links, snippets=(), stats=None):
+    stats = {} if stats is None else stats
     known = KNOWN.get(norm(name)) or {}
     names = [name.strip()] + known.get('aka', [])
     picked = [(u, t) for u, t in links if not any(h in u for h in SKIP_HOSTS)][:12]
-    texts = list(_pool.map(lambda lt: _article_text(lt[0], names), picked))
+    texts = list(_pool.map(lambda lt: _article_text(lt[0], names, stats), picked))
     articles = [(u, t, x) for (u, t), x in zip(picked, texts) if len(x) > 80][:8]
+    stats.update(links=len(links), articles_used=len(articles))
     if not articles and not snippets:
         return [], []
-    outfits, pieces = _extract_outfits(name, articles, snippets)
-    try:
-        _find_names(name, outfits)
-    except Exception as e:
-        print(f'[muses] product names for {name!r} skipped: {e!r}')
-    return outfits, pieces
+    return _extract_outfits(name, articles, snippets, stats)
 
 
 def piece_line(p):
@@ -440,14 +519,28 @@ def _write_file(name, snippets, photos):
     return None if not text or text.upper().startswith('NONE') else text[:1400]
 
 
+def _save(key, name, text, outfits, pieces, stats):
+    stats.update(outfits=len(outfits), exact_names=sum(_named(o) for o in outfits) + sum(1 for p in pieces if p.get('name')),
+                 other_pieces=len(pieces))
+    kv_set('muse:' + key, json.dumps({'v': V, 'at': now(), 'name': name.strip()[:60], 'text': text, 'outfits': outfits,
+                                      'pieces': pieces, 'stats': stats}, ensure_ascii=False))
+
+
+def _release(key):
+    with _lock:
+        ev = _events.pop(key, None)
+    if ev:
+        ev.set()
+
+
 def _build(key, name):
-    text, outfits, pieces = None, [], []
+    text, outfits, pieces, stats = None, [], [], {}
     try:
         snippets, photos, links = _evidence(name)
         jobs = []
         if len(snippets) >= 3 or photos:
             jobs.append(_jobs.submit(_write_file, name, snippets[:40], photos))
-        bank = _jobs.submit(_outfit_bank, name, links, snippets) if (links or snippets) else None
+        bank = _jobs.submit(_outfit_bank, name, links, snippets, stats) if (links or snippets) else None
         if jobs:
             text = jobs[0].result()
         if bank:
@@ -455,18 +548,19 @@ def _build(key, name):
                 outfits, pieces = bank.result()
             except Exception as e:
                 print(f'[muses] outfits for {name!r} failed: {e!r}')
-        kv_set('muse:' + key, json.dumps({'v': V, 'at': now(), 'name': name.strip()[:60], 'text': text, 'outfits': outfits,
-                                          'pieces': pieces}, ensure_ascii=False))
-        named = sum(_named(o) for o in outfits)
-        print(f'[muses] {name!r}: style file {"ready" if text else "not found"}, {len(outfits)} real outfits '
-              f'({named} pieces with exact names), {len(pieces)} other real pieces')
+        _save(key, name, text, outfits, pieces, stats)
+        _release(key)        # a look waiting for this muse can start now; the missing product names come next
+        if outfits:
+            try:
+                _find_names(name, outfits)
+                _save(key, name, text, outfits, pieces, stats)
+            except Exception as e:
+                print(f'[muses] product names for {name!r} skipped: {e!r}')
+        print(f'[muses] {name!r}: style file {"ready" if text else "not found"}, {json.dumps(stats)}')
     except Exception as e:
         print(f'[muses] style file for {name!r} failed: {e!r}')
     finally:
-        with _lock:
-            ev = _events.pop(key, None)
-        if ev:
-            ev.set()
+        _release(key)
     return text
 
 
@@ -478,9 +572,9 @@ def _record(key):
     if not isinstance(hit, dict):
         return None, False
     age = now() - int(hit.get('at') or 0)
-    if hit.get('v') != V:           # made before exact product names were kept: read up on them again
+    if hit.get('v') != V:           # made by an older version of the research: read up on them again
         return hit, False
-    return hit, age < (TTL if (hit.get('text') or hit.get('outfits')) else EMPTY_TTL)
+    return hit, age < (TTL if hit.get('outfits') else NO_OUTFITS_TTL if hit.get('text') else EMPTY_TTL)
 
 
 def _cached(key):
@@ -580,8 +674,9 @@ def owner_muse():
     if request.method == 'POST' and body.get('rebuild'):
         kv_set('muse:' + key, json.dumps({'v': V, 'at': 0, 'name': name, 'text': None}))
     d = muse_data(name, wait=60)
+    hit, _ = _record(key)
     return jsonify({'name': name, 'text': d.get('text'), 'outfits': d.get('outfits') or [], 'pieces': d.get('pieces') or [],
-                    'identity': muse_identity(name)})
+                    'identity': muse_identity(name), 'stats': (hit or {}).get('stats') or {}})
 
 
 # ── A look that recreates a real outfit: her exact pieces, whatever the model wrote ──

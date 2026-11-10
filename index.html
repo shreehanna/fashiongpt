@@ -2872,14 +2872,14 @@ function addResultItem(item, anchors, draft) {
 function fillResultItem(div, item) {
   const set = (sel, v) => { const el = div.querySelector(sel); if (el) el.textContent = v || ''; };
   set('.oi-category', item.category);
-  set('.oi-name', item.name);
+  set('.oi-name', item.real_name || item.name);   // the real product's own name, once the shop link finds it
   set('.oi-brand', item.brand);
   const worn = div.querySelector('.oi-worn');   // one of the muse's own real pieces (muses.apply_real)
   if (worn) { worn.textContent = item.worn ? '✦ Worn by ' + item.worn : ''; worn.hidden = !item.worn; }
   set('.oi-price', item.price);
   set('.oi-desc', item.description);
-  div.querySelector('.oi-pinterest').href = `https://pinterest.com/search/pins/?q=${encodeURIComponent(`${item.name || ''} ${item.brand || ''} fashion`)}`;
-  set('.oi-pin-label', `Shop ${item.name || ''} on Pinterest`);
+  div.querySelector('.oi-pinterest').href = `https://pinterest.com/search/pins/?q=${encodeURIComponent(`${item.real_name || item.name || ''} ${item.brand || ''} fashion`)}`;
+  set('.oi-pin-label', `Shop ${item.real_name || item.name || ''} on Pinterest`);
   const shop = div.querySelector('.oi-shop');
   if (!shop.classList.contains('is-finding')) {
     shop.href = item.shop_url || buildShopUrl(item.brand || '', item.name || '');
@@ -3216,7 +3216,8 @@ function showShopMatch(a, item) {
   if (item.shop_url) {
     a.href = item.shop_url;
     a.textContent = '🛒 Shop on ' + item.brand;
-    say(item.shop_title ? 'Opens: ' + item.shop_title + (item.shop_sold_out ? ' · sold out right now' : '') : '', item.shop_sold_out);
+    if (item.real_name) say(item.shop_sold_out ? 'Sold out right now' : '', item.shop_sold_out);   // the card already carries its name
+    else say(item.shop_title ? 'Opens: ' + item.shop_title + (item.shop_sold_out ? ' · sold out right now' : '') : '', item.shop_sold_out);
   } else if (item.shop_site) {
     // no direct page found: say so, and send them to the right website to search
     a.href = item.shop_site_url || ('https://' + item.shop_site);
@@ -3275,6 +3276,14 @@ async function findShopLinks(items, anchors) {
       if (link && link.url && /^https:\/\//.test(link.url)) {
         items[i].shop_url = link.url;          // saved looks keep the exact link
         items[i].shop_title = link.title || '';
+        // Ella describes a piece in plain words unless she knows its exact name; the product found is a real one, so
+        // the card takes its real name. Not for the muse's own pieces: those keep what she actually wore.
+        const real = realProductName(link.title);
+        if (real && !items[i].worn) {
+          items[i].real_name = real;
+          const card = anchors[i] && anchors[i].closest('.outfit-item');
+          if (card) fillResultItem(card, items[i]);
+        }
         items[i].shop_sold_out = !!link.sold_out;
         if (/^https:\/\//.test(link.image || '')) { items[i].shop_image = link.image; showShopPhoto(anchors[i], link.image); }
         showShopMatch(anchors[i], items[i]); done.add(i);
@@ -3292,6 +3301,13 @@ async function findShopLinks(items, anchors) {
   }
 }
 
+// "LINEN BLEND SHIRT" -> "Linen Blend Shirt"; nothing for a title that isn't a product's name
+function realProductName(title) {
+  let t = String(title || '').replace(/\s+/g, ' ').trim();
+  if (t.length < 3 || /^(home|shop|search|page not found|404|access denied|just a moment)/i.test(t)) return '';
+  if (t === t.toUpperCase()) t = t.toLowerCase().replace(/(^|[\s(/-])([a-z])/g, (m, a, b) => a + b.toUpperCase());
+  return t.slice(0, 80);
+}
 function buildShopUrl(brand, item) {
   const b = (brand || '').toLowerCase();
   const q = encodeURIComponent(item);
@@ -6460,7 +6476,12 @@ async function loadOwnerContent(d) {
       const piece = p => p.name ? `${p.brand ? p.brand + ' ' : ''}“${p.name}”` : `${p.item}${p.brand ? ' (' + p.brand + ', name not known)' : ''}`;
       const outfits = (d.outfits || []).map(o => `• ${o.event || 'Event not given'}${o.date ? ', ' + o.date : ''}: ` + o.pieces.map(piece).join(' + ')).join('\n');
       const extras = (d.pieces || []).filter(p => p.name).map(p => `• ${piece(p)}${p.event ? ', ' + p.event : ''}`).join('\n');
-      out.textContent = (d.identity ? 'Who: ' + d.identity + '\n\n' : '') + (d.text || 'Nothing found about how ' + name + ' dresses. Ella will stay understated and won\u2019t invent anything.')
+      const st = d.stats || {};   // what the research could read, so a thin result can be explained
+      const research = st.links === undefined ? '' : `Research: ${st.links} articles found · ${(st.read || 0) + (st.read_via_serper || 0)} read`
+        + (st.read_via_serper ? ` (${st.read_via_serper} through Serper, the site blocks servers)` : '') + (st.unreadable ? ` · ${st.unreadable} couldn\u2019t be read` : '')
+        + ` · ${st.articles_used || 0} had outfit details` + (st.reads_failed ? ` · ${st.reads_failed} reads failed` : '')
+        + ` → ${st.outfits || 0} real outfits, ${st.exact_names || 0} exact product names\n\n`;
+      out.textContent = research + (d.identity ? 'Who: ' + d.identity + '\n\n' : '') + (d.text || 'Nothing found about how ' + name + ' dresses. Ella will stay understated and won\u2019t invent anything.')
         + '\n\nREAL OUTFITS ELLA RECREATES (' + (d.outfits || []).length + '):\n' + (outfits || 'None found yet. Looks follow the style file.')
         + (extras ? '\n\nOTHER PIECES SHE\u2019S WORN (used for shoes, bags, jewellery):\n' + extras : '');
     } catch (e) { out.textContent = e.message; }

@@ -233,6 +233,31 @@ TYPE_FAMILIES = [
     {'bracelet', 'bangle', 'cuff', 'kada'}, {'sunglass'}, {'cap', 'hat', 'beanie', 'beret'}, {'perfume', 'eau', 'edp', 'edt'},
     {'polo'}, {'bra', 'bralette', 'lingerie'},
 ]
+# what a piece is made of: with what kind of piece it is, that's what a plain description gets searched by
+MATERIALS = {'linen', 'silk', 'satin', 'leather', 'suede', 'cashmere', 'wool', 'cotton', 'jean', 'tweed', 'velvet', 'lace',
+             'organza', 'crepe', 'chiffon', 'knit', 'crochet', 'sequin', 'mesh', 'poplin', 'jersey', 'corduroy', 'boucle',
+             'raffia', 'canvas', 'nylon', 'tulle', 'georgette', 'chanderi', 'brocade', 'metallic', 'pearl', 'gold', 'silver',
+             'diamond', 'straw', 'patent', 'shearling', 'merino', 'mohair', 'taffeta', 'lurex', 'gingham', 'seersucker'}
+_TYPE_WORDS = set().union(*TYPE_FAMILIES)
+_SLEEVES = re.compile(r'\b(short|long|cap|puff|half)[\s-]+sleeved?\b', re.I)
+
+
+def key_words(name):
+    """'Relaxed linen-blend short-sleeve overshirt in pale ecru' -> 'linen overshirt': what it's made of and what it
+    is, the words a store's own product name will share."""
+    keep, seen = [], set()
+    for w in re.findall(r'[A-Za-z0-9]+', _SLEEVES.sub(' ', name or '')):
+        st = _stem(_ascii(w))
+        if (st in MATERIALS or st in _TYPE_WORDS) and st not in seen:
+            seen.add(st)
+            keep.append(w)
+    return ' '.join(keep[:4])
+
+
+def _descriptive(name):
+    return len(re.findall(r'[A-Za-z0-9]+', name or '')) >= 5
+
+
 MULTI_BRAND = {'myntra.com', 'ajio.com', 'nykaafashion.com', 'nykaa.com', 'tatacliq.com', 'azafashions.com', 'perniaspopupshop.com',
                'farfetch.com', 'net-a-porter.com', 'mrporter.com', 'mytheresa.com', 'ssense.com', 'revolve.com', 'nordstrom.com',
                'saksfifthavenue.com', 'shopbop.com', 'selfridges.com', 'harrods.com', 'asos.com', 'zalando.com', 'aboutyou.com',
@@ -265,7 +290,7 @@ def _families(tokens):
 
 def relevance(name, brand, title, link, multi_brand=False):
     """0..1 for how well a result matches the item, or None if it's clearly a different thing."""
-    want = _tokens(name) - _tokens(brand)
+    want = _tokens(_SLEEVES.sub(' ', name or '')) - _tokens(brand)     # "short-sleeve" doesn't make it shorts
     got = _tokens(title) | _tokens(urlparse(link).path.replace('-', ' ').replace('_', ' ').replace('/', ' '))
     fams = _families(want)
     if fams and not any(TYPE_FAMILIES[i] & got for i in fams):
@@ -277,9 +302,20 @@ def relevance(name, brand, title, link, multi_brand=False):
     if not want:
         return 0.5
     overlap = len(want & got) / len(want)
-    if overlap < 0.33 and not (len(want) <= 2 and overlap > 0):
-        return None
-    return overlap
+    if overlap >= 0.33 or (len(want) <= 2 and overlap > 0):
+        return overlap
+    # A plain description ("relaxed linen-blend overshirt in pale ecru") rarely shares the store's own words: the same
+    # kind of piece, of that brand, in the same material is a real product that fits it (ranked below closer matches).
+    # The kind of piece must match; then at least half of what it's made of.
+    core = _tokens(key_words(name)) - _tokens(brand)
+    mats = {w for w in core if w in MATERIALS}
+    kinds = core - mats
+    if fams and len(want) >= 4 and kinds:
+        kind_hit = any(w in got or any(w in f and f & got for f in TYPE_FAMILIES) for w in kinds)
+        score = (kind_hit + len(mats & got)) / (1 + len(mats))
+        if kind_hit and score >= 0.5:
+            return 0.1 + 0.2 * score
+    return None
 
 
 def _is_product_url(link, pattern=None):
@@ -451,8 +487,9 @@ def _site_search(domain, pattern, name, brand, gl, retry=True, trace=None):
     ranked = _rank(search_web(q, gl), name, brand, domain, pattern, gl, step)
     if trace is not None:
         trace.append({'query': q, 'results': step})
-    if not ranked and retry:   # the brand's own wording often differs: try the key words only
-        words = ' '.join(re.findall(r'[A-Za-z0-9]+', name)[:4])
+    if not ranked and (retry or _descriptive(name)):   # the brand's own wording often differs: try the key words only
+        words = key_words(name) if _descriptive(name) else ''
+        words = words or ' '.join(re.findall(r'[A-Za-z0-9]+', name)[:4])
         if words and words.lower() != name.lower():
             q = f'site:{domain} {brand + " " if multi else ""}{words}'
             step = [] if trace is not None else None
@@ -508,7 +545,7 @@ def resolve(brand, name, country='IN', store=None, trace=None):
     if not found:   # the big stores that deliver in this country, brand required
         stores = [d for d in retailers_for(country) if d not in tried][:8]
         if stores:
-            q = f'{brand} {name} (' + ' OR '.join(f'site:{d}' for d in stores) + ')'
+            q = f'{brand} {(key_words(name) if _descriptive(name) else "") or name} (' + ' OR '.join(f'site:{d}' for d in stores) + ')'
             step = [] if trace is not None else None
             ranked = _rank(search_web(q, gl), name, brand, cc=gl, trace=step)
             if trace is not None:
