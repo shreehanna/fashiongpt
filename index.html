@@ -6204,16 +6204,32 @@ async function loadOwnerContent(d) {
   const rb = document.getElementById('own-reels');
   rb.innerHTML = `<p class="tiny" style="margin-bottom:8px">${d.youtube ? 'YouTube Shorts: on.' : 'YouTube Shorts: off. Add YOUTUBE_API_KEY in Render to fill the feed automatically.'} Paste Instagram reels or YouTube links you want at the top of the feed.</p>`;
   const rf = document.createElement('form'); rf.style.display = 'grid'; rf.style.gap = '8px';
-  rf.innerHTML = '<input class="quiz-input" name="url" placeholder="https://www.instagram.com/reel/..." required><input class="quiz-input" name="caption" maxlength="160" placeholder="What’s the look? e.g. Zara linen set try-on (Ella uses this)"><div><button class="btn-secondary btn-small" type="submit">Add reel</button></div>';
-  rf.onsubmit = async ev => { ev.preventDefault(); try { loadOwnerContent(await api('/api/owner/reels', Object.fromEntries(new FormData(rf)))); reelsLoaded = false; toast('Reel added'); } catch (e) { toast(e.message); } };
+  rf.innerHTML = '<input class="quiz-input" name="url" placeholder="https://www.instagram.com/reel/..." required><input class="quiz-input" name="caption" maxlength="160" placeholder="The whole outfit, e.g. Zara black beaded sheer top, black wide-leg trousers"><label class="btn-secondary btn-small photo-add" style="justify-self:start">📸 Screenshot of the outfit (recommended)<input type="file" name="shotfile" accept="image/*"></label><span class="tiny" data-shotname></span><div><button class="btn-primary btn-small" type="submit">Add reel</button></div>';
+  const shotInput = rf.querySelector('input[name=shotfile]');
+  shotInput.onchange = () => { rf.querySelector('[data-shotname]').textContent = shotInput.files[0] ? '✓ ' + shotInput.files[0].name : ''; };
+  rf.onsubmit = async ev => {
+    ev.preventDefault();
+    const body = { url: rf.url.value, caption: rf.caption.value };
+    try {
+      if (shotInput.files[0]) body.image = await shrinkImage(shotInput.files[0], 768, 0.8);
+      loadOwnerContent(await api('/api/owner/reels', body)); reelsLoaded = false; toast('Reel added');
+    } catch (e) { toast(e.message); }
+  };
   rb.appendChild(rf);
   const ul = document.createElement('ul'); ul.className = 'owner-list';
   (d.reels || []).forEach(r => {
     const li = document.createElement('li');
-    li.innerHTML = `<span>${r.kind === 'ig' ? 'Instagram' : 'YouTube'} · ${esc(r.caption || r.id)}</span>`;
+    li.innerHTML = `<span>${r.kind === 'ig' ? 'Instagram' : 'YouTube'} · ${esc(r.caption || r.id)}<br><span class="tiny">${r.has_shot ? '📸 Ella sees your screenshot' : (r.kind === 'ig' ? '⚠ No screenshot: Ella only reads the caption' : 'Ella sees the video thumbnail')}</span></span>`;
+    const acts = document.createElement('div'); acts.className = 'row';
+    const add = document.createElement('label'); add.className = 'link-btn photo-add'; add.textContent = r.has_shot ? 'Change screenshot' : 'Add screenshot';
+    const f = document.createElement('input'); f.type = 'file'; f.accept = 'image/*'; add.appendChild(f);
+    f.onchange = async () => {
+      if (!f.files[0]) return;
+      try { loadOwnerContent(await api('/api/owner/reels', { shot_for: r.id, image: await shrinkImage(f.files[0], 768, 0.8) })); toast('Screenshot added'); } catch (e) { toast(e.message); }
+    };
     const x = document.createElement('button'); x.className = 'link-btn'; x.textContent = 'Remove';
     x.onclick = async () => { loadOwnerContent(await api('/api/owner/reels', { remove: r.id })); reelsLoaded = false; };
-    li.appendChild(x); ul.appendChild(li);
+    acts.append(add, x); li.appendChild(acts); ul.appendChild(li);
   });
   rb.appendChild(ul);
 }

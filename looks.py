@@ -416,11 +416,20 @@ def rules(gender, occasion, muse, who, mode='', budget='', country='', era='', c
         era = ''                                   # Dupe copies its inspiration; "like my celeb" without a celeb = Ella's own
     text = (house_style(gender, mode, budget, country, era) + aesthetic_rule(era) +
             (character_rule(character, era) if character else muse_rule(muse, era)))
+    if mode in COPY_MODES:
+        # Dupe and Get this look copy something: no random starting piece or palette, no forcing it to be different
+        return text + ("\n\nCOPY THE ORIGINAL: match it as closely as the shopper can buy it: the same hero piece, the same "
+                       "colours, the same silhouette and the same overall vibe. Never swap the hero piece for something else "
+                       "and never change the colour story. Fill in only what the original doesn't show (shoes, bag, jewellery) "
+                       "in the same spirit.")
     text += ("\n\nNEVER REPEAT A LOOK: every look must be new, for this person and for everyone else, even for the same "
              "occasion asked again. The same main pieces in a different colour or fabric still count as a repeat.")
     if given:
         text += " These have already been given, so don't recreate any of them or their main combination of pieces:\n" + '\n'.join(given)
     return text + variation(gender, occasion, era, (muse or '').strip()[:60])
+
+
+COPY_MODES = ('dupe', 'reel')
 
 
 # ── One call that only ever returns a new look ────────────────────────────────
@@ -482,15 +491,16 @@ def _image_failed(e):
     return not isinstance(e, ServiceDown)
 
 
-def _clash(text, kind, gender, occasion, muse, who, planned=()):
-    """None if this answer can go out (and it's remembered); otherwise the earlier look it repeats."""
+def _clash(text, kind, gender, occasion, muse, who, planned=(), check=True):
+    """None if this answer can go out (and it's remembered); otherwise the earlier look it repeats.
+    check=False (a dupe or a reel's look) skips the repeat check: copying the original is the point."""
     parsed = _parse(text)
     if parsed is None:
         return None                             # let the caller report the parse error as before
     looks = parsed.get('looks') if kind == 'day' else [parsed]
     looks = [l for l in looks or [] if isinstance(l, dict)]
     try:
-        for k, look in enumerate(looks):
+        for k, look in enumerate(looks if check else []):
             clash = find_repeat(look, gender, list(planned) + looks[:k])
             if clash:
                 return clash
@@ -527,7 +537,8 @@ def create_unique(client, data, prompt, max_tokens, model=None, kind='look', ima
             image_url = None
             message = client.messages.create(model=model, max_tokens=max_tokens,
                                              messages=[{'role': 'user', 'content': prompt + extra + clash_note}])
-        clash = _clash(message.content[0].text, kind, gender, occasion, muse, who, planned)
+        clash = _clash(message.content[0].text, kind, gender, occasion, muse, who, planned,
+                       check=str(data.get('mode') or '') not in COPY_MODES)
         if not clash:
             return message
         print(f'[looks] try {attempt + 1}: repeat of "{clash}", restyling')
@@ -561,7 +572,8 @@ def stream_unique(client, data, prompt, max_tokens, model=None, kind='look', ima
                     chunks.append(text)
                     yield 'delta', text
         full = ''.join(chunks)
-        clash = _clash(full, kind, gender, occasion, muse, who, planned)
+        clash = _clash(full, kind, gender, occasion, muse, who, planned,
+                       check=str(data.get('mode') or '') not in COPY_MODES)
         if not clash:
             yield 'done', full
             return

@@ -307,7 +307,12 @@ def get_outfit():
         if not reel:
             return jsonify({'error': 'That link or picture can\'t be used. Try a YouTube link or a screenshot.'}), 400
         by = f" by {reel['channel']}" if reel['channel'] else ''
-        if reel.get('shot'):
+        if reel.get('pick_shot'):
+            data['occasion'] = f"the look from a reel: {reel['title'] or 'a fashion reel'}"[:120]
+            seen = f"The user loved the outfit in a fashion reel" + (f" (\"{reel['title']}\")" if reel['title'] else '') + ' and wants that look.'
+            what = ("The picture is a screenshot of that reel: recreate the main outfit in it, piece by piece. "
+                    "Ignore any text, usernames or app buttons.")
+        elif reel.get('shot'):
             data['occasion'] = 'the look from a screenshot'
             seen = 'The user saw a look they love and took a screenshot of it (from Instagram, TikTok, Pinterest or similar).'
             what = ("The picture is that screenshot: recreate the main outfit in it. If it shows several outfits, take the "

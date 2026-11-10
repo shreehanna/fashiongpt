@@ -560,6 +560,9 @@ def reel_for_look(reel):
     rid = str(reel.get('id') or '')
     for p in reel_picks():
         if p['id'] == rid:
+            shot = _pick_shot(rid)
+            if shot:                                  # the owner's screenshot of the outfit: Ella sees the real thing
+                return {'image': shot, 'title': p.get('caption') or '', 'channel': '', 'pick_shot': True}
             if p.get('kind') == 'yt':
                 return {'image': f'https://i.ytimg.com/vi/{rid}/hqdefault.jpg', 'title': p.get('caption') or '',
                         'channel': ''}
@@ -568,6 +571,28 @@ def reel_for_look(reel):
         return {'image': f'https://i.ytimg.com/vi/{rid}/hqdefault.jpg', 'title': _clip(reel.get('title'), 140),
                 'channel': _clip(reel.get('channel'), 60)}
     return None
+
+
+def _pick_shot(rid):
+    try:
+        raw = kv_get('reel:shot:' + rid)
+    except Exception:
+        return None
+    m = SHOT.match(raw or '')
+    return {'type': 'base64', 'media_type': 'image/' + m.group(1), 'data': m.group(2)} if m else None
+
+
+def _save_pick_shot(rid, img):
+    """The owner's screenshot of a picked reel's outfit, kept small (the page shrinks it first)."""
+    m = SHOT.match(str(img or ''))
+    if not m or len(img) > 900_000:
+        return False
+    try:
+        base64.b64decode(m.group(2), validate=True)
+    except Exception:
+        return False
+    kv_set('reel:shot:' + rid, img)
+    return True
 
 
 # ── Owner tools ───────────────────────────────────────────────────────────────
@@ -582,8 +607,9 @@ def owner_content():
         for r in ('in', 'intl'):
             k = _edit_key(sunday, g, r)
             status[f'{g}_{r}'] = 'making' if k in _edit_running else ('ready' if kv_get(k) else 'not made yet')
+    picks = [dict(p, has_shot=bool(kv_get('reel:shot:' + p['id']))) for p in reel_picks()]
     return jsonify({'edit_theme': kv_get('edit_theme:' + sunday) or '', 'edit_status': status, 'sunday': sunday,
-                    'characters': characters(), 'reels': reel_picks(), 'youtube': bool(env('YOUTUBE_API_KEY')),
+                    'characters': characters(), 'reels': picks, 'youtube': bool(env('YOUTUBE_API_KEY')),
                     'challenge': challenge_theme(), 'series': SERIES})
 
 
@@ -619,8 +645,13 @@ def owner_reels():
         return jsonify({'error': 'not found'}), 404
     body = request.get_json(silent=True) or {}
     picks = reel_picks()
+    if body.get('shot_for'):                          # add or replace the screenshot of a pick already in the feed
+        if not any(p['id'] == body['shot_for'] for p in picks) or not _save_pick_shot(body['shot_for'], body.get('image')):
+            return jsonify({'error': 'Use a JPEG or PNG screenshot.'}), 400
+        return owner_content()
     if body.get('remove'):
         picks = [p for p in picks if p['id'] != body['remove']]
+        kv_set('reel:shot:' + str(body['remove'])[:60], '')
     url = str(body.get('url') or '').strip()
     if url:
         caption = _clip(body.get('caption'), 160)
@@ -640,5 +671,7 @@ def owner_reels():
                 seen.add(p['id'])
                 dedup.append(p)
         picks = dedup[:60]
+        if body.get('image') and not _save_pick_shot(picks[0]['id'], body['image']):
+            return jsonify({'error': 'Use a JPEG or PNG screenshot.'}), 400
     kv_set('reels:picks', json.dumps(picks, ensure_ascii=False))
     return owner_content()
