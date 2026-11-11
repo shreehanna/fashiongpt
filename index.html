@@ -2865,7 +2865,9 @@ function addResultItem(item, anchors, draft) {
   fillResultItem(div, item);
   grid.appendChild(div);
   anchors.push(div.querySelector('.oi-shop'));
-  if (!draft) loadItemImage(div, item);
+  // The photo is of the product the button opens, so it waits for the shop lookup (cardPhoto); a closet piece
+  // has nothing to look up.
+  if (!draft && (item.brand === 'From my closet' || !item.brand)) loadItemImage(div, item);
   return div;
 }
 // Text goes in as text (never as HTML), so a piece can be filled in while Ella is still writing it.
@@ -3044,7 +3046,7 @@ async function requestLook(url, body, onStart) {
         fillResultItem(card, ev.item);
       }
       markTyping(card, done ? null : ev.item);
-      if (done) { live.items[ev.i] = ev.item; card.classList.remove('is-writing'); loadItemImage(card, ev.item); }
+      if (done) { live.items[ev.i] = ev.item; card.classList.remove('is-writing'); if (ev.item.brand === 'From my closet' || !ev.item.brand) loadItemImage(card, ev.item); }
     }
     else if (ev.t === 'restart' && live) {
       live.items = []; live.anchors = []; live.cards = [];
@@ -3250,13 +3252,13 @@ function holdShopLink(a) {
   a.classList.add('is-finding');
   a.textContent = 'Finding the exact item…';
 }
-const SHOP_V = 4;   // bump when the product search gets better, so old "no direct link" pieces are tried again
+const SHOP_V = 5;   // bump when the product search gets better, so every saved piece is looked up again once
 async function findShopLinks(items, anchors) {
   const need = [];
   items.forEach((it, i) => {
     // a piece that found no link before the search got better (SHOP_V) is looked up again; so is one the shops
     // couldn't be searched for last time (shop_unchecked: it never gets a shop_v)
-    if (it.shop_url || ((it.shop_site || it.shop_google) && it.shop_v === SHOP_V)) { showShopMatch(anchors[i], it); if (it.shop_image) showShopPhoto(anchors[i], it.shop_image); }
+    if ((it.shop_url || it.shop_site || it.shop_google) && it.shop_v === SHOP_V) { showShopMatch(anchors[i], it); cardPhoto(anchors[i], it); }
     else need.push(i);
   });
   if (!need.length) return;
@@ -3303,14 +3305,23 @@ function applyShopLink(item, anchor, link) {
     const card = anchor && anchor.closest('.outfit-item');
     if (card) fillResultItem(card, item);
   };
+  if (link && (link.url || link.google || link.site) && !link.unavailable) {
+    // a real answer replaces whatever an older search found (it may have matched the wrong piece)
+    ['shop_url', 'shop_title', 'shop_exact', 'shop_site', 'shop_google', 'shop_site_url', 'shop_image', 'photo_url', 'real_name']
+      .forEach(k => { item[k] = ''; });
+    item.shop_closest = item.shop_sold_out = false;
+    if (anchor && anchor.closest('.outfit-item')) fillResultItem(anchor.closest('.outfit-item'), item);
+  }
   if (link && link.url && /^https:\/\//.test(link.url)) {
     item.shop_url = link.url;          // saved looks keep the exact link
+    item.shop_v = SHOP_V;
     item.shop_title = link.title || '';
     item.shop_closest = !!link.closest;
     item.shop_unchecked = false;
     rename(realProductName(link.title));
     item.shop_sold_out = !!link.sold_out;
-    if (/^https:\/\//.test(link.image || '')) { item.shop_image = link.image; showShopPhoto(anchor, link.image); }
+    item.shop_image = /^https:\/\//.test(link.image || '') ? link.image : '';
+    item.photo_url = '';
   } else if (link && (link.google || link.site) && !link.unavailable) {
     item.shop_site = /^[a-z0-9.-]+$/i.test(link.site || '') ? link.site : '';
     item.shop_google = /^https:\/\/www\.google\.com\/search\?/.test(link.google || '') ? link.google : '';
@@ -3325,6 +3336,36 @@ function applyShopLink(item, anchor, link) {
     if (link && /^https:\/\/www\.google\.com\/search\?/.test(link.google || '')) item.shop_google = link.google;
   }
   showShopMatch(anchor, item);
+  cardPhoto(anchor, item);
+}
+
+// The card's photo is always of the product its button opens: the shop page's own photo, else an image search for
+// that exact product's name. With no exact product (Ella's description only), no photo rather than a different one.
+function cardPhoto(anchor, item) {
+  const card = anchor && anchor.closest('.outfit-item');
+  const wrap = card && card.querySelector('.oi-img-wrap');
+  if (!wrap) return;
+  const hide = () => { wrap.style.display = 'none'; };
+  const known = item.shop_image || item.photo_url;
+  if (/^https:\/\//.test(known || '')) {
+    const img = document.createElement('img');
+    img.className = 'oi-img'; img.alt = ''; img.referrerPolicy = 'no-referrer';
+    img.onload = () => { wrap.innerHTML = ''; wrap.appendChild(img); wrap.style.display = ''; };
+    img.onerror = () => { if (item.photo_url === known) item.photo_url = ''; hide(); };
+    img.src = known;
+    return;
+  }
+  const exact = item.shop_url ? (item.real_name || item.shop_title) : (item.shop_exact || (item.exact ? item.name : ''));
+  if (!exact) { hide(); return; }
+  fetch('/api/image-search', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query: `${item.brand || ''} ${exact}`, currency: state.currency })
+  }).then(r => r.json()).then(res => {
+    if (!/^https:\/\//.test(res.image_url || '')) return hide();
+    item.photo_url = res.image_url;
+    saveStateToStorage();
+    cardPhoto(anchor, item);
+  }).catch(hide);
 }
 
 // "LINEN BLEND SHIRT" -> "Linen Blend Shirt"; nothing for a title that isn't a product's name

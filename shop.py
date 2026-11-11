@@ -13,6 +13,7 @@ Search provider, set in Render's environment:
                    Recommended: Google's Custom Search API closes on 1 January 2027.
   GOOGLE_API_KEY + GOOGLE_CX   your existing Custom Search keys, used until then if Serper isn't set.
 """
+import html as htmllib
 import os
 import re
 import time
@@ -189,6 +190,31 @@ def _clean_title(title):
     return (t[:70] + '…') if len(t) > 71 else t
 
 
+def product_name(title, link, brand=''):
+    """The product's own name for the card: 'ZIMMERMANN Momentum corset floral-print linen and silk-...' ->
+    'Momentum corset floral print linen and silk blend crepe de chine mini dress' (rebuilt from the web address
+    when Google cut the title off), without the brand in front."""
+    t = re.split(r'\s+[|–—]\s+|\s+-\s+(?:Buy|Shop|Online)\b', htmllib.unescape(title or ''))[0].strip()
+    head, sep, tail = t.rpartition(' - ')
+    if sep and head and len(tail.split()) <= 3:
+        t = head.strip()
+    cut = bool(re.search(r'(\.\.\.|…)\s*$', t))
+    t = re.sub(r'[\s,;:-]*(\.\.\.|…)\s*$', '', t).strip()
+    bw = len((brand or '').split())
+    if brand and _norm(' '.join(t.split()[:bw])) == _norm(brand):
+        t = ' '.join(t.split()[bw:])
+    if cut:
+        start = [w for w in re.findall(r'[a-z0-9]+', t.lower())][:3]
+        for seg in sorted(urlparse(link or '').path.split('/'), key=lambda x: -x.count('-')):
+            words = [w for w in re.split(r'[-_]+', seg.lower()) if w and not re.search(r'\d', w)]
+            if start and words[:len(start)] == start and len(words) > len(start):
+                t = ' '.join(words)
+                t = t[:1].upper() + t[1:]
+                break
+    t = t.strip(' -–—:|,')
+    return t if len(t) <= 90 else t[:88].rsplit(' ', 1)[0] + '…'
+
+
 def _host(url):
     host = urlparse(url if '//' in url else '//' + url).netloc.lower().split(':')[0]
     return host[4:] if host.startswith('www.') else host
@@ -319,6 +345,36 @@ def _families(tokens):
     return [i for i, fam in enumerate(TYPE_FAMILIES) if tokens & fam]
 
 
+# A different kind of thing even though the words overlap: a mini dress for a gown, a bag charm for a bag.
+_LENGTH_FAMILY = next((i for i, f in enumerate(TYPE_FAMILIES) if 'dress' in f), None)
+_MINI = {'mini'}
+_LONGER = {'midi', 'maxi', 'gown', 'floor', 'column', 'long'}
+_PARTS = re.compile(r'\b(charms?|key ?rings?|key ?chains?|key ?fobs?|bag ?straps?|shoulder ?straps?|watch ?straps?|pouch(?:es)?|wallets?'
+                    r'|card ?holders?|cases?|dust ?bags?|stickers?|trinkets?|candles?|perfumes?|fragrances?|eau de|gift ?cards?'
+                    r'|lipsticks?|refills?|shoe ?laces?|insoles?|hangers?|swatch(?:es)?)\b', re.I)
+_COLOUR_GROUPS = [{'ivory', 'cream', 'ecru', 'white', 'offwhite', 'off'}, {'tan', 'camel', 'cognac', 'brown', 'chocolate', 'caramel'},
+                  {'navy', 'blue', 'cobalt'}, {'champagne', 'gold', 'beige', 'nude', 'sand'}, {'silver', 'grey', 'gray', 'pewter'},
+                  {'black', 'noir'}, {'pink', 'blush', 'rose'}, {'red', 'burgundy', 'scarlet', 'wine'}, {'green', 'olive', 'sage', 'emerald'},
+                  {'yellow', 'mustard'}, {'orange', 'rust'}, {'lilac', 'purple', 'lavender'}]
+
+
+def _colours(text):
+    words = set(re.findall(r'[a-z]+', (text or '').lower()))
+    return {i for i, g in enumerate(_COLOUR_GROUPS) if g & words}
+
+
+def _conflicts(name, text):
+    """Why a result is a different piece despite sharing words (a mini dress for a gown, a key ring for a bag)."""
+    want = _tokens(_SLEEVES.sub(' ', name or ''))
+    got = _tokens(_SLEEVES.sub(' ', text or ''))
+    if _LENGTH_FAMILY is not None and TYPE_FAMILIES[_LENGTH_FAMILY] & want:
+        if (want & _MINI and got & _LONGER - {'long'}) or (want & _LONGER and got & _MINI):
+            return 'length'
+    if _PARTS.search(text or '') and not _PARTS.search(name or ''):
+        return 'part'
+    return None
+
+
 def relevance(name, brand, title, link, multi_brand=False):
     """0..1 for how well a result matches the item, or None if it's clearly a different thing."""
     want = _tokens(_SLEEVES.sub(' ', name or '')) - _tokens(brand)     # "short-sleeve" doesn't make it shorts
@@ -326,6 +382,9 @@ def relevance(name, brand, title, link, multi_brand=False):
     fams = _families(want)
     if fams and not any(TYPE_FAMILIES[i] & got for i in fams):
         return None                      # asked for a co-ord set, this is a shirt
+    path_words = urlparse(link).path.replace('-', ' ').replace('_', ' ').replace('/', ' ')
+    if _conflicts(name, f'{title} {path_words}'):
+        return None                      # a mini dress for a gown, a bag charm for a bag
     if multi_brand and brand:
         bt = {w for w in _tokens(brand) if len(w) > 2} or _tokens(brand)
         if bt and not (bt & got) and _norm(brand) not in _norm(title + link):
@@ -344,6 +403,9 @@ def relevance(name, brand, title, link, multi_brand=False):
     if fams and len(want) >= 4 and kinds:
         kind_hit = any(w in got or any(w in f and f & got for f in TYPE_FAMILIES) for w in kinds)
         score = (kind_hit + len(mats & got)) / (1 + len(mats))
+        want_c, got_c = _colours(name), _colours(f'{title} {path_words}')
+        if want_c and got_c and not want_c & got_c:
+            return None                  # only a loose match, and another colour: not this piece
         if kind_hit and score >= 0.5:
             return 0.1 + 0.2 * score
     return None
@@ -444,7 +506,7 @@ def _choose(ranked, pattern, cc, trace=None, budget=3):
             trace.append({'check': link, **{k: v for k, v in c.items() if k != 'image'}})
         if c['state'] == 'dead':
             continue
-        found = {'url': c.get('final') or link, 'title': _clean_title(c.get('title') or title)}
+        found = {'url': c.get('final') or link, 'title': _clean_title(c.get('title') or title), 'raw': c.get('title') or title}
         if c.get('image'):
             found['image'] = c['image']
         if c['state'] == 'ok' and c.get('sold_out'):
@@ -577,8 +639,10 @@ def _same_kind(brand, name, gl, home, trace=None):
         host = _host(l) if l.startswith('https://') else ''
         path_words = urlparse(l).path.replace('-', ' ').replace('_', ' ').replace('/', ' ')
         same_site = bool(home) and (host == home or host.endswith('.' + home))
+        want_c, got_c = _colours(name), _colours(f'{t} {path_words}')
         if (host and not NOT_SHOPS.search(host) and _is_product_url(l, pattern if same_site else None)
-                and set(_families(_tokens(t) | _tokens(path_words))) & fam and (same_site or _branded(brand, t, l))):
+                and set(_families(_tokens(t) | _tokens(path_words))) & fam and (same_site or _branded(brand, t, l))
+                and not _conflicts(name, f'{t} {path_words}') and not (want_c and got_c and not want_c & got_c)):
             ranked.append((-(len(colours & {c.lower() for c in _COLOUR_WORDS.findall(t + ' ' + path_words)})), pos, t, l))
         if trace is not None:
             trace.append({'closest_kind': kind, 'title': t, 'link': l})
@@ -705,6 +769,9 @@ def _resolve(brand, name, country='IN', store=None, trace=None, closest=True):
             found['unavailable'] = True     # the shops couldn't be searched: not "not sold online", and not cached
         if trace is not None:
             trace.append({'no_product_page': True, 'exact_name': exact, 'search_failed': bool(getattr(_seen, 'failed', False))})
+    if found.get('url'):            # the card shows the product's own full name
+        found['title'] = product_name(found.pop('raw', '') or found.get('title') or '', found['url'], brand) or found.get('title')
+    found.pop('raw', None)
     if found.get('unavailable'):    # try the shops again next time
         return found
     with _cache_lock:
