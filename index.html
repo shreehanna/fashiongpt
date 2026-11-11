@@ -3216,20 +3216,19 @@ function showShopMatch(a, item) {
   if (item.shop_url) {
     a.href = item.shop_url;
     a.textContent = '🛒 Shop on ' + item.brand;
-    if (item.real_name) say(item.shop_sold_out ? 'Sold out right now' : '', item.shop_sold_out);   // the card already carries its name
+    if (item.shop_closest) say(`Not sold exactly as Ella described it, so this is the closest real piece from ${item.brand}${item.shop_sold_out ? ' (sold out right now)' : ''}.`, item.shop_sold_out);
+    else if (item.real_name) say(item.shop_sold_out ? 'Sold out right now' : '', item.shop_sold_out);   // the card already carries its name
     else say(item.shop_title ? 'Opens: ' + item.shop_title + (item.shop_sold_out ? ' · sold out right now' : '') : '', item.shop_sold_out);
-  } else if (item.shop_site) {
-    // no direct page found: say so, and send them to the right website to search
-    a.href = item.shop_site_url || ('https://' + item.shop_site);
-    a.textContent = '🔎 Search on ' + item.shop_site;
-    a.classList.add('is-search');
-    say(`No direct link for this one. Search “${item.name}” on ${item.shop_site}.`, true);
   } else {
-    // the lookup didn't answer: be honest that this is a search page, not the product
-    a.href = buildShopUrl(item.brand, item.name);
-    a.textContent = '🔎 Search ' + item.brand;
+    // No product page to open: the fallback is a Google search for the piece's exact name (the real product's own
+    // name when any search saw it), and the card says exactly what to search for.
+    const exact = item.shop_exact || (item.exact ? item.name : '');
+    const q = `${item.brand || ''} ${exact || item.real_name || item.name || ''}`.trim();
+    a.href = item.shop_google || ('https://www.google.com/search?q=' + encodeURIComponent(q));
+    a.textContent = '🔎 Search on Google';
     a.classList.add('is-search');
-    say(`Couldn't find the exact item, so this opens a search for it.`, true);
+    say(exact ? `No shop page to open right now. Search the exact piece on Google: “${q}”.`
+              : `This exact piece isn't sold online right now. Search it on Google: “${q}”.`, true);
   }
 }
 function showShopPhoto(anchor, url) {
@@ -3250,10 +3249,12 @@ function holdShopLink(a) {
   a.classList.add('is-finding');
   a.textContent = 'Finding the exact item…';
 }
+const SHOP_V = 3;   // bump when the product search gets better, so old "no direct link" pieces are tried again
 async function findShopLinks(items, anchors) {
   const need = [];
   items.forEach((it, i) => {
-    if (it.shop_url || it.shop_site) { showShopMatch(anchors[i], it); if (it.shop_image) showShopPhoto(anchors[i], it.shop_image); }
+    // a piece that found no link before the search got better (SHOP_V) is looked up again
+    if (it.shop_url || ((it.shop_site || it.shop_google) && it.shop_v === SHOP_V)) { showShopMatch(anchors[i], it); if (it.shop_image) showShopPhoto(anchors[i], it.shop_image); }
     else need.push(i);
   });
   if (!need.length) return;
@@ -3266,7 +3267,7 @@ async function findShopLinks(items, anchors) {
     const res = await fetch('/api/shop-links', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ currency: state.currency, items: need.map(i => ({ brand: items[i].brand, name: items[i].name, store: items[i].store || '' })) }),
+      body: JSON.stringify({ currency: state.currency, items: need.map(i => ({ brand: items[i].brand, name: items[i].name, store: items[i].store || '', worn: items[i].worn ? 1 : 0 })) }),
       signal: ctrl.signal
     });
     clearTimeout(timer);
@@ -3276,6 +3277,7 @@ async function findShopLinks(items, anchors) {
       if (link && link.url && /^https:\/\//.test(link.url)) {
         items[i].shop_url = link.url;          // saved looks keep the exact link
         items[i].shop_title = link.title || '';
+        items[i].shop_closest = !!link.closest;
         // Ella describes a piece in plain words unless she knows its exact name; the product found is a real one, so
         // the card takes its real name. Not for the muse's own pieces: those keep what she actually wore.
         const real = realProductName(link.title);
@@ -3287,8 +3289,18 @@ async function findShopLinks(items, anchors) {
         items[i].shop_sold_out = !!link.sold_out;
         if (/^https:\/\//.test(link.image || '')) { items[i].shop_image = link.image; showShopPhoto(anchors[i], link.image); }
         showShopMatch(anchors[i], items[i]); done.add(i);
-      } else if (link && link.site && /^[a-z0-9.-]+$/i.test(link.site)) {
-        items[i].shop_site = link.site;
+      } else if (link && (link.google || link.site)) {
+        items[i].shop_site = /^[a-z0-9.-]+$/i.test(link.site || '') ? link.site : '';
+        items[i].shop_google = /^https:\/\/www\.google\.com\/search\?/.test(link.google || '') ? link.google : '';
+        items[i].shop_v = SHOP_V;
+        // the real product's exact name, found even though no shop page could be opened: the card takes it
+        const exact = realProductName(link.name);
+        if (exact && !items[i].worn) {
+          items[i].shop_exact = exact;
+          items[i].real_name = exact;
+          const card = anchors[i] && anchors[i].closest('.outfit-item');
+          if (card) fillResultItem(card, items[i]);
+        }
         items[i].shop_site_url = /^https:\/\//.test(link.site_url || '') ? link.site_url : '';
         showShopMatch(anchors[i], items[i]); done.add(i);
       }

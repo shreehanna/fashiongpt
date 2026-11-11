@@ -741,6 +741,10 @@ def apply_real(look, outfit, pieces=(), muse=''):
             it = {'category': p.get('category') or 'Piece', 'name': display_name(p), 'brand': p.get('brand') or '',
                   'store': '', 'price': '', 'description': 'Her original piece' + (f" from {outfit['event']}" if outfit.get('event') else '') + '.'}
         it['worn'] = who
+        if p.get('name'):
+            it['exact'] = True      # its real product name, not a description (the app's Google fallback searches it as is)
+        else:
+            it.pop('exact', None)
         ordered.append(it)
     known = [_plain(f"{w.get('brand') or ''} {w['name']}") for w in pieces if w.get('name')]
     rest = []

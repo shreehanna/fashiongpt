@@ -566,16 +566,62 @@ VOTE_SCRIPT = """
 """
 
 
-def _pieces_html(items):
+def _pieces_html(items, shop_base=None):
+    """The pieces of a shared look. "Find it" opens the product page itself (found when it's clicked, like in the
+    app), falling back to a Google search for the exact product name."""
     out = []
-    for it in items:
+    for k, it in enumerate(items):
+        href = f'{shop_base}/{k}' if shop_base else _shop_link(it)
         out.append(
             f"<li><span class=\"cat\">{e(it.get('category', ''))}</span><span class=\"nm\">{e(it.get('name', ''))}</span>"
             f"<span class=\"pr\">{e(it.get('price', ''))}</span><span class=\"br\">{e(it.get('brand', ''))}</span>"
-            + (f"<a href=\"{e(_shop_link(it))}\" target=\"_blank\" rel=\"noopener nofollow\">Find it →</a>"
+            + (f"<a href=\"{e(href)}\" target=\"_blank\" rel=\"noopener nofollow\">Find it →</a>"
                if it.get('brand') and it.get('brand') != 'From my closet' else '<span></span>')
             + '</li>')
     return '\n'.join(out)
+
+
+def _viewer_country():
+    """The visitor's country from their browser language (en-GB -> GB), India if it doesn't say."""
+    m = __import__('re').search(r'[a-z]{2}-([A-Z]{2})', request.headers.get('Accept-Language') or '')
+    return m.group(1) if m else 'IN'
+
+
+def _shop_redirect(it):
+    """To the product page itself, else a Google search for its exact name (robots never trigger a search)."""
+    brand, name = str(it.get('brand') or '')[:80], str(it.get('name') or '')[:160]
+    if not name or _is_bot():
+        return redirect(_shop_link(it), 302)
+    try:
+        import shop
+        if not shop._provider() or (not owner_request() and not shop._allowed(client_ip())):
+            return redirect(_shop_link(it), 302)
+        r = shop.resolve(brand, name, _viewer_country(), str(it.get('store') or '')[:80]) or {}
+        url = r.get('url') if str(r.get('url') or '').startswith('https://') else None
+        return redirect(url or r.get('google') or _shop_link(it), 302)
+    except Exception as ex:
+        print('[growth] shop link failed:', repr(ex))
+        return redirect(_shop_link(it), 302)
+
+
+@bp.get('/l/<cid>/shop/<int:k>')
+def card_shop(cid, k):
+    c = get_card(cid)
+    items = ((c or {}).get('look') or {}).get('items') or []
+    if not c or c['hidden'] or not 0 <= k < len(items):
+        return redirect('/', 302)
+    return _shop_redirect(items[k])
+
+
+@bp.get('/b/<bid>/shop/<int:j>/<int:k>')
+def board_shop(bid, j, k):
+    row = db('SELECT looks, hidden FROM el_boards WHERE id = %s', (bid,), one=True) if _valid_id(bid) else None
+    try:
+        looks = json.loads(row[0] or '[]') if row and not row[1] else []
+        items = looks[j].get('items') or []
+        return _shop_redirect(items[k])
+    except (ValueError, IndexError, AttributeError, TypeError):
+        return redirect('/', 302)
 
 
 def _notes_html(sn):
@@ -644,7 +690,7 @@ def card_page(cid):
   {share}
   {challenge_line}
 </section>
-<ol class="pieces">{_pieces_html(look.get('items') or [])}</ol>
+<ol class="pieces">{_pieces_html(look.get('items') or [], f'/l/{cid}/shop')}</ol>
 {_notes_html(look.get('styling_notes'))}
 <p class="sig">Styled by {stylist}</p>
 <a class="cta" href="/l/{cid}/go">Get your own look ✦</a>
@@ -697,10 +743,10 @@ def board_page(bid):
     except ValueError:
         looks = []
     parts = []
-    for look in looks:
+    for j, look in enumerate(looks):
         parts.append(f"""<section class="board-look"><h2>{e(look.get('look_name') or 'Look')}</h2>
 {f'<blockquote>“{e(look.get("ella_note"))}”</blockquote>' if look.get('ella_note') else ''}
-<ol class="pieces">{_pieces_html(look.get('items') or [])}</ol></section>""")
+<ol class="pieces">{_pieces_html(look.get('items') or [], f'/b/{bid}/shop/{j}')}</ol></section>""")
     body = f"""<p class="eyebrow">A board on E&amp;L</p><h1>{e(name)}</h1>
 <p class="small">{len(looks)} look{'s' if len(looks) != 1 else ''}, styled by Ella and Léon</p>
 {''.join(parts)}

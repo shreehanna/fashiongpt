@@ -18,7 +18,8 @@ import re
 import time
 from collections import OrderedDict, deque
 from concurrent.futures import ThreadPoolExecutor
-from urllib.parse import urlparse
+import threading
+from urllib.parse import quote_plus, urlparse
 
 import requests as req
 from flask import Blueprint, jsonify, request
@@ -104,8 +105,19 @@ def _provider():
     return None
 
 
+_seen = threading.local()      # every result one product lookup saw (exact product names for the Google fallback)
+
+
 def search_web(query, gl='in', num=10):
     """[(title, link)] for a Google web search in country `gl`, via Serper or the old Custom Search API."""
+    out = _search_web(query, gl, num)
+    seen = getattr(_seen, 'results', None)
+    if seen is not None:
+        seen.extend(out)
+    return out
+
+
+def _search_web(query, gl='in', num=10):
     p = _provider()
     try:
         if p == 'serper':
@@ -502,15 +514,114 @@ def _site_search(domain, pattern, name, brand, gl, retry=True, trace=None):
 CACHE_SECONDS = 12 * 3600
 
 
-def resolve(brand, name, country='IN', store=None, trace=None):
-    """{'url', 'title', ['image', 'sold_out']} for the closest real product page in `country`,
-    or {'url': None, 'site', 'site_url'} saying where to search by hand."""
+# not shops: never a "direct link"
+NOT_SHOPS = re.compile(r'(wikipedia|instagram|facebook|youtube|pinterest|linkedin|twitter|x\.com|tiktok|reddit|vogue|elle'
+                       r'|harpersbazaar|glamour|businessoffashion|whowhatwear|google|lyst|quora|medium)\.', re.I)
+_COLOUR_WORDS = re.compile(r'\b(black|white|ivory|cream|ecru|beige|tan|camel|brown|chocolate|grey|gray|silver|gold|champagne|'
+                           r'pink|blush|red|burgundy|navy|blue|green|olive|sage|emerald|yellow|orange|lilac|purple|nude)\b', re.I)
+
+
+def _branded(brand, title, link):
+    """The brand's name is on the result (its title or its web address)."""
+    t, u = _norm(title), _norm(urlparse(link).netloc + urlparse(link).path)
+    return any(len(k) >= 3 and (k in t or k in u) for k in _keys(brand))
+
+
+def _open_search(brand, name, gl, trace=None):
+    """Anywhere on the web that sells it: a product page from any shop, with the brand's name on it."""
+    if not brand:
+        return None
+    q = f'{brand} {(key_words(name) if _descriptive(name) else "") or name}'
+    results = [(t, l) for t, l in search_web(q, gl) if l.startswith('https://') and not NOT_SHOPS.search(_host(l))
+               and _branded(brand, t, l)]
+    step = [] if trace is not None else None
+    ranked = _rank(results, name, brand, cc=gl, trace=step)
+    if trace is not None:
+        trace.append({'query': q, 'anywhere': True, 'results': step})
+    return _choose(ranked, None, gl, trace) if ranked else None
+
+
+def _same_kind(brand, name, gl, home, trace=None):
+    """Nothing sold under Ella's description: the closest real piece from that brand, the same kind of thing
+    (a top for a top), the same colour first."""
+    kinds = [w for w in key_words(name).split() if _stem(_ascii(w)) in _TYPE_WORDS]
+    if not brand or not kinds:
+        return None
+    kind = kinds[-1]
+    fam = set(_families({_stem(_ascii(kind))}))
+    q = f'site:{home} {kind}' if home else f'{brand} {kind}'
+    pattern = (known_site(brand) or (None, None))[1] if home else None
+    colours = {c.lower() for c in _COLOUR_WORDS.findall(name)}
+    ranked = []
+    for pos, (t, l) in enumerate(search_web(q, gl)):
+        host = _host(l) if l.startswith('https://') else ''
+        path_words = urlparse(l).path.replace('-', ' ').replace('_', ' ').replace('/', ' ')
+        same_site = bool(home) and (host == home or host.endswith('.' + home))
+        if (host and not NOT_SHOPS.search(host) and _is_product_url(l, pattern if same_site else None)
+                and set(_families(_tokens(t) | _tokens(path_words))) & fam and (same_site or _branded(brand, t, l))):
+            ranked.append((-(len(colours & {c.lower() for c in _COLOUR_WORDS.findall(t + ' ' + path_words)})), pos, t, l))
+        if trace is not None:
+            trace.append({'closest_kind': kind, 'title': t, 'link': l})
+    ranked.sort()
+    found = _choose([(t, l) for _, _, t, l in ranked], pattern, gl, trace) if ranked else None
+    if found:
+        found['closest'] = True
+    return found
+
+
+_EDITORIAL = re.compile(r'(wikipedia|instagram|facebook|youtube|linkedin|twitter|x\.com|tiktok|reddit|quora|medium|vogue|elle'
+                        r'|harpersbazaar|glamour|businessoffashion|whowhatwear|hellomagazine|marieclaire)\.', re.I)
+
+
+def exact_name(title, brand):
+    """'THE ROW Faustino silk satin top | NET-A-PORTER' -> 'Faustino silk satin top' (the product's own name)."""
+    t = _clean_title(title).rstrip('…').strip()
+    t = re.sub(r'\s+(?:by|from)\s+' + re.escape(brand) + r'\b.*$', '', t, flags=re.I) if brand else t
+    words, bw = t.split(), len(brand.split())
+    if brand and _norm(' '.join(words[:bw])) == _norm(brand):
+        t = ' '.join(words[bw:])
+    t = t.strip(' -–—:|,')
+    return t if len(t) >= 4 and len(t.split()) >= 2 else ''
+
+
+def _harvest(results, brand, name):
+    """A real product's exact name from what the searches saw, even where no product page could be linked
+    (a page that's gone, a shop that blocks us, a listing on Pinterest or Lyst)."""
+    best = None
+    for t, l in results:
+        host = _host(l) if l.startswith('http') else ''
+        if not t or not host or _EDITORIAL.search(host) or NOT_PRODUCT.search(l) or not _branded(brand, t, l):
+            continue
+        score = relevance(name, brand, t, l)
+        n = exact_name(t, brand)
+        if score is not None and n and (best is None or score > best[0]):
+            best = (score, n)
+    return best[1] if best else ''
+
+
+def google_link(brand, name):
+    return 'https://www.google.com/search?q=' + quote_plus(f'{brand} {name}'.strip())
+
+
+def resolve(brand, name, country='IN', store=None, trace=None, closest=True):
+    _seen.results = []
+    try:
+        return _resolve(brand, name, country, store, trace, closest)
+    finally:
+        _seen.results = None
+
+
+def _resolve(brand, name, country='IN', store=None, trace=None, closest=True):
+    """{'url', 'title', ['image', 'sold_out', 'closest']}: the product page itself (in `country`), else the closest real
+    piece of the same kind from that brand (closest: True; never for a muse's own piece).
+    If no product page can be linked: {'url': None, 'name': the real product's exact name if any search saw one,
+    'google': a Google search for brand + that exact name, 'site', 'site_url'}."""
     brand = (brand or '').strip()
     name = (name or '').strip()
     if not name:
         return None
     gl = (country or 'IN').lower()
-    key = f'{gl}|{brand.lower()}|{name.lower()}|{(store or "").lower()}'
+    key = f'{gl}|{brand.lower()}|{name.lower()}|{(store or "").lower()}|{int(bool(closest))}'
     with _cache_lock:
         hit = _cache.get(key)
         if hit and trace is None and time.time() - hit[0] < CACHE_SECONDS:
@@ -551,9 +662,17 @@ def resolve(brand, name, country='IN', store=None, trace=None):
             if trace is not None:
                 trace.append({'query': q, 'results': step})
             found = _choose(ranked, None, gl, trace) if ranked else None
-    if not found:
+    if not found:   # any shop on the web that sells it under the brand's name
+        found = _open_search(brand, name, gl, trace)
+    if not found and closest:   # nothing sold as Ella described it: the closest real piece from that brand
+        found = _same_kind(brand, name, gl, home, trace)
+    if not found:   # nothing to link: the exact name, for a Google search (a muse's own piece keeps its own name)
         site = home or sd
-        found = {'url': None, 'site': site, 'site_url': f'https://{"www." if site and site.count(".") == 1 else ""}{site}' if site else None}
+        exact = _harvest(getattr(_seen, 'results', None) or [], brand, name) if closest else ''
+        found = {'url': None, 'name': exact, 'google': google_link(brand, exact or name),
+                 'site': site, 'site_url': f'https://{"www." if site and site.count(".") == 1 else ""}{site}' if site else None}
+        if trace is not None:
+            trace.append({'no_product_page': True, 'exact_name': exact})
     with _cache_lock:
         _cache[key] = (time.time(), found)
         _cache.move_to_end(key)
@@ -592,7 +711,7 @@ def shop_links():
     cc = country_code(body)
     with ThreadPoolExecutor(max_workers=min(6, len(items))) as pool:
         links = list(pool.map(lambda it: resolve(str(it.get('brand', ''))[:80], str(it.get('name', ''))[:160], cc,
-                                                 str(it.get('store', ''))[:80]), items))
+                                                 str(it.get('store', ''))[:80], closest=not it.get('worn')), items))
     return jsonify({'links': links})
 
 
