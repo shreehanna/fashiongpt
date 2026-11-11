@@ -602,6 +602,27 @@ def prepare(name):
     return True
 
 
+def building(name):
+    """True while this muse is being read up on (starting that now if their file is missing or old)."""
+    if not usable(name) or not ready():
+        return False
+    key = norm(name)
+    _, fresh = _record(key)
+    if fresh:
+        return False
+    prepare(name)
+    with _lock:
+        return key in _events
+
+
+def wait_for(name, seconds):
+    """Wait up to `seconds` for this muse's research to finish."""
+    with _lock:
+        ev = _events.get(norm(name))
+    if ev:
+        ev.wait(seconds)
+
+
 def muse_data(name, wait=25):
     """{'text': style file, 'outfits': real outfits, 'pieces': other real pieces}, waiting up to `wait` seconds if
     it's being built right now."""

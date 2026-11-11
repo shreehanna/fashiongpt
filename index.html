@@ -560,6 +560,10 @@ body {
 .sn-item strong { display: block; color: var(--fg); font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 2px; }
 
 /* Actions row */
+/* while a look is still being written: nothing to save, rate or share yet */
+#screen-results.is-writing-look .results-actions, #screen-results.is-writing-look .rating-row,
+#screen-results.is-writing-look #recent-looks-section { display: none; }
+.results-ella-note:empty { display: none; }
 .results-actions {
   display: flex; gap: 10px; flex-wrap: wrap; justify-content: center;
   margin-bottom: 32px;
@@ -2995,7 +2999,20 @@ async function requestLook(url, body, onStart) {
     if (ctrl.signal.aborted) { const a = new Error('replaced by a newer look'); a.aborted = true; return a; }
     return e;
   };
-  let res;
+  let res, live = null, status = '';
+  // The loading screen is up for 2 seconds at most: then the results page, which says what Ella is doing and
+  // fills in as she writes.
+  const begin = () => {
+    if (live || ctrl.signal.aborted) return;
+    if (onStart) onStart();
+    live = { anchors: [], items: [], cards: [] };
+    beginResults({ look_name: 'Ella is styling…', ella_note: '', items: live.items });
+    document.getElementById('screen-results').classList.add('is-writing-look');
+    setLiveWriting(status || 'Ella is choosing the pieces…');
+    goTo('screen-results');
+    switchTab('outfit');
+  };
+  const early = setTimeout(begin, 2000);
   try {
     res = await fetch(url, {
       method: 'POST',
@@ -3003,15 +3020,16 @@ async function requestLook(url, body, onStart) {
       body: JSON.stringify(Object.assign({}, body, { stream: true })),
       signal: ctrl.signal
     });
-  } catch (e) { throw replaced(e); }
-  if (!res.ok) throw await lookError(res);
+  } catch (e) { clearTimeout(early); throw replaced(e); }
+  if (!res.ok) { clearTimeout(early); throw await lookError(res); }
   if (!(res.headers.get('content-type') || '').includes('ndjson')) {   // an older server: all at once
+    clearTimeout(early);
     const data = await res.json();
-    if (onStart) onStart();
+    if (onStart && !live) onStart();
     renderResults(data);
     return data;
   }
-  let look = null, live = null, buf = '';
+  let look = null, buf = '';
   // Follow Ella down the page as she starts each piece, unless the person has scrolled themselves.
   let userScrolled = false;
   const stopFollowing = () => { userScrolled = true; };
@@ -3020,18 +3038,10 @@ async function requestLook(url, body, onStart) {
     if (userScrolled || ctrl.signal.aborted) return;
     try { el.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch (e) {}
   };
-  const begin = () => {
-    if (live) return;
-    if (onStart) onStart();
-    live = { anchors: [], items: [], cards: [] };
-    beginResults({ look_name: 'Ella is styling…', ella_note: '', items: live.items });
-    setLiveWriting('Ella is choosing the pieces…');
-    goTo('screen-results');
-    switchTab('outfit');
-  };
   const handle = ev => {
     if (ctrl.signal.aborted) return;           // a newer look owns the screen now
-    if (ev.t === 'name') { begin(); state.currentOutfit.look_name = ev.look_name; typeInto('result-title', ev.look_name, ev.done); }
+    if (ev.t === 'status') { status = ev.text || ''; if (live && !live.cards.length) setLiveWriting(status); }
+    else if (ev.t === 'name') { begin(); state.currentOutfit.look_name = ev.look_name; typeInto('result-title', ev.look_name, ev.done); }
     else if (ev.t === 'note') { begin(); state.currentOutfit.ella_note = ev.ella_note; typeInto('ella-note', ev.ella_note, ev.done); }
     else if (ev.t === 'item_part' || ev.t === 'item') {
       begin();
@@ -3078,6 +3088,8 @@ async function requestLook(url, body, onStart) {
   } catch (e) {
     throw replaced(e);
   } finally {
+    clearTimeout(early);       // finished or failed before 2 seconds: never jump to the results page afterwards
+    document.getElementById('screen-results').classList.remove('is-writing-look');
     ['wheel', 'touchmove', 'keydown'].forEach(t => window.removeEventListener(t, stopFollowing));
     if (liveLookCtrl === ctrl) {
       setLiveWriting(''); liveLookCtrl = null;

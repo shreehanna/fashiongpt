@@ -365,7 +365,7 @@ def variation(gender, occasion, era='', muse=''):
             f"unless the muse or occasion clearly calls for something else.")
 
 
-from muses import muse_data, muse_identity, outfit_line, piece_line, used   # who the muse is, what they wear, what they've worn
+from muses import building, muse_data, muse_identity, outfit_line, piece_line, used, wait_for   # who the muse is, what they wear, what they've worn
 
 # Every look: a product only gets a name if it really exists under it (a made-up name sends the shopper nowhere)
 HONEST_NAMES = ("\n\nPRODUCT NAMES: give a piece its exact product name only when you're sure that product really exists "
@@ -558,7 +558,7 @@ def _who_and_rules(data):
     real_muse = bool(muse) and muse.strip().lower() not in ('no specific muse', 'none', '')
     if real_muse and not character and str(data.get('mode') or '') not in COPY_MODES:
         try:
-            info = muse_data(muse, wait=40)       # usually ready: it started when they picked the muse
+            info = muse_data(muse, wait=0 if data.get('_muse_waited') else 40)   # usually ready: it started at the muse screen
         except Exception as e:
             print('[looks] muse research skipped:', e)
     data['_muse_bank'] = info.get('outfits') or []
@@ -649,9 +649,33 @@ def create_unique(client, data, prompt, max_tokens, model=None, kind='look', ima
     raise RepeatError(GAVE_UP)
 
 
+MUSE_WAIT = 40      # seconds a live look waits for the muse's research (saying what's happening meanwhile)
+
+
+def _muse_wait(data):
+    """While the muse's real outfits are still being read up on: a line every few seconds saying so (the app shows
+    it on the results page, so nobody stares at the loading screen)."""
+    muse = str(data.get('celebrity') or data.get('celeb') or '').strip()
+    if (not muse or muse.lower() in ('no specific muse', 'none') or isinstance(data.get('_character'), dict)
+            or str(data.get('mode') or '') in COPY_MODES or not building(muse)):
+        return
+    m = muse[:60]
+    lines = [f'Reading what {m} has really worn…', f'Finding the real {m} outfit that suits this…',
+             'Getting the exact pieces and their names…', f'Still reading up on {m}: the first time takes a little longer…']
+    start, k = time.time(), 0
+    while time.time() - start < MUSE_WAIT and building(muse):
+        yield lines[min(k, len(lines) - 1)]
+        k += 1
+        wait_for(muse, 4)
+    data['_muse_waited'] = True
+
+
 def stream_unique(client, data, prompt, max_tokens, model=None, kind='look', image_url=None):
-    """The same guarantee, written live: yields ('delta', text) while Ella writes, ('restart', clash) if
-    what she wrote repeats an earlier look (she then starts over), and finally ('done', full_text)."""
+    """The same guarantee, written live: yields ('status', text) while the muse is still being read up on,
+    ('delta', text) while Ella writes, ('restart', clash) if what she wrote repeats an earlier look (she then
+    starts over), and finally ('done', full_text)."""
+    for line in _muse_wait(data):
+        yield 'status', line
     gender, occasion, muse, who, extra = _who_and_rules(data)
     planned = plan_looks(data)
     model = model or STYLE_MODEL

@@ -212,6 +212,8 @@ def look_response(data, prompt, max_tokens, image_url=None):
                 if kind == 'delta':
                     for ev in live.feed(payload):
                         yield _line(ev)
+                elif kind == 'status':           # still reading up on the muse: say so
+                    yield _line({'t': 'status', 'text': str(payload)[:140]})
                 elif kind == 'restart':          # that was a repeat: Ella starts over
                     live = LiveLook()
                     yield _line({'t': 'restart'})
