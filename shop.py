@@ -17,7 +17,7 @@ import os
 import re
 import time
 from collections import OrderedDict, deque
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, wait
 import threading
 from urllib.parse import quote_plus, urlparse
 
@@ -93,7 +93,10 @@ _cache = OrderedDict()
 _cache_lock = __import__('threading').Lock()   # the server handles several requests at once
 _domains = {}
 _hits = {}
-PER_IP = 40              # look lookups per 10 minutes per visitor
+PER_IP = 200             # pieces searched per 10 minutes per visitor (pieces already found don't count)
+MAX_SEARCHES = 7         # searches one piece may use (each is a Serper credit and a second or two)
+RETRY_LEFT = 4           # a second wording on the same site only while this many searches are left for the other steps
+DEADLINE = 25            # seconds /api/shop-links waits; slower pieces keep searching and are collected on the next call
 MAX_ITEMS = 12
 
 
@@ -109,8 +112,17 @@ _seen = threading.local()      # every result one product lookup saw (exact prod
 
 
 def search_web(query, gl='in', num=10):
-    """[(title, link)] for a Google web search in country `gl`, via Serper or the old Custom Search API."""
-    out = _search_web(query, gl, num)
+    """[(title, link)] for a Google web search in country `gl`, via Serper or the old Custom Search API.
+    Inside one product lookup: at most MAX_SEARCHES searches, and a search that fails is remembered (so the app
+    can say "couldn't check" instead of "not sold online")."""
+    budget = getattr(_seen, 'budget', None)
+    if budget is not None:
+        if budget <= 0:
+            return []
+        _seen.budget = budget - 1
+    out, worked = _search_web(query, gl, num)
+    if not worked and getattr(_seen, 'results', None) is not None:
+        _seen.failed = True
     seen = getattr(_seen, 'results', None)
     if seen is not None:
         seen.extend(out)
@@ -118,6 +130,7 @@ def search_web(query, gl='in', num=10):
 
 
 def _search_web(query, gl='in', num=10):
+    """(results, whether the search itself worked)."""
     p = _provider()
     try:
         if p == 'serper':
@@ -125,15 +138,21 @@ def _search_web(query, gl='in', num=10):
                          headers={'X-API-KEY': os.environ['SERPER_API_KEY'], 'Content-Type': 'application/json'},
                          json={'q': query, 'gl': gl, 'num': num})
             search_result(r)
-            return [(o.get('title', ''), o.get('link', '')) for o in (r.json().get('organic') or [])]
+            if r.status_code != 200:        # credits used up, a refused key, Serper down
+                print(f'[shop] search refused: {r.status_code} {r.text[:120]!r}')
+                return [], False
+            return [(o.get('title', ''), o.get('link', '')) for o in (r.json().get('organic') or [])], True
         if p == 'google':
             r = req.get('https://www.googleapis.com/customsearch/v1', timeout=8, params={
                 'key': os.environ['GOOGLE_API_KEY'], 'cx': os.environ['GOOGLE_CX'],
                 'q': query, 'num': min(num, 10), 'gl': gl})
-            return [(o.get('title', ''), o.get('link', '')) for o in (r.json().get('items') or [])]
+            if r.status_code != 200:
+                return [], False
+            return [(o.get('title', ''), o.get('link', '')) for o in (r.json().get('items') or [])], True
     except (req.RequestException, ValueError) as e:
         print('[shop] search failed:', e)
-    return []
+        return [], False
+    return [], False
 
 
 def find_image(query, gl='in'):
@@ -499,7 +518,8 @@ def _site_search(domain, pattern, name, brand, gl, retry=True, trace=None):
     ranked = _rank(search_web(q, gl), name, brand, domain, pattern, gl, step)
     if trace is not None:
         trace.append({'query': q, 'results': step})
-    if not ranked and (retry or _descriptive(name)):   # the brand's own wording often differs: try the key words only
+    left = getattr(_seen, 'budget', None)
+    if not ranked and (retry or _descriptive(name)) and (left is None or left > RETRY_LEFT):   # try the key words only
         words = key_words(name) if _descriptive(name) else ''
         words = words or ' '.join(re.findall(r'[A-Za-z0-9]+', name)[:4])
         if words and words.lower() != name.lower():
@@ -603,12 +623,22 @@ def google_link(brand, name):
     return 'https://www.google.com/search?q=' + quote_plus(f'{brand} {name}'.strip())
 
 
+def _cache_key(brand, name, country, store, closest):
+    return f'{(country or "IN").lower()}|{(brand or "").strip().lower()}|{(name or "").strip().lower()}|{(store or "").lower()}|{int(bool(closest))}'
+
+
+def _cached(key):
+    with _cache_lock:
+        hit = _cache.get(key)
+    return bool(hit) and time.time() - hit[0] < CACHE_SECONDS
+
+
 def resolve(brand, name, country='IN', store=None, trace=None, closest=True):
-    _seen.results = []
+    _seen.results, _seen.budget, _seen.failed = [], MAX_SEARCHES, False
     try:
         return _resolve(brand, name, country, store, trace, closest)
     finally:
-        _seen.results = None
+        _seen.results = _seen.budget = None
 
 
 def _resolve(brand, name, country='IN', store=None, trace=None, closest=True):
@@ -621,7 +651,7 @@ def _resolve(brand, name, country='IN', store=None, trace=None, closest=True):
     if not name:
         return None
     gl = (country or 'IN').lower()
-    key = f'{gl}|{brand.lower()}|{name.lower()}|{(store or "").lower()}|{int(bool(closest))}'
+    key = _cache_key(brand, name, country, store, closest)
     with _cache_lock:
         hit = _cache.get(key)
         if hit and trace is None and time.time() - hit[0] < CACHE_SECONDS:
@@ -671,8 +701,12 @@ def _resolve(brand, name, country='IN', store=None, trace=None, closest=True):
         exact = _harvest(getattr(_seen, 'results', None) or [], brand, name) if closest else ''
         found = {'url': None, 'name': exact, 'google': google_link(brand, exact or name),
                  'site': site, 'site_url': f'https://{"www." if site and site.count(".") == 1 else ""}{site}' if site else None}
+        if getattr(_seen, 'failed', False) and not exact:
+            found['unavailable'] = True     # the shops couldn't be searched: not "not sold online", and not cached
         if trace is not None:
-            trace.append({'no_product_page': True, 'exact_name': exact})
+            trace.append({'no_product_page': True, 'exact_name': exact, 'search_failed': bool(getattr(_seen, 'failed', False))})
+    if found.get('unavailable'):    # try the shops again next time
+        return found
     with _cache_lock:
         _cache[key] = (time.time(), found)
         _cache.move_to_end(key)
@@ -681,15 +715,38 @@ def _resolve(brand, name, country='IN', store=None, trace=None, closest=True):
     return found
 
 
-def _allowed(ip):
+def _allowed(ip, n=1):
+    """n more searches for this visitor within PER_IP per 10 minutes?"""
     now = time.time()
     q = _hits.setdefault(ip, deque())
     while q and now - q[0] > 600:
         q.popleft()
-    if len(q) >= PER_IP:
+    if len(q) + n > PER_IP:
         return False
-    q.append(now)
+    q.extend([now] * n)
     return True
+
+
+_runner = ThreadPoolExecutor(max_workers=12)     # product lookups outlive the request that started them
+_inflight = {}
+_inflight_lock = threading.RLock()
+
+
+def _lookup(key, args):
+    """The running (or new) lookup for one piece: asking twice never searches twice."""
+    with _inflight_lock:
+        f = _inflight.get(key)
+        if f is None:
+            f = _runner.submit(lambda: resolve(*args[:4], closest=args[4]))
+            _inflight[key] = f
+            f.add_done_callback(lambda _f: _forget(key, _f))
+        return f
+
+
+def _forget(key, f):
+    with _inflight_lock:
+        if _inflight.get(key) is f:
+            del _inflight[key]
 
 
 def country_code(body):
@@ -706,12 +763,28 @@ def shop_links():
     if not items or not _provider():
         return jsonify({'links': [None] * len(items)})
     ip = (request.headers.get('X-Forwarded-For') or request.remote_addr or '').split(',')[0].strip()
-    if not owner_request() and not _allowed(ip):
-        return jsonify({'links': [None] * len(items), 'error': 'slow down'}), 429
     cc = country_code(body)
-    with ThreadPoolExecutor(max_workers=min(6, len(items))) as pool:
-        links = list(pool.map(lambda it: resolve(str(it.get('brand', ''))[:80], str(it.get('name', ''))[:160], cc,
-                                                 str(it.get('store', ''))[:80], closest=not it.get('worn')), items))
+    args = [(str(it.get('brand', ''))[:80], str(it.get('name', ''))[:160], cc, str(it.get('store', ''))[:80],
+             not it.get('worn')) for it in items]
+    keys = [_cache_key(*a) for a in args]
+    with _inflight_lock:
+        new = sum(1 for k in set(keys) if k not in _inflight and not _cached(k))
+    if new and not owner_request() and not _allowed(ip, new):
+        return jsonify({'links': [{'unavailable': True, 'google': google_link(a[0], a[1])} for a in args],
+                        'error': 'slow down'}), 429
+    # Answer within DEADLINE: a piece still searching comes back as {'pending': True} and keeps going here,
+    # so the app's next call collects it (from the cache, or by waiting on the same search).
+    jobs = [_lookup(k, a) for k, a in zip(keys, args)]
+    wait(jobs, timeout=DEADLINE)
+    links = []
+    for f, a in zip(jobs, args):
+        if not f.done():
+            links.append({'pending': True})
+        elif f.exception():
+            print('[shop] lookup failed:', repr(f.exception()))
+            links.append({'unavailable': True, 'google': google_link(a[0], a[1])})
+        else:
+            links.append(f.result())
     return jsonify({'links': links})
 
 

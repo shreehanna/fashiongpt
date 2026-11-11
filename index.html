@@ -3227,8 +3227,9 @@ function showShopMatch(a, item) {
     a.href = item.shop_google || ('https://www.google.com/search?q=' + encodeURIComponent(q));
     a.textContent = '🔎 Search on Google';
     a.classList.add('is-search');
-    say(exact ? `No shop page to open right now. Search the exact piece on Google: “${q}”.`
-              : `This exact piece isn't sold online right now. Search it on Google: “${q}”.`, true);
+    if (item.shop_unchecked) say(`Couldn't check the shops just now, so this searches Google for “${q}”. Ella tries again next time you open this look.`, true);
+    else say(exact ? `No shop page to open right now. Search the exact piece on Google: “${q}”.`
+                   : `Ella couldn't find this piece in any shop. Search it on Google: “${q}”.`, true);
   }
 }
 function showShopPhoto(anchor, url) {
@@ -3249,68 +3250,81 @@ function holdShopLink(a) {
   a.classList.add('is-finding');
   a.textContent = 'Finding the exact item…';
 }
-const SHOP_V = 3;   // bump when the product search gets better, so old "no direct link" pieces are tried again
+const SHOP_V = 4;   // bump when the product search gets better, so old "no direct link" pieces are tried again
 async function findShopLinks(items, anchors) {
   const need = [];
   items.forEach((it, i) => {
-    // a piece that found no link before the search got better (SHOP_V) is looked up again
+    // a piece that found no link before the search got better (SHOP_V) is looked up again; so is one the shops
+    // couldn't be searched for last time (shop_unchecked: it never gets a shop_v)
     if (it.shop_url || ((it.shop_site || it.shop_google) && it.shop_v === SHOP_V)) { showShopMatch(anchors[i], it); if (it.shop_image) showShopPhoto(anchors[i], it.shop_image); }
     else need.push(i);
   });
   if (!need.length) return;
   // until the lookup answers, the button isn't a link, so nobody lands on a generic search page by accident
   need.forEach(i => holdShopLink(anchors[i]));
-  const done = new Set();
-  try {
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 45000);
-    const res = await fetch('/api/shop-links', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ currency: state.currency, items: need.map(i => ({ brand: items[i].brand, name: items[i].name, store: items[i].store || '', worn: items[i].worn ? 1 : 0 })) }),
-      signal: ctrl.signal
+  // The server answers within ~25s; a piece still being searched comes back "pending" and is asked for again.
+  let todo = need.slice();
+  for (let round = 0; round < 5 && todo.length; round++) {
+    if (round) await new Promise(r => setTimeout(r, 5000));
+    let data = null;
+    try {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 45000);
+      const res = await fetch('/api/shop-links', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ currency: state.currency, items: todo.map(i => ({ brand: items[i].brand, name: items[i].name, store: items[i].store || '', worn: items[i].worn ? 1 : 0 })) }),
+        signal: ctrl.signal
+      });
+      clearTimeout(timer);
+      data = await res.json().catch(() => null);   // even a "slow down" answer says what to do with each piece
+    } catch (e) { data = null; }
+    if (!data || !Array.isArray(data.links)) break;   // couldn't reach the server: every piece left is "unchecked"
+    const pending = [];
+    todo.forEach((i, k) => {
+      const link = data.links[k];
+      if (link && link.pending) pending.push(i);
+      else applyShopLink(items[i], anchors[i], link);
     });
-    clearTimeout(timer);
-    const data = await res.json();
-    (data.links || []).forEach((link, k) => {
-      const i = need[k];
-      if (link && link.url && /^https:\/\//.test(link.url)) {
-        items[i].shop_url = link.url;          // saved looks keep the exact link
-        items[i].shop_title = link.title || '';
-        items[i].shop_closest = !!link.closest;
-        // Ella describes a piece in plain words unless she knows its exact name; the product found is a real one, so
-        // the card takes its real name. Not for the muse's own pieces: those keep what she actually wore.
-        const real = realProductName(link.title);
-        if (real && !items[i].worn) {
-          items[i].real_name = real;
-          const card = anchors[i] && anchors[i].closest('.outfit-item');
-          if (card) fillResultItem(card, items[i]);
-        }
-        items[i].shop_sold_out = !!link.sold_out;
-        if (/^https:\/\//.test(link.image || '')) { items[i].shop_image = link.image; showShopPhoto(anchors[i], link.image); }
-        showShopMatch(anchors[i], items[i]); done.add(i);
-      } else if (link && (link.google || link.site)) {
-        items[i].shop_site = /^[a-z0-9.-]+$/i.test(link.site || '') ? link.site : '';
-        items[i].shop_google = /^https:\/\/www\.google\.com\/search\?/.test(link.google || '') ? link.google : '';
-        items[i].shop_v = SHOP_V;
-        // the real product's exact name, found even though no shop page could be opened: the card takes it
-        const exact = realProductName(link.name);
-        if (exact && !items[i].worn) {
-          items[i].shop_exact = exact;
-          items[i].real_name = exact;
-          const card = anchors[i] && anchors[i].closest('.outfit-item');
-          if (card) fillResultItem(card, items[i]);
-        }
-        items[i].shop_site_url = /^https:\/\//.test(link.site_url || '') ? link.site_url : '';
-        showShopMatch(anchors[i], items[i]); done.add(i);
-      }
-    });
-    saveStateToStorage();   // saved and recent looks share these item objects
-  } catch (e) {
-    /* fall through: honest search links below */
-  } finally {
-    need.forEach(i => { if (!done.has(i)) showShopMatch(anchors[i], items[i]); });
+    todo = pending;
   }
+  todo.forEach(i => applyShopLink(items[i], anchors[i], null));
+  saveStateToStorage();   // saved and recent looks share these item objects
+}
+
+// What the product search found for one piece: the product page itself, else a Google search for its exact name,
+// else (the shops couldn't be searched just now) a Google search that says so and is tried again next time.
+function applyShopLink(item, anchor, link) {
+  const rename = name => {
+    // Ella's name for a piece can be a description or a guess; the product found is real, so the card takes its
+    // real name. Never for the muse's own pieces: those keep what she actually wore.
+    if (!name || item.worn) return;
+    item.real_name = name;
+    const card = anchor && anchor.closest('.outfit-item');
+    if (card) fillResultItem(card, item);
+  };
+  if (link && link.url && /^https:\/\//.test(link.url)) {
+    item.shop_url = link.url;          // saved looks keep the exact link
+    item.shop_title = link.title || '';
+    item.shop_closest = !!link.closest;
+    item.shop_unchecked = false;
+    rename(realProductName(link.title));
+    item.shop_sold_out = !!link.sold_out;
+    if (/^https:\/\//.test(link.image || '')) { item.shop_image = link.image; showShopPhoto(anchor, link.image); }
+  } else if (link && (link.google || link.site) && !link.unavailable) {
+    item.shop_site = /^[a-z0-9.-]+$/i.test(link.site || '') ? link.site : '';
+    item.shop_google = /^https:\/\/www\.google\.com\/search\?/.test(link.google || '') ? link.google : '';
+    item.shop_site_url = /^https:\/\//.test(link.site_url || '') ? link.site_url : '';
+    item.shop_v = SHOP_V;
+    item.shop_unchecked = false;
+    const exact = realProductName(link.name);   // the real product's exact name, seen even though no page could be opened
+    if (exact && !item.worn) item.shop_exact = exact;
+    rename(item.shop_exact);
+  } else {
+    item.shop_unchecked = true;     // no shop_v: looked up again next time this look is opened
+    if (link && /^https:\/\/www\.google\.com\/search\?/.test(link.google || '')) item.shop_google = link.google;
+  }
+  showShopMatch(anchor, item);
 }
 
 // "LINEN BLEND SHIRT" -> "Linen Blend Shirt"; nothing for a title that isn't a product's name

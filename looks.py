@@ -369,8 +369,10 @@ from muses import muse_data, muse_identity, outfit_line, piece_line, used   # wh
 
 # Every look: a product only gets a name if it really exists under it (a made-up name sends the shopper nowhere)
 HONEST_NAMES = ("\n\nPRODUCT NAMES: give a piece its exact product name only when you're sure that product really exists "
-                "under that name at that brand. Otherwise name it in plain words (\"Silver satin halter gown\"). Never make "
-                "up product, line or collection names: a made-up name can't be found in any store.")
+                "under that name at that brand, and is sold now. Otherwise name it in plain words (\"Flat leather sandals in "
+                "tan\"). Never make up product, line or collection names, and never borrow one from another brand (Maysale is "
+                "Manolo Blahnik's, not Jimmy Choo's; Waverly isn't a Zimmermann gown): a wrong name can't be found in any "
+                "store. The app looks every piece up in real shops and shows the real product's name.")
 
 
 def real_pieces(m, pieces):
