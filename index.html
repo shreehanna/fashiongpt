@@ -1391,6 +1391,47 @@ body::after {
 .can-go { white-space: nowrap; padding: 8px 12px; font-size: 10.5px; }
 .can-foot { margin-top: 16px; font-size: 12px; color: var(--fg3); text-align: center; }
 @media (max-width: 420px) { .can-item { grid-template-columns: 28px 1fr; } .can-go { grid-column: 2; justify-self: start; margin-top: 4px; } }
+/* Ella's tour: she flies around the front page, lights up each feature and says what it does (out loud) */
+.tour { position: fixed; inset: 0; z-index: 300; display: none; }
+.tour.active { display: block; }
+.tour-catch { position: absolute; inset: 0; cursor: pointer; }
+.tour-hole {
+  position: fixed; border-radius: 18px; pointer-events: auto; cursor: pointer; background: transparent; border: 0; padding: 0;
+  box-shadow: 0 0 0 200vmax rgba(14,10,7,0.72), 0 0 0 2px rgba(217,189,134,0.95), 0 0 28px 6px rgba(217,189,134,0.45);
+  transition: left .5s cubic-bezier(.3,.7,.2,1), top .5s cubic-bezier(.3,.7,.2,1), width .5s cubic-bezier(.3,.7,.2,1), height .5s cubic-bezier(.3,.7,.2,1);
+  animation: tourGlow 1.8s ease-in-out infinite;
+}
+.tour-hole.is-none { box-shadow: 0 0 0 200vmax rgba(14,10,7,0.72); animation: none; pointer-events: none; }
+@keyframes tourGlow { 50% { box-shadow: 0 0 0 200vmax rgba(14,10,7,0.72), 0 0 0 2px rgba(217,189,134,1), 0 0 40px 12px rgba(217,189,134,0.6); } }
+.tour-card {
+  position: fixed; width: min(380px, calc(100vw - 24px)); display: flex; align-items: flex-end; gap: 6px; pointer-events: none;
+  transition: left .6s cubic-bezier(.3,.7,.2,1), top .6s cubic-bezier(.3,.7,.2,1), bottom .6s cubic-bezier(.3,.7,.2,1);
+}
+.tour-guide { flex: none; width: 74px; display: flex; justify-content: center; filter: drop-shadow(0 0 16px rgba(217,189,134,0.55)); }
+.tour-guide .rig { height: 112px; }
+.tour-bubble {
+  pointer-events: auto; position: relative; flex: 1; min-width: 0; background: #FBF6EC; color: #1E1712; border-radius: 18px 18px 18px 6px;
+  padding: 14px 14px 10px; box-shadow: 0 18px 50px rgba(0,0,0,0.45); text-shadow: none;
+}
+.tour-text { font: 400 18px/1.35 var(--serif); min-height: 2.7em; }
+.tour-text .caret { display: inline-block; width: 2px; height: 1em; background: #9A7433; vertical-align: -2px; margin-left: 2px; animation: livePulse 0.9s steps(2) infinite; }
+.tour-try { margin-top: 10px; }
+.tour-try .btn-primary, .tour-try .btn-secondary { padding: 9px 14px; font-size: 11px; }
+.tour-try .row { gap: 8px; }
+.tour-ctrl { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 10px; }
+.tour-dots { display: flex; gap: 3px; flex-wrap: nowrap; min-width: 0; overflow: hidden; }
+.tour-dots i { flex: none; width: 5px; height: 5px; border-radius: 50%; background: rgba(30,23,18,0.18); }
+.tour-dots i.on { background: #9A7433; width: 12px; border-radius: 3px; }
+.tour-btns { display: flex; gap: 0; flex: none; }
+.tour-btns button { background: none; border: 0; font: 500 12.5px var(--sans); color: #5E4517; padding: 6px 7px; border-radius: 8px; cursor: pointer; white-space: nowrap; }
+.tour-btns #tour-next { font-weight: 700; }
+.tour-btns button:hover { background: rgba(154,116,51,0.12); }
+.tour-invite { display: flex; justify-content: center; align-items: center; gap: 4px; margin-top: 10px; animation: tourPop .5s cubic-bezier(.3,1.4,.5,1) both; }
+.tour-invite[hidden] { display: none; }
+.tour-invite .ti-go { background: #FBF6EC; color: #1E1712; border: 1px solid rgba(154,116,51,0.5); border-radius: 999px; padding: 8px 14px; font: 500 13px var(--sans); cursor: pointer; box-shadow: 0 8px 24px rgba(0,0,0,0.2); text-shadow: none; }
+.tour-invite .ti-x { background: none; border: 0; color: var(--fg2); font-size: 15px; cursor: pointer; padding: 6px; }
+@keyframes tourPop { from { opacity: 0; transform: translateY(6px) scale(.96); } }
+@media (prefers-reduced-motion: reduce) { .tour-hole, .tour-card { transition: none; animation: none; } .tour-invite { animation: none; } }
 /* Shop any outfit: where each piece of a screenshot or a post is from */
 .own-modes { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin: 4px 0 12px; }
 .id-head { width: 100%; display: flex; gap: 14px; align-items: center; }
@@ -1656,7 +1697,11 @@ body::after {
       <button class="btn-primary" id="start-btn" onclick="goToQuiz()">Let Ella style me ✦</button>
       <button class="btn-secondary" onclick="goToGallery()">My Looks</button>
     </div>
-    <button class="can-btn" id="can-btn" type="button" onclick="openAbilities()" aria-haspopup="dialog">✨ What can Ella do?</button>
+    <button class="can-btn" id="can-btn" type="button" onclick="openTour()" aria-haspopup="dialog">✨ What can Ella do?</button>
+    <div class="tour-invite" id="tour-invite" hidden>
+      <button class="ti-go" type="button" onclick="openTour()">👋 New here? Let me show you around · 30 sec</button>
+      <button class="ti-x" type="button" onclick="dismissTourInvite()" aria-label="Not now">✕</button>
+    </div>
     <div class="looks-meter" id="looks-meter" aria-live="polite"></div>
     <div class="today-row" id="today-row">
       <button class="today-tile" type="button" onclick="openDaily()"><span class="tt-ico" aria-hidden="true">☀️</span><span class="tt-name">Today's fit</span><span class="tt-sub" id="tt-daily">From your own closet</span></button>
@@ -2205,6 +2250,30 @@ body::after {
   </div>
   <p class="edit-intro" id="edit-intro"></p>
   <div id="edit-looks" style="width:100%"></div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     ELLA'S TOUR: she flies around the front page and introduces each feature
+═══════════════════════════════════════════════════════════════ -->
+<div class="tour" id="tour" role="dialog" aria-modal="true" aria-label="A quick tour of E&amp;L">
+  <div class="tour-catch" id="tour-catch"></div>
+  <button class="tour-hole is-none" id="tour-hole" type="button" aria-label="Try this"></button>
+  <div class="tour-card" id="tour-card">
+    <div class="tour-guide" id="tour-guide" aria-hidden="true"></div>
+    <div class="tour-bubble">
+      <div class="tour-text" id="tour-text" aria-live="polite"></div>
+      <div class="tour-try" id="tour-try"></div>
+      <div class="tour-ctrl">
+        <div class="tour-dots" id="tour-dots" aria-hidden="true"></div>
+        <div class="tour-btns">
+          <button type="button" id="tour-sound" onclick="tourSound()" aria-label="Sound">🔊</button>
+          <button type="button" onclick="tourStep(-1)" aria-label="Back">‹</button>
+          <button type="button" id="tour-next" onclick="tourStep(1)">Next ›</button>
+          <button type="button" onclick="endTour()">Skip</button>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════════
@@ -6383,6 +6452,171 @@ function reelLook(it) {
     .then(() => { countLook(); goTo('screen-results'); switchTab('outfit'); spawnSparkles(); })
     .catch(err => { if (err.aborted) return; openReels(); if (!err.limit) alert(err.friendly || 'Ella hit a snag. Try again!'); });
 }
+
+// ══ Ella's tour ═══════════════════════════════════════════════════════════════
+// The stylist flies around the front page: each stop lights up a real button, she says one short line out loud
+// (the lines are fixed, so each voice clip is paid for once and then kept), and moves on by herself.
+// Tap the lit-up button to jump straight in, tap anywhere else for the next stop. Stops are in page order.
+const TOUR = [
+  { line: who => `Hey, I'm ${who}! Let me show you around. Thirty seconds, promise.` },
+  { el: '#start-btn', line: () => 'Tap here, tell me the plan, and I’ll style you. Even like your favourite celeb.' },
+  { el: '#screen-landing .landing-actions [onclick="goToGallery()"]', line: () => 'Everything you save lives here. Share a look and let your friends vote.' },
+  { el: '#today-row [onclick="openDaily()"]', line: () => 'Every morning, an outfit from your own closet. Weather included.' },
+  { el: '#today-row [onclick="openEdit()"]', line: () => 'Five fresh looks from me, every single Sunday.' },
+  { el: '#today-row [onclick="openWedding()"]', line: () => 'Wedding season? Every function sorted, and no repeats.' },
+  { el: '#today-row [onclick="openReels()"]', line: () => 'Scroll try-on videos, then tap Get this look.' },
+  { el: '#today-row [onclick="openOwnLook(\'find\')"]', line: () => 'Saw a fit on Insta? Send me the link and I’ll find every piece.' },
+  { el: '#today-row [onclick="openChallenge()"]', line: () => 'A new theme every week. Show me what you’ve got.' },
+  { el: '#screen-landing [onclick="openVoiceMode()"]', line: () => 'Too lazy to type? Same. Just talk to me.' },
+  { el: () => (document.querySelector('#screen-landing [onclick="openPlanDay()"]') || {}).parentElement, line: () => 'More tricks down here: your closet, dupes and brands that suit you.' },
+  { line: () => 'That’s me! So, what are we wearing today?', end: true },
+];
+const tour = { i: 0, timer: null, typer: null, on: false, sound: lsGet('el_tour_sound', true) };
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const calm = () => window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+function tourTarget(st) {
+  const el = typeof st.el === 'function' ? st.el() : st.el ? document.querySelector(st.el) : null;
+  return el && el.offsetParent !== null && el.getBoundingClientRect().width > 0 ? el : null;
+}
+function openTour() {
+  dismissTourInvite();
+  closeAbilities();
+  goTo('screen-landing');
+  const who = stylistName();
+  const guide = document.getElementById('tour-guide');
+  const pick = activeStylist === 'leon' ? 'leon' : 'ella';
+  guide.innerHTML = `<div class="rig rig-${pick} is-hovering" role="img" aria-label="${who}"><div class="wing wing-l"></div><div class="wing wing-r"></div><div class="rig-body"></div></div>`;
+  document.getElementById('tour-sound').textContent = tour.sound ? '🔊' : '🔇';
+  document.getElementById('tour').classList.add('active');
+  tour.on = true;
+  track('tour_open');
+  tourGo(0, 1);
+}
+function endTour(finished) {
+  if (!tour.on) return;
+  tour.on = false;
+  clearTimeout(tour.timer); clearInterval(tour.typer);
+  try { ellaAudio.pause(); } catch (e) {}
+  document.getElementById('tour').classList.remove('active');
+  lsSet('el_tour_seen', true);
+  if (finished) track('tour_done');
+}
+function tourStep(d) {
+  const next = tour.i + d;
+  if (next >= TOUR.length) return endTour(true);
+  if (next >= 0) tourGo(next, d);
+}
+function tourSound() {
+  tour.sound = !tour.sound;
+  lsSet('el_tour_sound', tour.sound);
+  document.getElementById('tour-sound').textContent = tour.sound ? '🔊' : '🔇';
+  if (!tour.sound) { try { ellaAudio.pause(); } catch (e) {} }
+}
+async function tourGo(i, dir) {
+  // a stop whose button isn't on screen right now (hidden, not set up) is skipped
+  while (i > 0 && i < TOUR.length && TOUR[i].el && !tourTarget(TOUR[i])) i += dir;
+  if (i >= TOUR.length) return endTour(true);
+  i = Math.max(0, i);
+  tour.i = i;
+  clearTimeout(tour.timer); clearInterval(tour.typer);
+  try { ellaAudio.pause(); } catch (e) {}
+  const st = TOUR[i];
+  const el = tourTarget(st);
+  const guide = document.querySelector('#tour-guide .rig');
+  if (guide) { guide.classList.add('is-flying'); guide.classList.remove('is-hovering'); }   // wings go fast while she flies
+  if (el) { el.scrollIntoView({ block: 'center', behavior: calm() ? 'auto' : 'smooth' }); await sleep(calm() ? 0 : 420); }
+  if (!tour.on || tour.i !== i) return;
+  tourPlace(el);
+  setTimeout(() => { if (guide) { guide.classList.remove('is-flying'); guide.classList.add('is-hovering'); } }, calm() ? 0 : 650);
+  // the bubble: what she says, a way straight in, and where we are
+  const text = st.line(stylistName());
+  const tryBox = document.getElementById('tour-try');
+  tryBox.innerHTML = '';
+  if (st.end) {
+    const row = document.createElement('div'); row.className = 'row';
+    const go = document.createElement('button'); go.type = 'button'; go.className = 'btn-primary'; go.textContent = `Style me, ${stylistName()} ✦`;
+    go.onclick = () => { endTour(true); goToQuiz(); };
+    const all = document.createElement('button'); all.type = 'button'; all.className = 'btn-secondary'; all.textContent = 'See everything';
+    all.onclick = () => { endTour(true); openAbilities(); };
+    row.append(go, all); tryBox.appendChild(row);
+  } else if (el) {
+    const go = document.createElement('button'); go.type = 'button'; go.className = 'btn-secondary'; go.textContent = 'Try it →';
+    go.onclick = () => tourTry(el);
+    tryBox.appendChild(go);
+  }
+  document.getElementById('tour-next').textContent = st.end ? 'Done' : 'Next ›';
+  document.getElementById('tour-dots').innerHTML = TOUR.map((_, k) => `<i class="${k === i ? 'on' : ''}"></i>`).join('');
+  tourType(text);
+  // moves on by herself: when she's finished speaking, or after time to read it
+  const readMs = Math.max(2800, text.length * 62);
+  tour.timer = setTimeout(() => tourStep(1), readMs + 1400);
+  if (tour.sound && !st.end) {
+    stylistSpeak(text).then(() => {
+      if (!tour.on || tour.i !== i || ellaAudio.paused) return;
+      clearTimeout(tour.timer);
+      ellaAudio.addEventListener('ended', () => { if (tour.on && tour.i === i) tour.timer = setTimeout(() => tourStep(1), 800); }, { once: true });
+    });
+  } else if (tour.sound) {
+    stylistSpeak(text);
+  }
+  if (st.end) clearTimeout(tour.timer);   // the last stop waits for them
+}
+function tourType(text) {
+  const box = document.getElementById('tour-text');
+  box.setAttribute('aria-label', text);
+  if (calm()) { box.textContent = text; return; }
+  let n = 0;
+  box.innerHTML = '<span></span><i class="caret"></i>';
+  const span = box.firstChild;
+  tour.typer = setInterval(() => {
+    n += 2;
+    span.textContent = text.slice(0, n);
+    if (n >= text.length) { clearInterval(tour.typer); const c = box.querySelector('.caret'); if (c) c.remove(); }
+  }, 28);
+}
+function tourPlace(el) {
+  const hole = document.getElementById('tour-hole');
+  const card = document.getElementById('tour-card');
+  const W = window.innerWidth, H = window.innerHeight;
+  const cw = Math.min(380, W - 24);
+  if (!el) {
+    hole.classList.add('is-none');
+    Object.assign(hole.style, { left: W / 2 + 'px', top: H / 2 + 'px', width: '0px', height: '0px' });
+    Object.assign(card.style, { left: Math.round((W - cw) / 2) + 'px', top: 'auto', bottom: Math.round(H * 0.32) + 'px' });
+    return;
+  }
+  const r = el.getBoundingClientRect(), pad = 8;
+  hole.classList.remove('is-none');
+  Object.assign(hole.style, { left: r.left - pad + 'px', top: r.top - pad + 'px', width: r.width + pad * 2 + 'px', height: r.height + pad * 2 + 'px' });
+  const left = Math.round(Math.min(Math.max(12, r.left + r.width / 2 - cw / 2), W - cw - 12));
+  if (r.top + r.height / 2 > H / 2) Object.assign(card.style, { left: left + 'px', top: 'auto', bottom: Math.round(H - r.top + pad + 12) + 'px' });   // above it
+  else Object.assign(card.style, { left: left + 'px', bottom: 'auto', top: Math.round(r.bottom + pad + 12) + 'px' });                     // below it
+}
+function tourTry(el) {
+  track('tour_try');
+  endTour(true);
+  el.click();
+}
+document.getElementById('tour-hole').addEventListener('click', () => { const el = tourTarget(TOUR[tour.i]); if (el) tourTry(el); });
+document.getElementById('tour-catch').addEventListener('click', () => tourStep(1));
+window.addEventListener('resize', () => { if (tour.on) tourPlace(tourTarget(TOUR[tour.i])); });
+window.addEventListener('scroll', () => { if (tour.on) tourPlace(tourTarget(TOUR[tour.i])); }, { passive: true });
+document.addEventListener('keydown', e => {
+  if (!tour.on) return;
+  if (e.key === 'Escape') endTour();
+  else if (e.key === 'ArrowRight') tourStep(1);
+  else if (e.key === 'ArrowLeft') tourStep(-1);
+});
+// First visit: a small invite under the button, once Ella has made her entrance
+function dismissTourInvite() {
+  const inv = document.getElementById('tour-invite');
+  if (inv && !inv.hidden) { inv.hidden = true; lsSet('el_tour_seen', true); }
+}
+setTimeout(() => {
+  const landing = document.getElementById('screen-landing');
+  if (!lsGet('el_tour_seen', false) && landing && landing.classList.contains('active') && !tour.on)
+    document.getElementById('tour-invite').hidden = false;
+}, 3500);
 
 // "What can Ella do?": every feature in one sheet, grouped, each with a button straight into it.
 // Add a feature here and it shows up on the sheet.
