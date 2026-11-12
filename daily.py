@@ -546,6 +546,15 @@ def reel_for_look(reel):
     stored). Nothing the browser sends is fetched as a URL."""
     if not isinstance(reel, dict):
         return None
+    if reel.get('kind') == 'link':      # an Instagram, TikTok or Pinterest post: its own picture, fetched from that app
+        from identify import IMAGE_HOSTS, _get, _jpeg, picture_from_link
+        url, caption, where = picture_from_link(str(reel.get('link') or '')[:500])
+        raw = _get(url, IMAGE_HOSTS, limit=8_000_000, accept='image/*')[0] if url else None
+        jpeg = _jpeg(raw, 1280)[1] if raw else None
+        if not jpeg:
+            return None
+        return {'image': {'type': 'base64', 'media_type': 'image/jpeg', 'data': base64.b64encode(jpeg).decode()},
+                'title': '', 'channel': where, 'caption': _clip(caption, 300), 'shot': True}
     if reel.get('kind') == 'shot':
         img = str(reel.get('image') or '')
         m = SHOT.match(img)

@@ -1368,6 +1368,28 @@ body::after {
 /* Reels fill exactly one screen (below the notch, above the home bar): the feed scrolls, the page never does */
 #screen-reels.active { height: 100vh; height: 100dvh; min-height: 0; overflow: hidden;
   padding-block: calc(env(safe-area-inset-top, 0px) + 10px) calc(env(safe-area-inset-bottom, 0px) + 10px); }
+/* Shop any outfit: where each piece of a screenshot or a post is from */
+.own-modes { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin: 4px 0 12px; }
+.id-head { width: 100%; display: flex; gap: 14px; align-items: center; }
+.id-pic { width: 84px; height: 112px; object-fit: cover; border-radius: 12px; border: 1px solid var(--border); flex: none; }
+.id-list { width: 100%; display: grid; gap: 14px; margin-top: 16px; }
+#id-actions { margin-top: 24px; }
+.id-piece { display: grid; grid-template-columns: 104px 1fr; gap: 14px; align-items: start; }
+.id-piece .id-crop { width: 104px; height: 136px; object-fit: cover; border-radius: 12px; background: rgba(0,0,0,0.06); }
+.id-piece .id-info { min-width: 0; display: grid; gap: 4px; }
+.id-cat { font: 500 10.5px var(--sans); letter-spacing: 0.14em; text-transform: uppercase; color: var(--fg3); }
+.id-name { font: 400 20px/1.25 var(--serif); color: var(--fg); overflow-wrap: anywhere; }
+.id-brand { font-size: 13px; color: var(--fg2); }
+.id-price { font: 600 14px var(--sans); color: var(--gold-ink); }
+.id-match { justify-self: start; font: 600 10.5px var(--sans); letter-spacing: 0.12em; text-transform: uppercase; padding: 4px 10px; border-radius: 99px; border: 1px solid var(--border); color: var(--fg2); }
+.id-match.is-exact { color: var(--on-gold, #1A130D); background: var(--gold-fill, #D9BD86); border-color: transparent; }
+.id-why { font-size: 12px; color: var(--fg3); }
+.id-shop { margin-top: 6px; justify-self: start; }
+.id-found { display: flex; gap: 8px; align-items: center; font-size: 12px; color: var(--fg3); }
+.id-found img { width: 34px; height: 44px; object-fit: cover; border-radius: 6px; }
+.id-skel { height: 136px; border-radius: 12px; background: linear-gradient(90deg, rgba(0,0,0,0.05), rgba(0,0,0,0.1), rgba(0,0,0,0.05)); background-size: 200% 100%; animation: idShimmer 1.4s linear infinite; }
+@keyframes idShimmer { to { background-position: -200% 0; } }
+@media (max-width: 420px) { .id-piece { grid-template-columns: 84px 1fr; } .id-piece .id-crop { width: 84px; height: 112px; } }
 .reels-top { width: 100%; max-width: 420px; flex: none; display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
 .reels-top .nav-back { margin-bottom: 0; }
 .reels-top .btn-small { padding: 8px 12px; }
@@ -1617,6 +1639,7 @@ body::after {
       <button class="today-tile" type="button" onclick="openEdit()"><span class="tt-ico" aria-hidden="true">✦</span><span class="tt-name">Sunday Edit</span><span class="tt-sub">5 looks a week</span><i class="tt-dot" id="tt-edit-dot" hidden></i></button>
       <button class="today-tile" type="button" onclick="openWedding()"><span class="tt-ico" aria-hidden="true">💍</span><span class="tt-name">Weddings</span><span class="tt-sub" id="tt-wed">Every function</span></button>
       <button class="today-tile" type="button" onclick="openReels()"><span class="tt-ico" aria-hidden="true">▶</span><span class="tt-name">Reels</span><span class="tt-sub">Get the look</span></button>
+      <button class="today-tile" type="button" onclick="openOwnLook('find')"><span class="tt-ico" aria-hidden="true">🔎</span><span class="tt-name">Shop any outfit</span><span class="tt-sub">Insta link or screenshot</span></button>
       <button class="today-tile" type="button" onclick="openChallenge()"><span class="tt-ico" aria-hidden="true">🏆</span><span class="tt-name">Challenge</span><span class="tt-sub" id="tt-ch">This week's theme</span></button>
     </div>
     <div class="install-banner" id="install-banner" hidden></div>
@@ -1628,7 +1651,7 @@ body::after {
       <button class="btn-secondary" style="font-size:11px;padding:9px 16px" onclick="openClosetShortcut()">🧺 My Closet</button>
       <button class="btn-secondary" style="font-size:11px;padding:9px 16px" onclick="openPlanDay()">📅 Plan My Day</button>
       <button class="btn-secondary" style="font-size:11px;padding:9px 16px" onclick="openDupeLook()">🪞 Dupe a Look</button>
-      <button class="btn-secondary" style="font-size:11px;padding:9px 16px" onclick="openOwnLook()">📸 Screenshot → Look</button>
+      <button class="btn-secondary" style="font-size:11px;padding:9px 16px" onclick="openOwnLook('find')">🔎 Shop any outfit</button>
       <button class="btn-secondary" style="font-size:11px;padding:9px 16px" onclick="openCompleteLook()">✨ Complete an Outfit</button>
       <button class="btn-secondary" style="font-size:11px;padding:9px 16px" onclick="openBrandMatch()">💎 Brand Match</button>
     </div>
@@ -2161,12 +2184,40 @@ body::after {
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════════
+     SHOP ANY OUTFIT: where each piece of a screenshot or a post is from
+═══════════════════════════════════════════════════════════════ -->
+<div id="screen-identify" class="screen narrow">
+  <button class="nav-back" onclick="goToLanding()">← Home</button>
+  <div class="section-head">
+    <div class="ella-badge"><span class="ella-dot"></span> Shop any outfit</div>
+    <h2 class="section-title">Where it's <em>from</em></h2>
+  </div>
+  <div class="id-head">
+    <img class="id-pic" id="id-pic" alt="The outfit you sent" hidden>
+    <p class="muted" id="id-source"></p>
+  </div>
+  <p class="live-writing" id="id-status" role="status" hidden></p>
+  <div class="panel" id="id-error" hidden>
+    <p id="id-error-msg"></p>
+    <label class="btn-primary photo-add" id="id-error-upload" style="margin-top:12px" hidden>📸 Upload a screenshot
+      <input type="file" accept="image/*" onchange="ownShotPicked(event, 'find')">
+    </label>
+  </div>
+  <div class="id-list" id="id-list"></div>
+  <div class="results-actions" id="id-actions" hidden>
+    <button class="btn-primary" type="button" onclick="rebuildIdentified()">✦ Ella rebuilds it for my budget</button>
+    <button class="btn-secondary" type="button" onclick="openOwnLook('find')">🔎 Another outfit</button>
+  </div>
+  <p class="tiny" id="id-note" style="text-align:center;margin-top:14px" hidden>Matches come from Google Lens and real shops. “This exact piece” means Ella found it by its brand or in several shops; a closest match looks the same but might not be.</p>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
      REELS
 ═══════════════════════════════════════════════════════════════ -->
 <div id="screen-reels" class="screen">
   <div class="reels-top" style="max-width:420px">
     <button class="nav-back" onclick="leaveReels()">← Home</button>
-    <button class="btn-secondary btn-small" type="button" onclick="openOwnLook()">📸 Your own look</button>
+    <button class="btn-secondary btn-small" type="button" onclick="openOwnLook('find')">🔎 Shop any outfit</button>
   </div>
   <div class="reels-feed" id="reels-feed" aria-label="Fashion reels"></div>
 </div>
@@ -2437,20 +2488,24 @@ body::after {
 <div class="overlay" id="own-overlay" role="dialog" aria-modal="true" aria-labelledby="own-title">
   <div class="share-card">
     <div class="sc-header">
-      <div class="sc-title" id="own-title">Get this look ✦</div>
+      <div class="sc-title" id="own-title">Shop any outfit ✦</div>
       <button class="sc-close" onclick="closeOwnLook()" aria-label="Close">✕</button>
     </div>
-    <p class="muted">Saw a look on Instagram, TikTok or Pinterest? Screenshot it, and Ella rebuilds it with pieces you can buy.</p>
+    <div class="own-modes" role="group" aria-label="What should Ella do?">
+      <button class="chip-btn on" type="button" id="own-mode-find" onclick="setOwnMode('find')">🔎 Where's each piece from?</button>
+      <button class="chip-btn" type="button" id="own-mode-look" onclick="setOwnMode('look')">✦ Ella rebuilds it</button>
+    </div>
+    <p class="muted" id="own-intro"></p>
+    <form class="row" onsubmit="event.preventDefault(); ownLinkLook();" style="margin-top:12px">
+      <input class="quiz-input grow" id="own-link" inputmode="url" autocomplete="off" placeholder="Paste an Insta or TikTok link" aria-label="Instagram, TikTok, Pinterest or YouTube link">
+      <button class="btn-secondary btn-small" type="submit">Go</button>
+    </form>
+    <div class="divider-word" style="margin:18px 0">or</div>
     <label class="btn-primary photo-add own-upload">📸 Upload a screenshot
       <input type="file" accept="image/*" id="own-shot" onchange="ownShotPicked(event)">
     </label>
-    <div class="divider-word" style="margin:18px 0">or</div>
-    <form class="row" onsubmit="event.preventDefault(); ownLinkLook();">
-      <input class="quiz-input grow" id="own-link" inputmode="url" autocomplete="off" placeholder="Paste a YouTube or Shorts link" aria-label="YouTube link">
-      <button class="btn-secondary btn-small" type="submit">Go</button>
-    </form>
     <p class="rate-msg" id="own-msg" role="status"></p>
-    <p class="tiny" style="text-align:center">Your screenshot only goes to Ella to make your look. It isn't saved or shown to anyone. Uses one look.</p>
+    <p class="tiny" id="own-tiny" style="text-align:center"></p>
   </div>
 </div>
 
@@ -6272,47 +6327,163 @@ function loadInstagram(media) {
 }
 function reelLook(it) {
   if (!lookAllowed(() => reelLook(it))) return;
-  document.getElementById('gen-message').textContent = it.kind === 'shot' ? 'Ella is studying your screenshot…' : 'Ella is watching the reel…';
+  document.getElementById('gen-message').textContent = it.kind === 'shot' ? 'Ella is studying your screenshot…' : it.kind === 'link' ? 'Ella is studying the post…' : 'Ella is watching the reel…';
   goTo('screen-generating');
   document.querySelectorAll('#reels-feed iframe').forEach(f => { f.src = 'about:blank'; });
   reelsLoaded = false;
   track('reel_look');
   const shot = it.kind === 'shot';
   requestLook('/api/outfit', {
-    mode: 'reel', reel: shot ? { kind: 'shot', image: it.image } : { kind: it.kind, id: it.id, title: it.title || it.caption || '', channel: it.channel || '' },
+    mode: 'reel', reel: shot ? { kind: 'shot', image: it.image } : it.kind === 'link' ? { kind: 'link', link: it.link }
+      : { kind: it.kind, id: it.id, title: it.title || it.caption || '', channel: it.channel || '' },
     gender: state.gender || 'women', budget: state.budget, currency: state.currency,
     style_profile: buildQuizContext(), body_profile: state.quiz.styleSize || ''
-  }, () => { state.occasion = shot ? 'From your screenshot' : 'From a reel: ' + (it.title || it.caption || 'fashion reel').slice(0, 50); state.celeb = ''; state.era = ''; state.planContext = null; })
+  }, () => { state.occasion = shot ? 'From your screenshot' : it.kind === 'link' ? 'From a post you shared' : 'From a reel: ' + (it.title || it.caption || 'fashion reel').slice(0, 50); state.celeb = ''; state.era = ''; state.planContext = null; })
     .then(() => { countLook(); goTo('screen-results'); switchTab('outfit'); spawnSparkles(); })
     .catch(err => { if (err.aborted) return; openReels(); if (!err.limit) alert(err.friendly || 'Ella hit a snag. Try again!'); });
 }
 
-// Get this look from anywhere: a screenshot (sent only to Claude) or any YouTube link
-function openOwnLook() {
+// Shop any outfit: a link (Instagram, TikTok, Pinterest, YouTube) or a screenshot. Ella either finds where each
+// piece is from (Google Lens and real shops) or rebuilds the look with pieces for their budget.
+let ownMode = 'find', lastIdentify = null, idTimer = null;
+const OWN_TEXT = {
+  find: ['Saw an outfit on Instagram, TikTok or Pinterest? Paste the link or upload a screenshot, and Ella finds where each piece is from.',
+         'Your picture goes to Ella and to Google Lens to find the pieces. It isn’t saved or shown to anyone. Uses one look.'],
+  look: ['Paste the link or upload a screenshot, and Ella rebuilds the look with pieces you can buy, for your budget.',
+         'Your picture only goes to Ella to make your look. It isn’t saved or shown to anyone. Uses one look.']
+};
+function setOwnMode(mode) {
+  ownMode = mode === 'look' ? 'look' : 'find';
+  document.getElementById('own-mode-find').classList.toggle('on', ownMode === 'find');
+  document.getElementById('own-mode-look').classList.toggle('on', ownMode === 'look');
+  document.getElementById('own-intro').textContent = OWN_TEXT[ownMode][0];
+  document.getElementById('own-tiny').textContent = OWN_TEXT[ownMode][1];
+}
+function openOwnLook(mode) {
   document.getElementById('own-msg').textContent = '';
   document.getElementById('own-link').value = '';
+  setOwnMode(mode || 'find');
   document.getElementById('own-overlay').classList.add('active');
 }
 function closeOwnLook() { document.getElementById('own-overlay').classList.remove('active'); }
-async function ownShotPicked(event) {
+async function ownShotPicked(event, mode) {
+  if (mode) setOwnMode(mode);
   const f = (event.target.files || [])[0];
   event.target.value = '';
   if (!f) return;
   const msg = document.getElementById('own-msg');
   msg.textContent = 'Getting your screenshot ready…';
   let image;
-  try { image = await shrinkImage(f, 1024, 0.8); } catch (e) { msg.textContent = 'That file isn\u2019t a picture. Try a screenshot.'; return; }
+  // finding the pieces needs a sharper picture (each piece is cut out of it)
+  try { image = await shrinkImage(f, ownMode === 'find' ? 1600 : 1024, 0.85); } catch (e) { msg.textContent = 'That file isn’t a picture. Try a screenshot.'; return; }
   closeOwnLook();
-  reelLook({ kind: 'shot', image });
+  if (ownMode === 'find') identifyOutfit({ image });
+  else reelLook({ kind: 'shot', image });
 }
+const POST_LINK = /^https?:\/\/(?:[\w-]+\.)*(?:instagram\.com|tiktok\.com|pinterest\.[a-z.]+|pin\.it|youtube\.com|youtu\.be)\//i;
 function ownLinkLook() {
   const v = document.getElementById('own-link').value.trim();
   const msg = document.getElementById('own-msg');
+  if (!POST_LINK.test(v)) { msg.textContent = 'Paste an Instagram, TikTok, Pinterest or YouTube link, or upload a screenshot.'; return; }
+  closeOwnLook();
+  if (ownMode === 'find') { identifyOutfit({ link: v }); return; }
   const m = v.match(/(?:youtube\.com\/(?:shorts\/|watch\?(?:.*&)?v=|embed\/|live\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/);
-  if (m) { closeOwnLook(); reelLook({ kind: 'yt', id: m[1], title: '', channel: '' }); return; }
-  msg.textContent = /instagram|tiktok|pinterest|pin\.it/i.test(v)
-    ? 'That app doesn\u2019t let Ella see the video. Take a screenshot of the outfit and upload it instead.'
-    : 'Paste a YouTube or Shorts link, or upload a screenshot.';
+  if (m) reelLook({ kind: 'yt', id: m[1], title: '', channel: '' });
+  else reelLook({ kind: 'link', link: v });
+}
+
+// The "Where it's from" screen: up straight away (no loading page), the pieces fill in when Ella has found them.
+async function identifyOutfit(input) {
+  if (!lookAllowed(() => identifyOutfit(input))) return;
+  lastIdentify = input;
+  const pic = document.getElementById('id-pic');
+  pic.hidden = !input.image;
+  if (input.image) pic.src = input.image;
+  const host = input.link ? (input.link.match(/instagram|tiktok|pinterest|pin\.it|youtu/i) || [''])[0].toLowerCase() : '';
+  const from = { instagram: 'Instagram', tiktok: 'TikTok', pinterest: 'Pinterest', 'pin.it': 'Pinterest', youtu: 'YouTube' }[host];
+  document.getElementById('id-source').textContent = input.image ? 'Your screenshot' : `Your ${from || ''} link`.replace('  ', ' ');
+  document.getElementById('id-error').hidden = true;
+  document.getElementById('id-actions').hidden = true;
+  document.getElementById('id-note').hidden = true;
+  document.getElementById('id-list').innerHTML = '<div class="id-skel"></div><div class="id-skel"></div><div class="id-skel"></div>';
+  const status = document.getElementById('id-status');
+  const lines = [input.link ? `Getting the picture from ${from || 'that post'}…` : 'Ella is looking at the outfit…', 'Finding each piece…',
+                 'Searching shops with Google Lens…', 'Checking the shops still have them…', 'Almost there…'];
+  let k = 0;
+  status.hidden = false; status.textContent = lines[0];
+  clearInterval(idTimer);
+  idTimer = setInterval(() => { k = Math.min(k + 1, lines.length - 1); status.textContent = lines[k]; }, 5000);
+  goTo('screen-identify');
+  try {
+    const res = await fetch('/api/identify', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(Object.assign({ currency: state.currency }, input))
+    });
+    if (res.status === 402) { await lookError(res); return showIdError('You’ve used today’s looks.'); }
+    let data = {};
+    try { data = await res.json(); } catch (e) {}
+    if (!res.ok) return showIdError(data.error || 'Ella hit a snag. Try again!', data.need_screenshot);
+    countLook();
+    renderIdentified(data);
+  } catch (e) {
+    showIdError('Couldn’t reach Ella. Check your connection and try again.');
+  } finally {
+    clearInterval(idTimer);
+    status.hidden = true;
+  }
+}
+function showIdError(text, needShot) {
+  document.getElementById('id-list').innerHTML = '';
+  document.getElementById('id-error-msg').textContent = text;
+  document.getElementById('id-error-upload').hidden = !needShot;
+  document.getElementById('id-error').hidden = false;
+}
+function renderIdentified(data) {
+  if (data.source) document.getElementById('id-source').textContent = data.source === 'Screenshot' ? 'Your screenshot' : `From ${data.source}` + (data.caption ? `: “${data.caption.slice(0, 120)}${data.caption.length > 120 ? '…' : ''}”` : '');
+  const list = document.getElementById('id-list');
+  list.innerHTML = '';
+  (data.pieces || []).forEach(p => {
+    const card = document.createElement('div');
+    card.className = 'panel id-piece';
+    const crop = document.createElement('img');
+    crop.className = 'id-crop'; crop.alt = '';
+    if (/^data:image\/jpeg;base64,/.test(p.crop || '')) crop.src = p.crop; else crop.style.visibility = 'hidden';
+    const info = document.createElement('div');
+    info.className = 'id-info';
+    const add = (cls, text, tag) => { if (!text) return null; const el = document.createElement(tag || 'div'); el.className = cls; el.textContent = text; info.appendChild(el); return el; };
+    add('id-cat', p.category);
+    add('id-name', realProductName(p.name) || p.description);
+    add('id-brand', [p.brand, p.url && p.source && p.source !== p.brand ? `at ${p.source}` : ''].filter(Boolean).join(' '));
+    add('id-price', p.price);
+    const label = p.match === 'exact' ? '✦ This exact piece' : p.match === 'similar' ? 'Closest match' : 'Not in a shop we could find';
+    const pill = add('id-match', label + (p.sold_out ? ' · sold out right now' : ''));
+    if (p.match === 'exact') pill.classList.add('is-exact');
+    if (p.why_brand && p.brand) add('id-why', `Why ${p.brand}: ${p.why_brand}`);
+    if (p.url && /^https:\/\//.test(p.image || '')) {
+      const f = document.createElement('div'); f.className = 'id-found';
+      const im = document.createElement('img'); im.alt = ''; im.referrerPolicy = 'no-referrer'; im.src = p.image;
+      im.onerror = () => f.remove();
+      f.append(im, document.createTextNode('What the shop shows'));
+      info.appendChild(f);
+    }
+    const a = document.createElement('a');
+    a.target = '_blank'; a.rel = 'noopener';
+    if (p.url && /^https:\/\//.test(p.url)) { a.href = p.url; a.className = 'btn-primary btn-small id-shop'; a.textContent = `🛒 Shop on ${p.source || 'the shop'}`; }
+    else { a.href = /^https:\/\/www\.google\.com\/search\?/.test(p.google || '') ? p.google : 'https://www.google.com/search?q=' + encodeURIComponent(p.description); a.className = 'btn-secondary btn-small id-shop'; a.textContent = '🔎 Search on Google'; }
+    info.appendChild(a);
+    card.append(crop, info);
+    list.appendChild(card);
+  });
+  document.getElementById('id-actions').hidden = false;
+  document.getElementById('id-note').hidden = false;
+}
+function rebuildIdentified() {
+  if (!lastIdentify) return;
+  if (lastIdentify.image) reelLook({ kind: 'shot', image: lastIdentify.image });
+  else {
+    const m = lastIdentify.link.match(/(?:youtube\.com\/(?:shorts\/|watch\?(?:.*&)?v=|embed\/|live\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/);
+    reelLook(m ? { kind: 'yt', id: m[1], title: '', channel: '' } : { kind: 'link', link: lastIdentify.link });
+  }
 }
 document.getElementById('own-overlay').addEventListener('click', e => { if (e.target.id === 'own-overlay') closeOwnLook(); });
 

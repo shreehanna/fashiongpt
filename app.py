@@ -320,7 +320,7 @@ def get_outfit():
     if mode == 'reel':
         reel = daily.reel_for_look(data.get('reel'))
         if not reel:
-            return jsonify({'error': 'That link or picture can\'t be used. Try a YouTube link or a screenshot.'}), 400
+            return jsonify({'error': 'Ella couldn\'t get the picture from that link (the post may be private). Upload a screenshot instead.'}), 400
         by = f" by {reel['channel']}" if reel['channel'] else ''
         if reel.get('pick_shot'):
             data['occasion'] = f"the look from a reel: {reel['title'] or 'a fashion reel'}"[:120]
@@ -330,6 +330,8 @@ def get_outfit():
         elif reel.get('shot'):
             data['occasion'] = 'the look from a screenshot'
             seen = 'The user saw a look they love and took a screenshot of it (from Instagram, TikTok, Pinterest or similar).'
+            if reel.get('caption'):
+                seen += f" The post's caption (it may name or tag the brands): \"{reel['caption']}\""
             what = ("The picture is that screenshot: recreate the main outfit in it. If it shows several outfits, take the "
                     "most striking one. Ignore any text, usernames, captions or app buttons. If there is no outfit in it, "
                     "build a look from the style, colours and mood the picture suggests.")
@@ -986,6 +988,9 @@ app.register_blueprint(daily.bp)    # /api/daily-fit, /api/edit, /api/reels, /ap
 app.register_blueprint(push_bp)     # /manifest.webmanifest, /sw.js, icons, /api/push/*, /api/cron/tick
 muses.init(client, STYLE_MODEL)
 app.register_blueprint(muses.bp)    # /api/muse/prepare, /api/owner/muse
+import identify
+identify.init(client, STYLE_MODEL)
+app.register_blueprint(identify.bp)  # /api/identify: where each piece of a screenshot or post is from
 
 
 if __name__ == '__main__':
