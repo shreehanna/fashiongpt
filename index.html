@@ -1368,6 +1368,29 @@ body::after {
 /* Reels fill exactly one screen (below the notch, above the home bar): the feed scrolls, the page never does */
 #screen-reels.active { height: 100vh; height: 100dvh; min-height: 0; overflow: hidden;
   padding-block: calc(env(safe-area-inset-top, 0px) + 10px) calc(env(safe-area-inset-bottom, 0px) + 10px); }
+/* "What can Ella do?": the front-page button and the sheet listing everything, each with a way in */
+.can-btn {
+  display: inline-flex; align-items: center; gap: 8px; margin: 14px auto 0; cursor: pointer;
+  font: 500 12px var(--sans); letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink);
+  background: rgba(251,246,236,0.82); border: 1px solid var(--gold, #B08A4A); border-radius: 999px; padding: 10px 18px;
+  text-shadow: none; transition: background .2s, color .2s;
+}
+.can-btn:hover { background: var(--ink); color: #F7F0E3; }
+[data-theme="dark"] .can-btn { background: rgba(30,24,18,0.85); color: var(--fg); border-color: var(--gold-fill, #D9BD86); }
+[data-theme="dark"] .can-btn:hover { background: var(--gold-fill, #D9BD86); color: var(--on-gold, #1A130D); }
+.can-sheet { max-width: 520px; max-height: min(88vh, 900px); overflow-y: auto; overscroll-behavior: contain; padding: 24px 22px; }
+.can-intro { font-size: 14px; color: var(--fg2); margin: -8px 0 6px; }
+.can-group { margin-top: 18px; }
+.can-group h3 { font: 500 11px var(--sans); letter-spacing: 0.16em; text-transform: uppercase; color: var(--gold-ink); margin: 0 0 8px; }
+.can-item { display: grid; grid-template-columns: 34px 1fr auto; gap: 10px; align-items: center; padding: 11px 0; border-top: 1px solid var(--border); }
+.can-item:first-of-type { border-top: 0; }
+.can-ico { font-size: 20px; text-align: center; line-height: 1; }
+.can-text { min-width: 0; }
+.can-name { font: 400 17px/1.25 var(--serif); color: var(--fg); }
+.can-desc { font-size: 13px; color: var(--fg2); margin-top: 2px; }
+.can-go { white-space: nowrap; padding: 8px 12px; font-size: 10.5px; }
+.can-foot { margin-top: 16px; font-size: 12px; color: var(--fg3); text-align: center; }
+@media (max-width: 420px) { .can-item { grid-template-columns: 28px 1fr; } .can-go { grid-column: 2; justify-self: start; margin-top: 4px; } }
 /* Shop any outfit: where each piece of a screenshot or a post is from */
 .own-modes { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin: 4px 0 12px; }
 .id-head { width: 100%; display: flex; gap: 14px; align-items: center; }
@@ -1633,13 +1656,14 @@ body::after {
       <button class="btn-primary" id="start-btn" onclick="goToQuiz()">Let Ella style me ✦</button>
       <button class="btn-secondary" onclick="goToGallery()">My Looks</button>
     </div>
+    <button class="can-btn" id="can-btn" type="button" onclick="openAbilities()" aria-haspopup="dialog">✨ What can Ella do?</button>
     <div class="looks-meter" id="looks-meter" aria-live="polite"></div>
     <div class="today-row" id="today-row">
       <button class="today-tile" type="button" onclick="openDaily()"><span class="tt-ico" aria-hidden="true">☀️</span><span class="tt-name">Today's fit</span><span class="tt-sub" id="tt-daily">From your own closet</span></button>
       <button class="today-tile" type="button" onclick="openEdit()"><span class="tt-ico" aria-hidden="true">✦</span><span class="tt-name">Sunday Edit</span><span class="tt-sub">5 looks a week</span><i class="tt-dot" id="tt-edit-dot" hidden></i></button>
       <button class="today-tile" type="button" onclick="openWedding()"><span class="tt-ico" aria-hidden="true">💍</span><span class="tt-name">Weddings</span><span class="tt-sub" id="tt-wed">Every function</span></button>
       <button class="today-tile" type="button" onclick="openReels()"><span class="tt-ico" aria-hidden="true">▶</span><span class="tt-name">Reels</span><span class="tt-sub">Get the look</span></button>
-      <button class="today-tile" type="button" onclick="openOwnLook('find')"><span class="tt-ico" aria-hidden="true">🔎</span><span class="tt-name">Shop any outfit</span><span class="tt-sub">Insta link or screenshot</span></button>
+      <button class="today-tile" type="button" onclick="openOwnLook('find')"><span class="tt-ico" aria-hidden="true">🔎</span><span class="tt-name">Shop any outfit</span><span class="tt-sub">Insta link or photo</span></button>
       <button class="today-tile" type="button" onclick="openChallenge()"><span class="tt-ico" aria-hidden="true">🏆</span><span class="tt-name">Challenge</span><span class="tt-sub" id="tt-ch">This week's theme</span></button>
     </div>
     <div class="install-banner" id="install-banner" hidden></div>
@@ -2181,6 +2205,21 @@ body::after {
   </div>
   <p class="edit-intro" id="edit-intro"></p>
   <div id="edit-looks" style="width:100%"></div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     WHAT CAN ELLA DO? Everything, grouped, each with a way straight in
+═══════════════════════════════════════════════════════════════ -->
+<div class="overlay" id="can-overlay" role="dialog" aria-modal="true" aria-labelledby="can-title">
+  <div class="share-card can-sheet">
+    <div class="sc-header">
+      <div class="sc-title" id="can-title">What Ella can do ✦</div>
+      <button class="sc-close" type="button" onclick="closeAbilities()" aria-label="Close">✕</button>
+    </div>
+    <p class="can-intro" id="can-intro"></p>
+    <div id="can-list"></div>
+    <p class="can-foot">Every piece Ella picks links straight to its page in a real shop, in your country.</p>
+  </div>
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════════
@@ -4375,6 +4414,8 @@ function chooseStylist(name) {
   window._activeStylist = name;
   const who = name === 'ella' ? 'Ella' : 'Léon';
   document.getElementById('start-btn').textContent = `Let ${who} style me ✦`;
+  const can = document.getElementById('can-btn');
+  if (can) can.textContent = `✨ What can ${who} do?`;
   document.getElementById('final-style-btn').textContent = `✦ Let ${who} style me`;
   if (name === 'ella') launchEllaEntrance();
   else launchLeonEntrance();
@@ -6342,6 +6383,69 @@ function reelLook(it) {
     .then(() => { countLook(); goTo('screen-results'); switchTab('outfit'); spawnSparkles(); })
     .catch(err => { if (err.aborted) return; openReels(); if (!err.limit) alert(err.friendly || 'Ella hit a snag. Try again!'); });
 }
+
+// "What can Ella do?": every feature in one sheet, grouped, each with a button straight into it.
+// Add a feature here and it shows up on the sheet.
+const ABILITIES = [
+  ['Get dressed', [
+    ['✦', 'Style me', 'A full look for any occasion: real pieces you can buy, in your budget and your country.', 'Start', () => goToQuiz()],
+    ['👑', 'Dress like your muse', 'Pick a celebrity and Ella recreates outfits they\u2019ve actually worn, piece by piece.', 'Pick a muse', () => goToQuiz()],
+    ['☀️', 'Today\u2019s fit', 'Every morning, an outfit from your own closet for your plans and the weather.', 'Today', () => openDaily()],
+    ['🧺', 'Your closet', 'Snap your clothes. Ella names each piece and styles what you already own.', 'Open', () => openClosetShortcut()],
+    ['🧩', 'Complete an outfit', 'Tell her one piece you have, and she builds the rest of the look around it.', 'Try it', () => openCompleteLook()],
+    ['🎙', 'Just talk to her', 'Say what you need out loud, like you would to a friend.', 'Talk', () => openVoiceMode()],
+  ]],
+  ['Find & shop', [
+    ['🔎', 'Shop any outfit', 'Paste an Instagram link or a screenshot: she finds where each piece is from.', 'Try it', () => openOwnLook('find')],
+    ['📸', 'Get this look', 'Love a look you saw? She rebuilds it with pieces for your budget.', 'Try it', () => openOwnLook('look')],
+    ['🪞', 'Dupe a look', 'Describe a celeb or runway look and get an affordable version.', 'Try it', () => openDupeLook()],
+    ['▶', 'Reels', 'Try-on and outfit videos, each with a Get this look button.', 'Watch', () => openReels()],
+    ['💎', 'Brand match', 'The brands that suit your style, in your price range.', 'Match me', () => openBrandMatch()],
+  ]],
+  ['Plan ahead', [
+    ['💍', 'Weddings', 'A look for every function, none repeating, with reminders as the day gets close.', 'Plan', () => openWedding()],
+    ['📅', 'Plan my day', 'Three looks that carry you from morning to night.', 'Plan', () => openPlanDay()],
+    ['✨', 'The Sunday Edit', 'Five fresh looks from Ella every week.', 'See it', () => openEdit()],
+  ]],
+  ['Share & play', [
+    ['🗳', 'Rate my fit', 'Share any look and friends vote on it, no sign-up needed.', 'My looks', () => goToGallery()],
+    ['📌', 'Boards', 'Save looks into boards for a trip or an event, and share them.', 'My looks', () => goToGallery()],
+    ['🏆', 'Weekly challenge', 'A new style theme every week.', 'This week', () => openChallenge()],
+    ['📲', 'Get the app', 'E&L on your home screen, with your morning fit as a notification.', 'Get it', () => installApp()],
+  ]],
+];
+function openAbilities() {
+  const who = activeStylist === 'leon' ? 'Léon' : 'Ella';
+  document.getElementById('can-title').textContent = `What ${who} can do ✦`;
+  document.getElementById('can-intro').textContent = 'Two stylists, Ella and Léon, for women, men and couples. Tap anything to try it.';
+  const list = document.getElementById('can-list');
+  if (!list.childElementCount) {
+    ABILITIES.forEach(([group, items]) => {
+      const sec = document.createElement('section');
+      sec.className = 'can-group';
+      const h = document.createElement('h3'); h.textContent = group; sec.appendChild(h);
+      items.forEach(([ico, name, desc, go, open]) => {
+        const row = document.createElement('div'); row.className = 'can-item';
+        const i = document.createElement('div'); i.className = 'can-ico'; i.setAttribute('aria-hidden', 'true'); i.textContent = ico;
+        const t = document.createElement('div'); t.className = 'can-text';
+        const n = document.createElement('div'); n.className = 'can-name'; n.textContent = name;
+        const d = document.createElement('div'); d.className = 'can-desc'; d.textContent = desc;
+        t.append(n, d);
+        const b = document.createElement('button'); b.type = 'button'; b.className = 'btn-secondary can-go'; b.textContent = go + ' →';
+        b.setAttribute('aria-label', `${go}: ${name}`);
+        b.onclick = () => { closeAbilities(); track('can_try'); open(); };
+        row.append(i, t, b);
+        sec.appendChild(row);
+      });
+      list.appendChild(sec);
+    });
+  }
+  document.getElementById('can-overlay').classList.add('active');
+  track('can_open');
+}
+function closeAbilities() { document.getElementById('can-overlay').classList.remove('active'); }
+document.getElementById('can-overlay').addEventListener('click', e => { if (e.target.id === 'can-overlay') closeAbilities(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeAbilities(); });
 
 // Shop any outfit: a link (Instagram, TikTok, Pinterest, YouTube) or a screenshot. Ella either finds where each
 // piece is from (Google Lens and real shops) or rebuilds the look with pieces for their budget.
