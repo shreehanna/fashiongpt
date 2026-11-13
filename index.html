@@ -3476,7 +3476,7 @@ function holdShopLink(a) {
   a.classList.add('is-finding');
   a.textContent = 'Finding the exact item…';
 }
-const SHOP_V = 5;   // bump when the product search gets better, so every saved piece is looked up again once
+const SHOP_V = 6;   // bump when the product search gets better, so every saved piece is looked up again once
 async function findShopLinks(items, anchors) {
   const need = [];
   items.forEach((it, i) => {
@@ -3499,7 +3499,8 @@ async function findShopLinks(items, anchors) {
       const res = await fetch('/api/shop-links', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ currency: state.currency, items: todo.map(i => ({ brand: items[i].brand, name: items[i].name, store: items[i].store || '', worn: items[i].worn ? 1 : 0 })) }),
+        body: JSON.stringify({ currency: state.currency, items: todo.map(i => ({ brand: items[i].brand, name: items[i].name, category: items[i].category || '',
+                                                                               store: items[i].store || '', worn: items[i].worn ? 1 : 0 })) }),
         signal: ctrl.signal
       });
       clearTimeout(timer);

@@ -328,7 +328,9 @@ STOP = {'with', 'and', 'the', 'in', 'for', 'a', 'an', 'of', 'on', 'to', 'by', 'f
         'mens', 'buy', 'online', 'shop', 'new', 'india', 'html', 'www', 'com', 'product', 'products', 'p', 'item', 'detail'}
 SYN = {'trainer': 'sneaker', 'pant': 'trouser', 'tshirt': 'tee', 'kurti': 'kurta', 'sari': 'saree', 'jumper': 'sweater',
        'pullover': 'sweater', 'denim': 'jean', 'pump': 'heel', 'stiletto': 'heel', 'handbag': 'bag', 'eyewear': 'sunglass',
-       'bootie': 'boot', 'playsuit': 'jumpsuit', 'romper': 'jumpsuit', 'camisole': 'cami', 'parfum': 'perfume', 'fragrance': 'perfume'}
+       'bootie': 'boot', 'playsuit': 'jumpsuit', 'romper': 'jumpsuit', 'camisole': 'cami', 'parfum': 'perfume', 'fragrance': 'perfume',
+       'scarve': 'scarf', 'necktie': 'tie', 'bowtie': 'tie', 'mitten': 'glove', 'hairband': 'headband', 'stocking': 'tight',
+       'hosiery': 'tight', 'swimwear': 'swimsuit', 'monokini': 'swimsuit'}
 # words that say what kind of thing it is; a result must be the same kind
 TYPE_FAMILIES = [
     {'dress', 'gown'}, {'shirt', 'overshirt'}, {'top', 'blouse', 'tee', 'tank', 'cami', 'bodysuit', 'corset', 'bustier', 'crop'},
@@ -341,7 +343,9 @@ TYPE_FAMILIES = [
     {'bag', 'tote', 'clutch', 'pouch', 'crossbody', 'satchel', 'hobo', 'baguette', 'backpack'}, {'belt'}, {'watch'},
     {'earring', 'hoop', 'stud', 'jhumka'}, {'necklace', 'pendant', 'chain', 'choker'}, {'ring'},
     {'bracelet', 'bangle', 'cuff', 'kada'}, {'sunglass'}, {'cap', 'hat', 'beanie', 'beret'}, {'perfume', 'eau', 'edp', 'edt'},
-    {'polo'}, {'bra', 'bralette', 'lingerie'},
+    {'polo'}, {'bra', 'bralette', 'lingerie'}, {'glove'}, {'tie', 'cravat'}, {'cufflink'}, {'brooch'}, {'sock', 'tight'},
+    {'wallet', 'cardholder'}, {'headband', 'scrunchie', 'barrette', 'tiara'}, {'anklet'}, {'veil'}, {'cape', 'poncho'},
+    {'bikini', 'swimsuit'},
 ]
 # what a piece is made of: with what kind of piece it is, that's what a plain description gets searched by
 MATERIALS = {'linen', 'silk', 'satin', 'leather', 'suede', 'cashmere', 'wool', 'cotton', 'jean', 'tweed', 'velvet', 'lace',
@@ -381,6 +385,8 @@ def _stem(w):
         w = w[:-2]
     elif len(w) > 4 and w.endswith('ies'):
         w = w[:-3] + 'y'
+    elif len(w) > 5 and w.endswith(('ches', 'shes', 'xes')):     # watches, clutches, brooches, sashes, boxes
+        w = w[:-2]
     elif len(w) > 3 and w.endswith('s') and not w.endswith('ss'):
         w = w[:-1]
     return SYN.get(w, w)
@@ -444,6 +450,9 @@ def relevance(name, brand, title, link, multi_brand=False):
             return None                  # on Myntra/Farfetch, it must be the right brand
     if not want:
         return 0.5
+    plain = {w for w in want if w not in MATERIALS and not _COLOUR_WORDS.fullmatch(w)}
+    if not fams and plain and (want & got) and not (want & got & plain):
+        return None                      # only what it's made of or its colour in common (satin gloves, a satin belt)
     overlap = len(want & got) / len(want)
     if overlap >= 0.33 or (len(want) <= 2 and overlap > 0):
         return overlap
@@ -854,6 +863,15 @@ def dupe_words(name, description=''):
     return ' '.join(f'{colour.lower()} {words}'.split()) if have & _TYPE_WORDS else ''
 
 
+def with_kind(name, category):
+    """('The Jodie', 'Bag') -> 'The Jodie bag': a piece whose name doesn't say what kind of thing it is takes it from its
+    category, so the search can't open another kind of thing. Never "shoes" (a sandal and a sneaker are both shoes)."""
+    if _families(_tokens(name)):
+        return name
+    kinds = [w for w in re.findall(r'[A-Za-z]+', category or '') if _stem(_ascii(w)) in _TYPE_WORDS and _stem(_ascii(w)) not in ('shoe', 'set')]
+    return f'{name} {kinds[-1].lower()}' if kinds else name
+
+
 def _dupe_key(name, country, description=''):
     return f'dupe|{(country or "IN").lower()}|{dupe_words(name, description).lower()}'
 
@@ -963,8 +981,8 @@ def shop_links():
     ip = (request.headers.get('X-Forwarded-For') or request.remote_addr or '').split(',')[0].strip()
     cc = country_code(body)
     # a piece with "dupe": an affordable piece like it, from the high street (for one that can't be bought)
-    args = [(str(it.get('brand', ''))[:80], str(it.get('name', ''))[:160], cc, str(it.get('store', ''))[:80],
-             not it.get('worn'), bool(it.get('dupe')), str(it.get('description', ''))[:300]) for it in items]
+    args = [(str(it.get('brand', ''))[:80], with_kind(str(it.get('name', ''))[:160], str(it.get('category', ''))[:60]), cc,
+             str(it.get('store', ''))[:80], not it.get('worn'), bool(it.get('dupe')), str(it.get('description', ''))[:300]) for it in items]
     keys = [_dupe_key(a[1], cc, a[6]) if a[5] else _cache_key(*a[:5]) for a in args]
     with _inflight_lock:
         new = sum(1 for k in set(keys) if k not in _inflight and not _cached(k))
