@@ -3,10 +3,15 @@
   "Spotted: Charles and Alexandra just welcomed their first baby, and her outfit ate." Then what she wore, who made
   it, and the pieces to shop.
 
+Two kinds of story: a moment (a public figure at something everyone's talking about; if those reports don't say what
+they wore, Ella reads this week's coverage of their looks, or writes about the style they're in right now and says so)
+or a trend (a look several stars are wearing this week, like socks with heels).
+
 Rules it keeps (the prompt asks for them, and the code checks what it can):
 - Real news only: this week's reports (Serper news), and every story links to where it was reported.
-- Public figures at public moments. Fashion commentary only: never bodies, rumours, allegations, children beyond
-  the news itself, or private people.
+- Public figures at public moments, happy news only (no deaths, crimes, cheating, breakups, politics). A new romance
+  only as the reports tell it. Fashion commentary only: never bodies, allegations, children beyond the news itself;
+  private people (a non-famous partner) are never named.
 - A designer or an exact piece is kept only if the reports name it (checked against their text): never made up.
 - The owner publishes it (one tap in owner tools), unless they switched on publishing automatically on Sunday.
 - The photo at the top is the report's own cover photo (the one a shared link previews with), shown from the
@@ -43,13 +48,17 @@ _audio_lock = threading.Lock()
 
 NEWS_QUERIES = {
     'in': ['celebrity outfit this week', 'Bollywood star wore designer', 'celebrity look viral India', 'red carpet look India',
-           'celebrity wedding outfit India', 'cricketer wife outfit', 'airport look celebrity'],
+           'celebrity wedding outfit India', 'Bollywood fashion trend', 'Bollywood celebrity spotted', 'cricketer wife outfit',
+           'airport look celebrity'],
     'intl': ['celebrity outfit this week', 'celebrity wore designer', 'red carpet look', 'celebrity look goes viral',
-             'royal outfit', 'celebrity baby announcement outfit', 'F1 paddock style'],
+             'celebrity style trend', 'celebrities spotted this week', 'royal outfit', 'F1 paddock style'],
 }
-SKIP_TOPICS = re.compile(r'\b(died|death|dies|dead|funeral|passed away|killed|murder\w*|arrest\w*|charged|lawsuit|sued|'
-                         r'court case|in court|affair|cheat\w*|divorc\w*|breakup|split up|rehab|overdose|assault\w*|abuse\w*|'
-                         r'scandal\w*|leaked|cancer|hospitali[sz]ed|illness|surgery|election\w*|minister|politic\w*)\b', re.I)
+# Checked against the headline only: a happy story whose summary mentions an old breakup or a charity night for a
+# cause is still a happy story, and fashion slang ("she killed it", "a scandalous sheer dress") isn't news of a death
+# or a scandal. Ella's own rules catch the rest.
+SKIP_TOPICS = re.compile(r'\b(died|death|dies at|funeral|passed away|murder\w*|arrest\w*|charged with|lawsuit|sued|'
+                         r'court|affair|cheat\w*|divorc\w*|rehab|overdose|assault\w*|abuse\w*|scandal|scandals|leaked|'
+                         r'cancer|hospitali[sz]ed|illness|surgery|election\w*|minister|politic\w*)\b', re.I)
 
 
 def init(client, model):
@@ -107,32 +116,63 @@ def _serper(kind, body):
         return {}
 
 
-def news(region):
-    """This week's reports: [{'title', 'snippet', 'url', 'source', 'date'}], newest stories first, no repeats."""
+def _rows(res, seen, stats=None):
+    out = []
+    for row in res.get('news') or []:
+        url, title = str(row.get('link') or ''), ' '.join(str(row.get('title') or '').split())
+        if not url.startswith('https://') or not title or url in seen:
+            continue
+        if SKIP_TOPICS.search(title):
+            if stats is not None:
+                stats.setdefault('skipped', set()).add(url)
+            continue                        # tragedies, crimes, cheating, politics: never a fashion story
+        seen.add(url)
+        out.append({'title': title[:200], 'snippet': ' '.join(str(row.get('snippet') or '').split())[:300],
+                    'url': url[:400], 'source': str(row.get('source') or '')[:60], 'date': str(row.get('date') or '')[:40]})
+    return out
+
+
+def news(region, stats=None):
+    """This week's reports: [{'title', 'snippet', 'url', 'source', 'date'}], no repeats."""
     from concurrent.futures import ThreadPoolExecutor
     gl = 'in' if region == 'in' else 'us'
-    with ThreadPoolExecutor(max_workers=7) as pool:
+    with ThreadPoolExecutor(max_workers=9) as pool:
         results = list(pool.map(lambda q: _serper('news', {'q': q, 'gl': gl, 'tbs': 'qdr:w', 'num': 10}), NEWS_QUERIES[region]))
     out, seen = [], set()
     for res in results:
-        for row in res.get('news') or []:
-            url, title = str(row.get('link') or ''), ' '.join(str(row.get('title') or '').split())
-            if not url.startswith('https://') or not title or url in seen:
-                continue
-            if SKIP_TOPICS.search(f"{title} {row.get('snippet') or ''}"):
-                continue                    # tragedies, crimes, rumours, politics: never a fashion story
-            seen.add(url)
-            out.append({'title': title[:200], 'snippet': ' '.join(str(row.get('snippet') or '').split())[:300],
-                        'url': url[:400], 'source': str(row.get('source') or '')[:60], 'date': str(row.get('date') or '')[:40]})
-    return out[:60]
+        out += _rows(res, seen, stats)
+    return out[:70]
+
+
+def fashion_coverage(who, kind, region, have):
+    """This week's reports on what they've been wearing (or on the trend): the trending story is often about the moment,
+    and the outfit is covered somewhere else."""
+    words = [w for w in _plain(who).split() if len(w) > 2]
+    if not words:
+        return []
+    q = f'{who} outfit' if kind == 'moment' else f'{who} trend celebrities'
+    res = _serper('news', {'q': q, 'gl': 'in' if region == 'in' else 'us', 'tbs': 'qdr:w', 'num': 10})
+    key = words[-1] if kind == 'moment' else None      # a surname for a person; any of the words for a trend
+    out = []
+    for r in _rows(res, set(have)):
+        text = _plain(f"{r['title']} {r['snippet']}")
+        if (key and key in text.split()) or (not key and any(w in text.split() for w in words)):
+            out.append(r)
+    return out[:2]
 
 
 def _page(url):
-    """The text of a report (read through Serper when the site blocks servers)."""
+    """What a report says: the start of it (what happened), then every line about what someone wore. Read through
+    Serper when the site blocks servers. '' if it can't be read."""
     import muses
     lines = muses._direct(url) or muses._scraped(url) or []
-    keep = [l for l in lines if len(l) >= 40]
-    return '\n'.join(keep)[:7000]
+    head = '\n'.join(l for l in lines if len(l) >= 40)[:3500]
+    wore, seen = [], set(head.split('\n'))
+    for l in lines:
+        if len(l) >= 15 and l not in seen and muses._WORE.search(l):
+            seen.add(l)
+            wore.append(l)
+    return (head + '\n' + '\n'.join(wore)).strip()[:7000]
 
 
 _META = re.compile(r'<meta\b[^>]*>', re.I)
@@ -212,58 +252,80 @@ VOICE = ('Your voice: a Gossip Girl-style society columnist. Knowing, playful, a
 
 
 def pick(rows, region, avoid=()):
-    """The 3 best stories this week, best first: indices into rows."""
+    """The 5 best stories this week, best first: [(index into rows, 'moment' or 'trend', who or what)]."""
     listing = '\n'.join(f"[{i + 1}] {r['title']} ({r['source']}, {r['date']}): {r['snippet']}" for i, r in enumerate(rows))
     avoid_line = ('\nDon\'t pick these again (already used): ' + '; '.join(avoid[:8])) if avoid else ''
     out = _ask(
-        f"You are Ella from E&L, choosing this week's Sunday Edit: one trending moment told through what someone wore.\n"
+        f"You are Ella from E&L, choosing this week's Sunday Edit: one trending story told through what people wore.\n"
         f"Readers: {'India' if region == 'in' else 'the US, UK and UAE'}.\n\n"
-        "Pick the 3 best stories from this week's news below, best first. The best ones:\n"
-        "- are a moment people are actually talking about this week (a baby, an engagement, a wedding, a premiere, a "
-        "big win, an award, a viral appearance, fashion week), with a public figure at a public moment;\n"
-        "- have an outfit that genuinely ate, and the coverage says what it was (the designer or the pieces);\n"
-        "- are happy news. Never tragedies, illness, crimes, court cases, breakups, rumours, politics, or anyone under 18 "
-        "as the subject." + avoid_line + "\n\n"
-        'Return ONLY valid JSON: {"picks": [3, 7, 12]}. If nothing fits, {"picks": []}.\n\nThis week\'s news:\n' + listing, 300)
-    picks = []
+        "Pick the 5 best stories from this week's news below, best first. Two kinds work:\n"
+        "- a MOMENT: a public figure at a moment people are actually talking about this week (a baby, a new romance, an "
+        "engagement, a wedding, a premiere, a big win, an award, a viral appearance, fashion week). The headline doesn't "
+        "need to mention clothes: Ella finds out what they wore.\n"
+        "- a TREND: a look that several stars are wearing this week (like socks with heels), named in the coverage.\n"
+        "Happy news only. Never tragedies, illness, crimes, court cases, cheating, a breakup or divorce as the story, "
+        "politics, or anyone under 18 as the subject. A new romance is fine as the reports tell it." + avoid_line + "\n\n"
+        'Return ONLY valid JSON: {"picks": [{"n": 3, "kind": "moment", "who": "the public figure\'s full name"}, '
+        '{"n": 7, "kind": "trend", "who": "the trend in 2-4 words"}]}. If nothing fits, {"picks": []}.\n\n'
+        "This week's news:\n" + listing, 500)
+    picks, used = [], set()
     for p in out.get('picks') or []:
+        n, kind, who = (p.get('n'), p.get('kind'), p.get('who')) if isinstance(p, dict) else (p, 'moment', '')
         try:
-            i = int(p) - 1
+            i = int(n) - 1
         except (TypeError, ValueError):
             continue
-        if 0 <= i < len(rows) and i not in picks:
-            picks.append(i)
-    return picks[:3]
+        if 0 <= i < len(rows) and i not in used:
+            used.add(i)
+            picks.append((i, 'trend' if kind == 'trend' else 'moment', ' '.join(str(who or '').split())[:60]))
+    return picks[:5]
 
 
-def write(row, region, related):
-    """The story itself, from the chosen report (and others about the same moment). None if the reports don't say
-    what the outfit was."""
-    reports = [row] + [r for r in related if r['url'] != row['url']][:2]
-    texts = []
+def write(row, region, related, kind='moment', who='', notes=None):
+    """The story itself, from the chosen report, others about the same moment, and this week's coverage of what they
+    wore. None if no report says what anyone wore (and notes say why)."""
+    notes = [] if notes is None else notes
+    reports = [row] + [r for r in related if r['url'] != row['url']][:1]
+    if who:
+        reports += fashion_coverage(who, kind, region, [r['url'] for r in reports])
+    texts, unread = [], []
     for i, r in enumerate(reports):
-        body = _page(r['url']) or r['snippet']
-        texts.append(f"[{i + 1}] {r['title']} ({r['source']}, {r['date']})\n{body}")
+        body = _page(r['url'])
+        if not body:
+            unread.append(r['source'] or 'a report')
+        texts.append(f"[{i + 1}] {r['title']} ({r['source']}, {r['date']})\n{body or r['snippet']}")
     source = _plain(' '.join(texts))
+    star = ("- The outfit is the star: what they wore, why it works, who made it. Be specific. If the reports describe "
+            "what they wore at this moment, that's the look. If they don't, but they describe what this person has been "
+            "wearing this week or the style they're in right now (an era, signature pieces), write about that and say "
+            "so honestly (like \"No word on the game-night fit, but her cowgirl era? Thriving.\"). Never invent an outfit.\n"
+            if kind == 'moment' else
+            "- The trend is the star: what the look is, which stars wore it and how (only as the reports say), and how "
+            "to wear it. \"person\" is the stars, like \"Dua Lipa and Lily James\"; \"moment\" is the trend.\n")
     out = _ask(
-        "You are Ella from E&L, writing \"Ella's Sunday Edit\": one short story a week about the moment everyone's "
-        f"talking about, told through the outfit. {VOICE}\n\n"
+        "You are Ella from E&L, writing \"Ella's Sunday Edit\": one short story a week about what everyone's talking "
+        f"about, told through the outfit. {VOICE}\n\n"
         "Write it ONLY from these reports:\n\n" + '\n\n'.join(texts) + "\n\n"
         "Rules:\n"
         "- Every fact (who, what happened, when, what they wore, who made it) comes from the reports. Never invent a "
-        "designer, a quote or a detail. Where the reports say \"reportedly\", say it too.\n"
-        "- The outfit is the star: what they wore, why it works, who made it. Be specific.\n"
-        "- Fashion commentary only: nothing about bodies, weight, age or looks beyond the clothes; no rumours or "
-        "allegations; about children, only the happy news itself; never name or describe private people.\n"
+        "designer, a quote or a detail. Where the reports say \"reportedly\" or \"seemingly\", say it too.\n" + star +
+        "- Fashion commentary only: nothing about bodies, weight, age or looks beyond the clothes and hair; no allegations "
+        "or anything that could embarrass someone; a new romance only as the reports tell it; about children, only the "
+        "happy news itself; never name or describe private people (anyone not famous in their own right, like a "
+        "non-famous partner or friend): call them only by their part in the story (\"her new cowboy\").\n"
         "- People skim, so keep it short: a headline of at most 9 words, a one-sentence dek, then 3 short paragraphs of "
         "at most 35 words each. The last paragraph ends with \"XOXO, Ella\".\n"
-        "- \"deets\": every piece of the outfit the reports describe. \"name\" is its exact product name if the reports "
-        "give one, else plain words (\"ivory silk column gown\"); \"brand\" only as the reports name it, else \"\".\n"
-        "- If the reports don't say what the outfit was, return {\"skip\": true}.\n\n"
+        "- \"deets\": every piece the reports describe (the outfit, or the trend's pieces). \"name\" is its exact product "
+        "name if the reports give one, else plain words (\"ivory silk column gown\"); \"brand\" only as the reports name "
+        "it, else \"\".\n"
+        "- If no report says what anyone wore (not even their style right now, or the trend's pieces), return "
+        "{\"skip\": true, \"why\": \"one short line\"}.\n\n"
         'Return ONLY valid JSON: {"headline": "", "dek": "", "person": "who wore it", "moment": "what happened, in 3-8 '
         'words", "body": ["", "", ""], "deets": [{"category": "Dress", "name": "", "brand": "", "description": "colour, '
         'fabric, cut", "exact": false}], "skip": false}', 1600)
+    read = f"read {len(reports) - len(unread)} of {len(reports)} reports" + (f" ({', '.join(unread)} blocked)" if unread else '')
     if not out or out.get('skip') or not out.get('headline') or not out.get('deets'):
+        notes.append(f"{who or row['title'][:60]} ({kind}): {read}; Ella: {str((out or {}).get('why') or 'no outfit described')[:120]}")
         return None
     deets = []
     for d in (out.get('deets') or [])[:8]:
@@ -277,11 +339,12 @@ def write(row, region, related):
         deets.append({'category': str(d.get('category') or 'Piece')[:40], 'name': name or str(d.get('description'))[:90],
                       'brand': brand, 'description': str(d.get('description') or '')[:160], 'exact': exact})
     if not deets:
+        notes.append(f"{who or row['title'][:60]} ({kind}): {read}; Ella: no pieces described")
         return None
     body = [str(p).strip()[:400] for p in (out.get('body') or []) if str(p).strip()][:4]
     return {'headline': str(out['headline']).strip()[:90], 'dek': str(out.get('dek') or '').strip()[:200],
             'person': str(out.get('person') or '').strip()[:80], 'moment': str(out.get('moment') or '').strip()[:80],
-            'body': body, 'deets': deets,
+            'kind': kind, 'body': body, 'deets': deets,
             'sources': [{'title': r['title'], 'url': r['url'], 'source': r['source'], 'date': r['date']} for r in reports]}
 
 
@@ -289,23 +352,32 @@ def make_draft(sunday, region):
     """Find this week's story and write it. Saved as a draft (or published at once if automatic publishing is on and
     it's already Sunday morning)."""
     key = _key(sunday, region)
+    steps = []                              # what happened, for owner tools when there's no story
     try:
-        rows = news(region)
+        stats = {}
+        rows = news(region, stats)
+        steps.append(f"{len(rows)} stories in this week's news" + (f" ({len(stats['skipped'])} left out: deaths, crimes, cheating, politics…)"
+                                                                     if stats.get('skipped') else ''))
         if not rows:
             raise ValueError('no news came back (is SERPER_API_KEY set?)')
         old = _load(key) or {}
         avoid = [s for s in json.loads(kv_get(f'story:used:{region}') or '[]')][-8:]
         if old.get('moment'):
             avoid.append(f"{old.get('person')}: {old.get('moment')}")
-        story = None
-        for i in pick(rows, region, avoid):
+        story, picks = None, pick(rows, region, avoid)
+        steps.append(f"Ella's picks: {'; '.join(dict.fromkeys(who or rows[i]['title'][:50] for i, _, who in picks)) or 'none of them fit'}")
+        tried = set()
+        for i, kind, who in picks:
+            if who and (kind, who.lower()) in tried:
+                continue                    # two reports about the same moment: one try is enough
+            tried.add((kind, who.lower()))
             words = set(_plain(rows[i]['title']).split()) - {'the', 'a', 'in', 'and', 'of', 'her', 'his', 'at', 'to', 'for'}
             related = [r for r in rows if len(words & set(_plain(r['title']).split())) >= 3]
-            story = write(rows[i], region, related)
+            story = write(rows[i], region, related, kind, who, steps)
             if story:
                 break
         if not story:
-            raise ValueError('no story this week had an outfit the reports describe')
+            raise ValueError('none of this week\'s stories said what anyone wore' if picks else 'nothing in this week\'s news fit')
         story['photo'] = _photo(story['sources'])
         story.update(sunday=sunday, region=region, made_at=now(), status='draft')
         kv_set(key, json.dumps(story, ensure_ascii=False))
@@ -315,8 +387,8 @@ def make_draft(sunday, region):
         if auto_publish() and _sunday_morning():
             publish(sunday, region)
     except Exception as e:
-        print(f'[story] {key} failed: {e!r}')
-        kv_set(key + ':failed', json.dumps({'at': now(), 'why': str(e)[:200]}))
+        print(f'[story] {key} failed: {e!r}', steps)
+        kv_set(key + ':failed', json.dumps({'at': now(), 'why': str(e)[:200], 'steps': [s[:300] for s in steps[:8]]}))
     finally:
         with _lock:
             _writing.discard(key)
@@ -451,6 +523,7 @@ def _owner_view():
             failed = None
         pub = published(region)
         regions[region] = {'draft': _load(key), 'writing': key in _writing, 'failed': (failed or {}).get('why'),
+                           'steps': (failed or {}).get('steps') or [],
                            'live': {'headline': pub['headline'], 'sunday': pub['sunday'], 'photo': bool(pub.get('photo'))} if pub else None}
     return {'sunday': sunday, 'auto': auto_publish(), 'regions': regions}
 

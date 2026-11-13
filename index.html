@@ -1383,6 +1383,7 @@ body::after {
 .own-story .os-head { font: 400 20px/1.25 var(--serif); }
 .own-story .os-body p { font-size: 13.5px; color: var(--fg2); margin-top: 6px; }
 .own-story .os-meta { font-size: 12px; color: var(--fg3); }
+.own-story .os-steps { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
 .edit-intro { font: italic 400 18px/1.55 var(--serif); text-align: center; color: var(--fg); max-width: 34em; margin: 0 auto 18px; text-wrap: pretty; }
 .edit-look .scene { font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: var(--gold-ink); }
 .edit-look h3 { font: 500 26px/1.15 var(--serif); margin: 4px 0 6px; }
@@ -6365,12 +6366,13 @@ function renderEdit() {
   // The deets: each piece, with its shop link (exactly what they wore when the reports name it)
   const head = document.createElement('div'); head.className = 'story-deets';
   head.innerHTML = '<h3>The deets</h3>';
-  const sub = document.createElement('p'); sub.textContent = `Shop ${st.person ? st.person + '’s' : 'the'} outfit`; head.appendChild(sub);
+  const sub = document.createElement('p'); sub.textContent = st.kind === 'trend' ? 'Shop the trend' : `Shop ${st.person ? st.person + '’s' : 'the'} outfit`; head.appendChild(sub);
   box.appendChild(head);
   const grid = document.createElement('div'); grid.className = 'outfit-grid'; grid.id = 'story-grid';
   box.appendChild(grid);
+  // a trend's pieces are the trend's, not one star's outfit: no "worn by" on them
   const items = (st.deets || []).map(dt => ({ category: dt.category, name: dt.name, brand: dt.brand, description: dt.description,
-                                              worn: st.person || '', exact: !!dt.exact, price: '' }));
+                                              worn: st.kind === 'trend' ? '' : (st.person || ''), exact: !!dt.exact, price: '' }));
   const anchors = [];
   items.forEach(it => addResultItem(it, anchors, true, grid));
   findShopLinks(items, anchors);
@@ -6407,7 +6409,7 @@ function storyForMyBudget(st) {
   document.getElementById('gen-message').textContent = 'Getting the look for your budget…';
   goTo('screen-generating');
   requestLook('/api/outfit', {
-    mode: 'dupe', inspo_look: `${st.person}'s outfit (${st.moment}): ${pieces}`.slice(0, 400),
+    mode: 'dupe', inspo_look: (st.kind === 'trend' ? `The ${st.moment} trend, as worn by ${st.person}: ${pieces}` : `${st.person}'s outfit (${st.moment}): ${pieces}`).slice(0, 400),
     gender: state.gender, budget: state.budget, currency: state.currency, occasion: 'Sunday Edit'
   }, () => { state.occasion = `Sunday Edit: ${st.person}`.slice(0, 60); state.celeb = ''; state.planContext = null; })
     .then(() => { countLook(); goTo('screen-results'); switchTab('outfit'); spawnSparkles(); track('edit_look'); })
@@ -7101,6 +7103,12 @@ async function loadOwnerStory(d) {
     const meta = document.createElement('div'); meta.className = 'os-meta';
     meta.textContent = (v.live ? `Live now: “${v.live.headline}” (${v.live.sunday})` : 'Nothing live yet.') + (v.writing ? ' · Ella is writing…' : '') + (v.failed ? ` · Last try: ${v.failed}` : '');
     card.appendChild(meta);
+    if (v.failed && !v.writing && (v.steps || []).length) {
+      // why there's no story: each step Ella took
+      const why = document.createElement('ul'); why.className = 'os-meta os-steps';
+      v.steps.forEach(x => { const li = document.createElement('li'); li.textContent = x; why.appendChild(li); });
+      card.appendChild(why);
+    }
     const dr = v.draft;
     if (dr) {
       const h = document.createElement('div'); h.className = 'os-head'; h.textContent = dr.headline + (dr.status === 'published' ? '  ✓ published' : '  (draft)');
