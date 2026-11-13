@@ -782,6 +782,84 @@ def _resolve(brand, name, country='IN', store=None, trace=None, closest=True):
     return found
 
 
+# ── A dupe, for a piece that can't be bought (sold out, not sold online, or only a Google search) ──
+# High-street shops with product pages the search knows, that deliver to that country.
+DUPE_STORES = {'IN': ['zara.com', 'hm.com', 'mango.com', 'myntra.com', 'ajio.com']}
+DUPE_STORES_ELSEWHERE = ['zara.com', 'hm.com', 'mango.com', 'asos.com']
+
+
+def dupe_words(name, description=''):
+    """('Carousel Metallic Twist Gown', 'silver metallic twist-front gown') -> 'silver Metallic Gown': its colour, what
+    it's made of and what it is. The kind of piece comes from its name; colour and fabric from its description if the
+    name hasn't any (so "how to wear it" words in a description never change what's searched for)."""
+    words = key_words(name)
+    have = {_stem(_ascii(w)) for w in words.split()}
+    if not have & MATERIALS:
+        fabric = next((w for w in key_words(description).split() if _stem(_ascii(w)) in MATERIALS), '')
+        words = f'{fabric} {words}'.strip()
+    colour = next((c for c in _COLOUR_WORDS.findall(f'{name} {description}') if c.lower() not in words.lower()), '')
+    return ' '.join(f'{colour.lower()} {words}'.split()) if have & _TYPE_WORDS else ''
+
+
+def _dupe_key(name, country, description=''):
+    return f'dupe|{(country or "IN").lower()}|{dupe_words(name, description).lower()}'
+
+
+def dupe(name, country='IN', description='', trace=None):
+    _seen.results, _seen.budget, _seen.failed = [], MAX_SEARCHES, False
+    try:
+        return _dupe(name, country, description, trace)
+    finally:
+        _seen.results = _seen.budget = None
+
+
+def _dupe(name, country='IN', description='', trace=None):
+    """{'url', 'title', 'image', 'store', 'dupe': True}: the same kind of piece, same colour first, from a high-street
+    shop that delivers to `country`. {'url': None, 'none': True} if there isn't one."""
+    words = dupe_words(name, description)
+    if not words:
+        return {'url': None, 'none': True}
+    gl = (country or 'IN').lower()
+    key = _dupe_key(name, country, description)
+    with _cache_lock:
+        hit = _cache.get(key)
+        if hit and trace is None and time.time() - hit[0] < CACHE_SECONDS:
+            return hit[1]
+    stores = DUPE_STORES.get((country or 'IN').upper(), DUPE_STORES_ELSEWHERE)
+    found = None
+    plain = ' '.join(_COLOUR_WORDS.sub(' ', words).split())
+    for q in dict.fromkeys([words, plain]):                     # with the colour, then without it
+        if not q:
+            continue
+        results = []
+        for t, l in search_web(f'{q} (' + ' OR '.join(f'site:{d}' for d in stores) + ')', gl):
+            host = _registrable(_host(l)) if l.startswith('https://') else ''
+            if host in stores and _is_product_url(l, (known_site(host) or (None, None))[1]):
+                results.append((t, l))
+        step = [] if trace is not None else None
+        ranked = _rank(results, words, '', cc=gl, trace=step)
+        if trace is not None:
+            trace.append({'dupe_query': q, 'results': step})
+        found = _choose(ranked, None, gl, trace) if ranked else None
+        if found and not found.get('sold_out'):
+            break
+        found = None
+    if found:
+        found['title'] = product_name(found.pop('raw', '') or found.get('title') or '', found['url'], '') or found.get('title')
+        found.update(dupe=True, store=_registrable(_host(found['url'])))
+    else:
+        found = {'url': None, 'none': True}
+    found.pop('raw', None)
+    if getattr(_seen, 'failed', False) and not found.get('url'):
+        return {'url': None, 'unavailable': True}     # the shops couldn't be searched: ask again later
+    with _cache_lock:
+        _cache[key] = (time.time(), found)
+        _cache.move_to_end(key)
+        while len(_cache) > 2000:
+            _cache.popitem(last=False)
+    return found
+
+
 def _allowed(ip, n=1):
     """n more searches for this visitor within PER_IP per 10 minutes?"""
     now = time.time()
@@ -804,7 +882,7 @@ def _lookup(key, args):
     with _inflight_lock:
         f = _inflight.get(key)
         if f is None:
-            f = _runner.submit(lambda: resolve(*args[:4], closest=args[4]))
+            f = _runner.submit((lambda: dupe(args[1], args[2], args[6])) if args[5] else (lambda: resolve(*args[:4], closest=args[4])))
             _inflight[key] = f
             f.add_done_callback(lambda _f: _forget(key, _f))
         return f
@@ -831,9 +909,10 @@ def shop_links():
         return jsonify({'links': [None] * len(items)})
     ip = (request.headers.get('X-Forwarded-For') or request.remote_addr or '').split(',')[0].strip()
     cc = country_code(body)
+    # a piece with "dupe": an affordable piece like it, from the high street (for one that can't be bought)
     args = [(str(it.get('brand', ''))[:80], str(it.get('name', ''))[:160], cc, str(it.get('store', ''))[:80],
-             not it.get('worn')) for it in items]
-    keys = [_cache_key(*a) for a in args]
+             not it.get('worn'), bool(it.get('dupe')), str(it.get('description', ''))[:300]) for it in items]
+    keys = [_dupe_key(a[1], cc, a[6]) if a[5] else _cache_key(*a[:5]) for a in args]
     with _inflight_lock:
         new = sum(1 for k in set(keys) if k not in _inflight and not _cached(k))
     if new and not owner_request() and not _allowed(ip, new):
@@ -849,7 +928,7 @@ def shop_links():
             links.append({'pending': True})
         elif f.exception():
             print('[shop] lookup failed:', repr(f.exception()))
-            links.append({'unavailable': True, 'google': google_link(a[0], a[1])})
+            links.append({'unavailable': True} if a[5] else {'unavailable': True, 'google': google_link(a[0], a[1])})
         else:
             links.append(f.result())
     return jsonify({'links': links})
@@ -869,5 +948,8 @@ def shop_check():
     if not owner_request() and not _allowed(ip):
         return jsonify({'error': 'slow down'}), 429
     trace = []
+    if args.get('dupe'):        # /api/shop-check?dupe=1&name=silver%20metallic%20gown&country=IN
+        return jsonify({'search': provider, 'result': dupe(args.get('name', '')[:160], country_code(args), args.get('description', '')[:300], trace),
+                        'steps': trace})
     result = resolve(args.get('brand', '')[:80], args.get('name', '')[:160], country_code(args), args.get('store', '')[:80], trace)
     return jsonify({'search': provider, 'result': result, 'steps': trace})

@@ -1119,6 +1119,17 @@ body::after {
 }
 .voice-subtitle { max-width: 300px; }
 .outfit-item > .oi-match { padding-inline: 20px; margin: -2px 0 8px; font-size: 11.5px; line-height: 1.4; color: var(--fg2); }
+.outfit-item > .oi-dupe { margin: 10px 20px 14px; padding: 10px 12px; border-radius: 12px; border: 1px dashed var(--gold-ink); background: var(--surface);
+  display: grid; gap: 8px; text-align: left; text-shadow: none; }
+.oi-dupe *, .oi-dupe.is-finding { text-shadow: none; }
+.oi-dupe.is-finding { font-size: 12px; color: var(--fg3); border-style: dotted; }
+.oi-dupe-head { font: 500 10.5px var(--sans); letter-spacing: .14em; text-transform: uppercase; color: var(--gold-ink); }
+.oi-dupe-link { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--fg); min-width: 0; }
+.oi-dupe-img { width: 46px; height: 58px; object-fit: cover; border-radius: 8px; flex: none; background: var(--border); }
+.oi-dupe-text { display: grid; gap: 2px; min-width: 0; flex: 1; }
+.oi-dupe-text b { font: 500 13px/1.3 var(--sans); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.oi-dupe-text span { font-size: 12px; color: var(--fg3); }
+.oi-dupe-go { font: 500 12px var(--sans); color: var(--gold-ink); white-space: nowrap; }
 .oi-shop.is-finding { opacity: 0.75; cursor: progress; pointer-events: none; }
 .oi-shop.is-finding::after { content: ''; width: 10px; height: 10px; margin-left: 4px; border-radius: 50%; border: 1.5px solid currentColor; border-right-color: transparent; animation: shop-spin 0.8s linear infinite; }
 @keyframes shop-spin { to { transform: rotate(360deg); } }
@@ -1364,6 +1375,11 @@ body::after {
 [data-theme="dark"] .story-deets { background: var(--surface); }
 .story-sources { width: fit-content; margin-left: auto; margin-right: auto; padding: 6px 12px; border-radius: 99px; background: rgba(251,246,236,0.85); text-shadow: none; }
 [data-theme="dark"] .story-sources { background: var(--surface); }
+.story-photos { display: flex; gap: 10px; max-width: 34em; margin: 0 auto 6px; overflow-x: auto; scroll-snap-type: x mandatory;
+  scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+.story-photos::-webkit-scrollbar { display: none; }
+.story-photos > .story-photo { flex: 0 0 100%; scroll-snap-align: center; margin: 0; min-width: 0; }
+.story-photos.is-many > .story-photo { flex-basis: 86%; }
 .story-photo { max-width: 34em; margin: 0 auto 14px; }
 .story-photo a { display: block; border-radius: 18px; overflow: hidden; background: var(--surface); border: 1px solid var(--border); }
 .story-photo img { display: block; width: 100%; height: auto; max-height: 60vh; object-fit: cover; object-position: center 20%; }
@@ -1371,7 +1387,8 @@ body::after {
   background: rgba(251,246,236,0.85); text-shadow: none; }
 [data-theme="dark"] .story-photo figcaption { background: var(--surface); }
 .story-photo figcaption a { display: inline; border: 0; background: none; color: inherit; text-decoration: underline; }
-.own-story .os-photo { display: flex; gap: 10px; align-items: center; }
+.own-story .os-photos { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; }
+.own-story .os-photo { display: grid; gap: 4px; justify-items: center; }
 .own-story .os-photo img { width: 72px; height: 90px; object-fit: cover; border-radius: 8px; background: var(--surface); }
 .story-deets h3 { font: 500 11px var(--sans); letter-spacing: .18em; text-transform: uppercase; color: var(--gold-ink); }
 .story-deets p { font: italic 15px var(--serif); color: var(--fg2); margin-top: 4px; }
@@ -3058,6 +3075,7 @@ function addResultItem(item, anchors, draft, grid) {
     </a>
     <div class="oi-match" hidden></div>
     <a class="oi-shop" target="_blank" rel="noopener"></a>
+    <div class="oi-dupe" hidden></div>
   `;
   fillResultItem(div, item);
   grid.appendChild(div);
@@ -3466,7 +3484,7 @@ async function findShopLinks(items, anchors) {
     if ((it.shop_url || it.shop_site || it.shop_google) && it.shop_v === SHOP_V) { showShopMatch(anchors[i], it); cardPhoto(anchors[i], it); }
     else need.push(i);
   });
-  if (!need.length) return;
+  if (!need.length) { findDupes(items, anchors); return; }
   // until the lookup answers, the button isn't a link, so nobody lands on a generic search page by accident
   need.forEach(i => holdShopLink(anchors[i]));
   // The server answers within ~25s; a piece still being searched comes back "pending" and is asked for again.
@@ -3497,6 +3515,78 @@ async function findShopLinks(items, anchors) {
   }
   todo.forEach(i => applyShopLink(items[i], anchors[i], null));
   saveStateToStorage();   // saved and recent looks share these item objects
+  findDupes(items, anchors);
+}
+// A dupe, right on the card of any piece that can't be bought (sold out, not sold online, or only a Google search):
+// the same kind of piece from a high-street shop that delivers here. Never for a closet piece (it's already theirs),
+// or when the shops couldn't be checked (Ella tries again next time).
+const DUPE_SHOPS = { 'zara.com': 'Zara', 'hm.com': 'H&M', 'mango.com': 'Mango', 'asos.com': 'ASOS', 'myntra.com': 'Myntra', 'ajio.com': 'AJIO' };
+function needsDupe(it) {
+  return !!it && !it.shop_unchecked && it.brand !== 'From my closet' && !!(it.name || it.category) && (!it.shop_url || !!it.shop_sold_out);
+}
+function showDupe(anchor, item, finding) {
+  const card = anchor && anchor.closest('.outfit-item');
+  const box = card && card.querySelector('.oi-dupe');
+  if (!box) return;
+  box.innerHTML = '';
+  box.classList.toggle('is-finding', !!finding);
+  if (finding) { box.textContent = '✦ Finding you a dupe…'; box.hidden = false; return; }
+  const d = needsDupe(item) && item.dupe;
+  if (!d || !/^https:\/\//.test(d.url || '')) { box.hidden = true; return; }
+  const head = document.createElement('div'); head.className = 'oi-dupe-head';
+  head.textContent = item.shop_sold_out ? '✦ Sold out? Ella’s dupe' : '✦ Can’t get it? Ella’s dupe';
+  const a = document.createElement('a'); a.className = 'oi-dupe-link'; a.href = d.url; a.target = '_blank'; a.rel = 'noopener';
+  if (/^https:\/\//.test(d.image || '')) {
+    const im = document.createElement('img'); im.className = 'oi-dupe-img'; im.alt = ''; im.referrerPolicy = 'no-referrer'; im.loading = 'lazy';
+    im.onerror = () => im.remove(); im.src = d.image; a.appendChild(im);
+  }
+  const txt = document.createElement('span'); txt.className = 'oi-dupe-text';
+  const nm = document.createElement('b'); nm.textContent = realProductName(d.title) || 'The dupe';
+  const at = document.createElement('span'); at.textContent = 'at ' + (DUPE_SHOPS[d.store] || d.store || 'the shop');
+  txt.append(nm, at);
+  const go = document.createElement('span'); go.className = 'oi-dupe-go'; go.textContent = 'Shop →';
+  a.append(txt, go);
+  a.addEventListener('click', () => track('dupe_open'));
+  box.append(head, a);
+  box.hidden = false;
+}
+async function findDupes(items, anchors) {
+  const need = [];
+  items.forEach((it, i) => {
+    if (!anchors[i]) return;
+    if (!needsDupe(it) || (it.dupe_v === SHOP_V && (it.dupe || it.dupe_none))) showDupe(anchors[i], it);
+    else need.push(i);
+  });
+  if (!need.length) return;
+  need.forEach(i => showDupe(anchors[i], items[i], true));
+  let todo = need.slice();
+  for (let round = 0; round < 5 && todo.length; round++) {
+    if (round) await new Promise(r => setTimeout(r, 5000));
+    let data = null;
+    try {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 45000);
+      const res = await fetch('/api/shop-links', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: ctrl.signal,
+        body: JSON.stringify({ currency: state.currency, country: (state.region && state.region.code) || '', items: todo.map(i => ({
+          dupe: 1, name: `${items[i].name || ''} ${items[i].category || ''}`.trim(), description: items[i].description || '' })) })
+      });
+      clearTimeout(timer);
+      data = await res.json().catch(() => null);
+    } catch (e) { data = null; }
+    if (!data || !Array.isArray(data.links)) break;
+    const pending = [];
+    todo.forEach((i, k) => {
+      const l = data.links[k], it = items[i];
+      if (l && l.pending) { pending.push(i); return; }
+      if (l && /^https:\/\//.test(l.url || '')) Object.assign(it, { dupe: { url: l.url, title: l.title || '', image: l.image || '', store: l.store || '' }, dupe_none: false, dupe_v: SHOP_V });
+      else if (l && l.none) Object.assign(it, { dupe: null, dupe_none: true, dupe_v: SHOP_V });
+      showDupe(anchors[i], it);
+    });
+    todo = pending;
+  }
+  todo.forEach(i => showDupe(anchors[i], items[i]));
+  saveStateToStorage();
 }
 
 // What the product search found for one piece: the product page itself, else a Google search for its exact name,
@@ -6320,7 +6410,7 @@ async function loadEdit() {
   const box = document.getElementById('edit-looks');
   if (!editData) box.innerHTML = '<p class="muted" style="text-align:center">Opening this week’s story…</p>';
   try {
-    editData = await api(`/api/edit?region=${editRegion()}`);
+    editData = await api('/api/edit');
     renderEdit();
   } catch (e) { box.innerHTML = `<p class="muted" style="text-align:center">${esc(e.message)}</p>`; }
 }
@@ -6340,30 +6430,34 @@ function renderEdit() {
     return;
   }
   lsSet('el_edit_seen', st.sunday); renderTodayRow();
-  // The report's own cover photo: shown from the news site, credited and linked back to it. Gone if it won't load.
-  const ph = st.photo;
-  if (ph && /^https:\/\//.test(ph.url || '') && /^https:\/\//.test(ph.link || '')) {
-    const fig = document.createElement('figure'); fig.className = 'story-photo';
-    const a = document.createElement('a'); a.href = ph.link; a.target = '_blank'; a.rel = 'noopener';
-    const img = document.createElement('img'); img.referrerPolicy = 'no-referrer'; img.decoding = 'async';
-    img.alt = st.person ? `${st.person}${st.moment ? ', ' + st.moment : ''}` : st.headline;
-    img.onerror = () => fig.remove();
-    img.src = ph.url;
-    a.appendChild(img); fig.appendChild(a);
-    const cap = document.createElement('figcaption'); cap.append('Photo via ');
-    const ca = document.createElement('a'); ca.href = ph.link; ca.target = '_blank'; ca.rel = 'noopener'; ca.textContent = ph.credit || 'the news';
-    cap.appendChild(ca); fig.appendChild(cap);
-    box.appendChild(fig);
-  }
-  // Listen: for anyone who won't read it
+  // Listen: for anyone who won't read it (they can scroll the photos and the outfit while Ella talks)
   const listen = document.createElement('div'); listen.className = 'story-listen';
   const play = document.createElement('button'); play.type = 'button'; play.className = 'btn-secondary btn-small'; play.textContent = '🔊 Ella reads it to you';
   play.onclick = () => toggleStoryAudio(play);
   listen.appendChild(play); box.appendChild(listen);
-  const body = document.createElement('div'); body.className = 'panel story-body';
-  (st.body || []).forEach(t => { const p = document.createElement('p'); p.textContent = t; body.appendChild(p); });
-  box.appendChild(body);
-  // The deets: each piece, with its shop link (exactly what they wore when the reports name it)
+  // The reports' own photos of the star: shown from the news sites, each credited and linked to its report. A photo
+  // that won't load just isn't there.
+  const photos = (st.photos || (st.photo ? [st.photo] : [])).filter(ph => /^https:\/\//.test(ph.url || '') && /^https:\/\//.test(ph.link || ''));
+  if (photos.length) {
+    const strip = document.createElement('div'); strip.className = 'story-photos' + (photos.length > 1 ? ' is-many' : '');
+    strip.setAttribute('aria-label', 'Photos from the reports');
+    photos.forEach(ph => {
+      const fig = document.createElement('figure'); fig.className = 'story-photo';
+      const a = document.createElement('a'); a.href = ph.link; a.target = '_blank'; a.rel = 'noopener';
+      const img = document.createElement('img'); img.referrerPolicy = 'no-referrer'; img.decoding = 'async';
+      img.alt = st.person ? `${st.person}${st.moment ? ', ' + st.moment : ''}` : st.headline;
+      img.onerror = () => { fig.remove(); strip.classList.toggle('is-many', strip.children.length > 1); if (!strip.children.length) strip.remove(); };
+      img.src = ph.url;
+      a.appendChild(img); fig.appendChild(a);
+      const cap = document.createElement('figcaption'); cap.append('Photo via ');
+      const ca = document.createElement('a'); ca.href = ph.link; ca.target = '_blank'; ca.rel = 'noopener'; ca.textContent = ph.credit || 'the news';
+      cap.appendChild(ca); fig.appendChild(cap);
+      strip.appendChild(fig);
+    });
+    box.appendChild(strip);
+  }
+  // Right under the photos: what they're wearing, each piece with its shop link (exactly what they wore when the
+  // reports name it), and a dupe next to anything that can't be bought
   const head = document.createElement('div'); head.className = 'story-deets';
   head.innerHTML = '<h3>The deets</h3>';
   const sub = document.createElement('p'); sub.textContent = st.kind === 'trend' ? 'Shop the trend' : `Shop ${st.person ? st.person + '’s' : 'the'} outfit`; head.appendChild(sub);
@@ -6381,6 +6475,13 @@ function renderEdit() {
   mine.onclick = () => storyForMyBudget(st);
   acts.appendChild(mine);
   box.appendChild(acts);
+  // Then the story itself
+  const head2 = document.createElement('div'); head2.className = 'story-deets story-read';
+  head2.innerHTML = '<h3>The story</h3><p>A 30-second read</p>';
+  box.appendChild(head2);
+  const body = document.createElement('div'); body.className = 'panel story-body';
+  (st.body || []).forEach(t => { const p = document.createElement('p'); p.textContent = t; body.appendChild(p); });
+  box.appendChild(body);
   if ((st.sources || []).length) {
     const src = document.createElement('p'); src.className = 'story-sources';
     src.append('As reported by ');
@@ -6396,7 +6497,7 @@ function toggleStoryAudio(btn) {
   if (storyAudio && !storyAudio.paused) { storyAudio.pause(); btn.textContent = '🔊 Ella reads it to you'; return; }
   if (!storyAudio) {
     storyAudio = ellaAudio;
-    ellaAudio.src = `/api/edit/audio?region=${editRegion()}`;
+    ellaAudio.src = '/api/edit/audio';
     ellaAudio.onended = () => { btn.textContent = '🔊 Play it again'; };
   }
   btn.textContent = '⏸ Pause';
@@ -7095,7 +7196,7 @@ async function loadOwnerStory(d) {
   auto.append(box, 'Publish automatically on Sunday at 9am if I haven\u2019t reviewed it');
   ed.append(intro, auto);
   let busy = false;
-  [['in', 'India'], ['intl', 'Outside India']].forEach(([r, label]) => {
+  [['all', 'This week’s story']].forEach(([r, label]) => {
     const v = d.regions[r];
     busy = busy || v.writing;
     const card = document.createElement('div'); card.className = 'panel own-story';
@@ -7121,19 +7222,28 @@ async function loadOwnerStory(d) {
       src.append('Sources: ');
       (dr.sources || []).forEach((x, k) => { if (k) src.append(' · '); const a = document.createElement('a'); a.href = x.url; a.target = '_blank'; a.rel = 'noopener'; a.textContent = `${x.source || 'link'} (${x.date || ''})`; src.appendChild(a); });
       card.append(h, dek);
-      const ph = document.createElement('div'); ph.className = 'os-photo os-meta';
-      if (dr.photo) {
-        const im = document.createElement('img'); im.referrerPolicy = 'no-referrer'; im.alt = ''; im.src = dr.photo.url;
-        im.onerror = () => { im.replaceWith('(this photo doesn’t load, so readers won’t see it)'); };
-        const right = document.createElement('div'); right.append(`Photo via ${dr.photo.credit || 'the news'} `);
-        const off = document.createElement('button'); off.className = 'link-btn'; off.textContent = 'Remove photo';
-        off.onclick = async () => { loadOwnerStory(await api('/api/owner/story', { region: r, action: 'nophoto' })); toast('Photo removed'); };
-        right.appendChild(off); ph.append(im, right);
-      } else ph.textContent = 'No photo with this story.';
+      // the photos readers will see: each can come off on its own (a photographer or publisher asks), or all of them
+      const ph = document.createElement('div'); ph.className = 'os-photos os-meta';
+      const photos = dr.photos || (dr.photo ? [dr.photo] : []);
+      photos.forEach(p => {
+        const one = document.createElement('div'); one.className = 'os-photo';
+        const im = document.createElement('img'); im.referrerPolicy = 'no-referrer'; im.alt = ''; im.src = p.url;
+        im.onerror = () => { im.replaceWith('(doesn’t load, so readers won’t see it)'); };
+        const off = document.createElement('button'); off.className = 'link-btn'; off.textContent = `✕ ${p.credit || 'photo'}`;
+        off.title = 'Remove this photo';
+        off.onclick = async () => { loadOwnerStory(await api('/api/owner/story', { region: r, action: 'nophoto', url: p.url })); toast('Photo removed'); };
+        one.append(im, off); ph.appendChild(one);
+      });
+      if (photos.length > 1) {
+        const all = document.createElement('button'); all.className = 'link-btn'; all.textContent = 'Remove all photos';
+        all.onclick = async () => { loadOwnerStory(await api('/api/owner/story', { region: r, action: 'nophoto' })); toast('Photos removed'); };
+        ph.appendChild(all);
+      }
+      if (!photos.length) ph.textContent = 'No photos with this story.';
       card.append(ph, body, deets, src);
     }
     if (v.live && v.live.photo && !(dr && dr.status === 'published')) {
-      const off = document.createElement('button'); off.className = 'link-btn'; off.textContent = 'Remove the photo from the live story';
+      const off = document.createElement('button'); off.className = 'link-btn'; off.textContent = 'Remove the photos from the live story';
       off.onclick = async () => { loadOwnerStory(await api('/api/owner/story', { region: r, action: 'nophoto', which: 'live' })); toast('Photo removed'); };
       card.appendChild(off);
     }

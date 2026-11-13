@@ -273,7 +273,7 @@ def morning_message(row, local):
                         'url': '/?open=wedding', 'tag': 'wedding'}
     if local.weekday() == 6 and prefs.get('edit', True):
         import story
-        s = story.published('in' if int(row.get('tz') or 330) == 330 else 'intl')
+        s = story.published('all')
         if s and s.get('sunday') == story.issue_date():
             return {'title': 'Ella’s Sunday Edit ✦', 'body': s['headline'], 'url': '/?open=edit', 'tag': 'edit'}
     if prefs.get('daily', True):

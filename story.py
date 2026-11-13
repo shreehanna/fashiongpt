@@ -14,11 +14,12 @@ Rules it keeps (the prompt asks for them, and the code checks what it can):
   private people (a non-famous partner) are never named.
 - A designer or an exact piece is kept only if the reports name it (checked against their text): never made up.
 - The owner publishes it (one tap in owner tools), unless they switched on publishing automatically on Sunday.
-- The photo at the top is the report's own cover photo (the one a shared link previews with), shown from the
-  publisher's site, credited and linked to the report. Never copied to our server; the owner can take it off.
+- The photos are the reports' own photos of the star (the cover photo, and pictures whose caption names them), shown
+  from the publisher's site, each credited and linked to its report. Never copied to our server; the owner can take
+  any of them off.
 
-One story a week for India and one for everywhere else (different stars trend). Ella can read it out: the audio is
-made once per story and kept.
+One story a week for everyone, from the world's news and India's. Ella can read it out: the audio is made once per
+story and kept.
 
   /api/edit          the published story (this week's, or the last one)
   /api/edit/audio    Ella reading it
@@ -41,18 +42,17 @@ from pro import identity, kv_get, kv_set, owner_request
 bp = Blueprint('story', __name__)
 _ai = {}
 IST = timezone(timedelta(hours=5, minutes=30))
-REGIONS = ('in', 'intl')
+REGIONS = ('all',)                         # one story for everyone, India and everywhere else
 _lock = threading.Lock()
 _writing = set()
 _audio_lock = threading.Lock()
 
-NEWS_QUERIES = {
-    'in': ['celebrity outfit this week', 'Bollywood star wore designer', 'celebrity look viral India', 'red carpet look India',
-           'celebrity wedding outfit India', 'Bollywood fashion trend', 'Bollywood celebrity spotted', 'cricketer wife outfit',
-           'airport look celebrity'],
-    'intl': ['celebrity outfit this week', 'celebrity wore designer', 'red carpet look', 'celebrity look goes viral',
-             'celebrity style trend', 'celebrities spotted this week', 'royal outfit', 'F1 paddock style'],
-}
+# (search, Google country): the world's news and India's, so a Bollywood moment can be the story of the week too
+NEWS_QUERIES = [('celebrity outfit this week', 'us'), ('celebrity wore designer', 'us'), ('red carpet look', 'us'),
+                ('celebrity look goes viral', 'us'), ('celebrity style trend', 'us'), ('celebrities spotted this week', 'us'),
+                ('royal outfit', 'us'), ('F1 paddock style', 'us'),
+                ('Bollywood star wore designer', 'in'), ('celebrity look viral India', 'in'), ('Bollywood fashion trend', 'in'),
+                ('Bollywood celebrity spotted', 'in'), ('celebrity wedding outfit India', 'in'), ('airport look celebrity', 'in')]
 # Checked against the headline only: a happy story whose summary mentions an old breakup or a charity night for a
 # cause is still a happy story, and fashion slang ("she killed it", "a scandalous sheer dress") isn't news of a death
 # or a scandal. Ella's own rules catch the rest.
@@ -116,7 +116,7 @@ def _serper(kind, body):
         return {}
 
 
-def _rows(res, seen, stats=None):
+def _rows(res, seen, stats=None, gl='us'):
     out = []
     for row in res.get('news') or []:
         url, title = str(row.get('link') or ''), ' '.join(str(row.get('title') or '').split())
@@ -128,33 +128,33 @@ def _rows(res, seen, stats=None):
             continue                        # tragedies, crimes, cheating, politics: never a fashion story
         seen.add(url)
         out.append({'title': title[:200], 'snippet': ' '.join(str(row.get('snippet') or '').split())[:300],
-                    'url': url[:400], 'source': str(row.get('source') or '')[:60], 'date': str(row.get('date') or '')[:40]})
+                    'url': url[:400], 'source': str(row.get('source') or '')[:60], 'date': str(row.get('date') or '')[:40],
+                    'gl': gl})
     return out
 
 
-def news(region, stats=None):
-    """This week's reports: [{'title', 'snippet', 'url', 'source', 'date'}], no repeats."""
+def news(region='all', stats=None):
+    """This week's reports: [{'title', 'snippet', 'url', 'source', 'date', 'gl'}], no repeats."""
     from concurrent.futures import ThreadPoolExecutor
-    gl = 'in' if region == 'in' else 'us'
-    with ThreadPoolExecutor(max_workers=9) as pool:
-        results = list(pool.map(lambda q: _serper('news', {'q': q, 'gl': gl, 'tbs': 'qdr:w', 'num': 10}), NEWS_QUERIES[region]))
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        results = list(pool.map(lambda qg: _serper('news', {'q': qg[0], 'gl': qg[1], 'tbs': 'qdr:w', 'num': 10}), NEWS_QUERIES))
     out, seen = [], set()
-    for res in results:
-        out += _rows(res, seen, stats)
-    return out[:70]
+    for res, (_, gl) in zip(results, NEWS_QUERIES):
+        out += _rows(res, seen, stats, gl)
+    return out[:90]
 
 
-def fashion_coverage(who, kind, region, have):
+def fashion_coverage(who, kind, gl, have):
     """This week's reports on what they've been wearing (or on the trend): the trending story is often about the moment,
     and the outfit is covered somewhere else."""
     words = [w for w in _plain(who).split() if len(w) > 2]
     if not words:
         return []
     q = f'{who} outfit' if kind == 'moment' else f'{who} trend celebrities'
-    res = _serper('news', {'q': q, 'gl': 'in' if region == 'in' else 'us', 'tbs': 'qdr:w', 'num': 10})
+    res = _serper('news', {'q': q, 'gl': gl, 'tbs': 'qdr:w', 'num': 10})
     key = words[-1] if kind == 'moment' else None      # a surname for a person; any of the words for a trend
     out = []
-    for r in _rows(res, set(have)):
+    for r in _rows(res, set(have), gl=gl):
         text = _plain(f"{r['title']} {r['snippet']}")
         if (key and key in text.split()) or (not key and any(w in text.split() for w in words)):
             out.append(r)
@@ -200,26 +200,88 @@ def _clean_image(src, page_url):
     return None if _NOT_A_PHOTO.search(src.split('//', 1)[1].split('/', 1)[-1]) else src
 
 
-def _photo(sources):
-    """The report's own cover photo for the top of the story: shown from the publisher's site (never copied to ours),
-    credited, and linked to the report, the way a shared link shows its preview. None if no report has one."""
+_IMG_TAG = re.compile(r'<(?:img|source)\b[^>]*>', re.I)
+_NOT_ARTICLE_PHOTO = re.compile(r'(^|[/_.\-])(avatars?|authors?|profile|headshots?|byline|ads?|advert\w*|pixel|tracking|badge|'
+                                r'emoji|button|banner|newsletter|promo|spinner|loading|lazy)([/_.\-?]|$)|\.gif(\?|$)', re.I)
+
+
+def _attr(tag, name):
+    m = re.search(r'\b' + name + r'\s*=\s*(?:"([^"]*)"|\'([^\']*)\')', tag, re.I)
+    return htmllib.unescape((m.group(1) if m.group(1) is not None else m.group(2)) if m else '').strip()
+
+
+def _biggest(srcset):
+    """The largest picture in a srcset ("a.jpg 320w, b.jpg 1200w")."""
+    best, best_w = '', -1
+    for part in re.split(r',\s+(?=https?:|/)', srcset or ''):
+        bits = part.strip().split()
+        if not bits:
+            continue
+        w = int(re.sub(r'\D', '', bits[1]) or 0) if len(bits) > 1 and bits[1].lower().endswith('w') else 0
+        if w > best_w:
+            best, best_w = bits[0], w
+    return best
+
+
+def _article_images(page, page_url, names):
+    """The photos in a report that show the star: the cover photo, then every picture whose caption or file name has
+    their name (so "more stories" pictures of other people never come along)."""
+    out = []
+    cover = _clean_image(_meta_image(page), page_url)
+    if cover:
+        out.append(cover)
+    for tag in _IMG_TAG.findall(page):
+        src = (_attr(tag, 'data-src') or _attr(tag, 'data-lazy-src') or _attr(tag, 'data-original')
+               or _biggest(_attr(tag, 'data-srcset') or _attr(tag, 'srcset')) or _attr(tag, 'src'))
+        if not src or src.startswith('data:'):
+            continue
+        try:
+            w, h = int(_attr(tag, 'width') or 0), int(_attr(tag, 'height') or 0)
+        except ValueError:
+            w = h = 0
+        if (w and w < 300) or (h and h < 300):
+            continue                        # icons and thumbnails
+        img = _clean_image(src, page_url)
+        if not img or _NOT_ARTICLE_PHOTO.search(img.split('//', 1)[1].split('/', 1)[-1]):
+            continue
+        about = _plain(_attr(tag, 'alt') + ' ' + _attr(tag, 'title') + ' ' + img.rsplit('/', 1)[-1].replace('-', ' ').replace('_', ' '))
+        if names and any(n in about.split() for n in names):
+            out.append(img)
+    return out
+
+
+def _same_picture(a, b):
+    k = lambda u: re.sub(r'(-\d+x\d+)?(\.\w+)?([?#].*)?$', '', u.lower())
+    return k(a) == k(b)
+
+
+def _photos(sources, person=''):
+    """The reports' own photos of the star (at most 6): shown from the publisher's site (never copied to ours),
+    each credited and linked to its report."""
     import muses
+    from urllib.parse import urlparse
+    names = [w for w in _plain(person).split() if len(w) >= 3 and w not in ('and', 'the', 'her', 'his')]
+    out = []
     for s in sources:
         url = s['url']
-        if not muses._public_https(url):
+        if len(out) >= 6 or not muses._public_https(url):
             continue
         try:
             r = req.get(url, timeout=6, headers=muses._BROWSER, stream=True)
             if r.status_code != 200 or 'html' not in (r.headers.get('Content-Type') or ''):
                 continue
-            head = r.raw.read(400_000, decode_content=True).decode(r.encoding or 'utf-8', 'replace')
+            page = r.raw.read(1_500_000, decode_content=True).decode(r.encoding or 'utf-8', 'replace')
         except Exception:
             continue
-        img = _clean_image(_meta_image(head), url)
-        if img:
-            from urllib.parse import urlparse
-            return {'url': img, 'credit': s.get('source') or re.sub(r'^www\.', '', urlparse(url).hostname or ''), 'link': url}
-    return None
+        credit = s.get('source') or re.sub(r'^www\.', '', urlparse(url).hostname or '')
+        n = 0
+        for img in _article_images(page, url, names):
+            if n >= 4 or len(out) >= 6:
+                break
+            if not any(_same_picture(img, o['url']) for o in out):
+                out.append({'url': img, 'credit': credit, 'link': url})
+                n += 1
+    return out
 
 
 def _plain(text):
@@ -257,7 +319,8 @@ def pick(rows, region, avoid=()):
     avoid_line = ('\nDon\'t pick these again (already used): ' + '; '.join(avoid[:8])) if avoid else ''
     out = _ask(
         f"You are Ella from E&L, choosing this week's Sunday Edit: one trending story told through what people wore.\n"
-        f"Readers: {'India' if region == 'in' else 'the US, UK and UAE'}.\n\n"
+        "Readers: everyone, in India, the US, the UK and the UAE, so pick what people everywhere are talking about (a "
+        "Bollywood moment counts when it's big).\n\n"
         "Pick the 5 best stories from this week's news below, best first. Two kinds work:\n"
         "- a MOMENT: a public figure at a moment people are actually talking about this week (a baby, a new romance, an "
         "engagement, a wedding, a premiere, a big win, an award, a viral appearance, fashion week). The headline doesn't "
@@ -287,7 +350,7 @@ def write(row, region, related, kind='moment', who='', notes=None):
     notes = [] if notes is None else notes
     reports = [row] + [r for r in related if r['url'] != row['url']][:1]
     if who:
-        reports += fashion_coverage(who, kind, region, [r['url'] for r in reports])
+        reports += fashion_coverage(who, kind, row.get('gl') or 'us', [r['url'] for r in reports])
     texts, unread = [], []
     for i, r in enumerate(reports):
         body = _page(r['url'])
@@ -378,7 +441,7 @@ def make_draft(sunday, region):
                 break
         if not story:
             raise ValueError('none of this week\'s stories said what anyone wore' if picks else 'nothing in this week\'s news fit')
-        story['photo'] = _photo(story['sources'])
+        story['photos'] = _photos(story['sources'], story.get('person') or '')
         story.update(sunday=sunday, region=region, made_at=now(), status='draft')
         kv_set(key, json.dumps(story, ensure_ascii=False))
         kv_set(key + ':failed', '')
@@ -466,7 +529,7 @@ def tick():
 
 # ── For everyone ─────────────────────────────────────────────────────────────
 def _region():
-    return 'in' if request.args.get('region') == 'in' else 'intl'
+    return 'all'                            # one story for everyone
 
 
 @bp.get('/api/edit')
@@ -524,7 +587,8 @@ def _owner_view():
         pub = published(region)
         regions[region] = {'draft': _load(key), 'writing': key in _writing, 'failed': (failed or {}).get('why'),
                            'steps': (failed or {}).get('steps') or [],
-                           'live': {'headline': pub['headline'], 'sunday': pub['sunday'], 'photo': bool(pub.get('photo'))} if pub else None}
+                           'live': {'headline': pub['headline'], 'sunday': pub['sunday'],
+                                    'photo': bool(pub.get('photos') or pub.get('photo'))} if pub else None}
     return {'sunday': sunday, 'auto': auto_publish(), 'regions': regions}
 
 
@@ -544,7 +608,7 @@ def owner_story_act():
     if not owner_request():
         return jsonify({'error': 'not found'}), 404
     body = request.get_json(silent=True) or {}
-    sunday, region = issue_date(), ('in' if body.get('region') == 'in' else 'intl')
+    sunday, region = issue_date(), 'all'
     if 'auto' in body:
         kv_set('story:auto', '1' if body.get('auto') else '')
     action = body.get('action')
@@ -553,7 +617,7 @@ def owner_story_act():
     elif action == 'publish' and not publish(sunday, region):
         return jsonify(dict(_owner_view(), error='No draft to publish yet.')), 400
     elif action == 'nophoto':
-        # if a photographer or the publisher asks: the photo comes off (this week's draft, or the live story)
+        # if a photographer or the publisher asks: a photo (or all of them) comes off this week's draft or the live story
         draft_key, live_key = _key(sunday, region), kv_get(f'story:pub:{region}')
         draft = _load(draft_key)
         keys = [live_key] if body.get('which') == 'live' else [draft_key]
@@ -561,7 +625,11 @@ def owner_story_act():
             keys.append(live_key)                  # the draft that's live: off both
         for key in keys:
             story = _load(key) if key else None
-            if story and story.get('photo'):
-                story['photo'] = None
-                kv_set(key, json.dumps(story, ensure_ascii=False))
+            if not story:
+                continue
+            one = str(body.get('url') or '')
+            photos = story.get('photos') or ([story['photo']] if story.get('photo') else [])
+            story['photos'] = [p for p in photos if one and p.get('url') != one]
+            story['photo'] = None
+            kv_set(key, json.dumps(story, ensure_ascii=False))
     return jsonify(_owner_view())
