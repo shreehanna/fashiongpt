@@ -776,11 +776,20 @@ def ping():
 @app.route('/api/image-search', methods=['POST'])
 def image_search():
     # Serper if SERPER_API_KEY is set, otherwise the old Google Custom Search keys (shop.py)
+    # With "page" (the product page the card's button opens), only a photo of that very product page.
     data = request.get_json(silent=True) or {}
     query = (data.get('query') or '').strip()[:200]
+    page = str(data.get('page') or '').strip()[:500]
+    page = page if page.startswith('https://') else None
     if not query:
         return jsonify({'image_url': None})
-    return jsonify({'image_url': find_image(query + ' product', gl=country_code(data).lower())})
+    import shop as _shop
+    q, gl = query + ' product', country_code(data).lower()
+    if not _shop.image_cached(q, gl, page) and not _shop.owner_request():
+        ip = (request.headers.get('X-Forwarded-For') or request.remote_addr or '').split(',')[0].strip()
+        if not _shop._allowed(ip):
+            return jsonify({'image_url': None, 'error': 'slow down'}), 429
+    return jsonify({'image_url': find_image(q, gl=gl, page=page)})
 
 
 @app.route('/api/parse-voice', methods=['POST'])

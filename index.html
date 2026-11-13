@@ -3605,6 +3605,7 @@ function applyShopLink(item, anchor, link) {
     // a real answer replaces whatever an older search found (it may have matched the wrong piece)
     ['shop_url', 'shop_title', 'shop_exact', 'shop_site', 'shop_google', 'shop_site_url', 'shop_image', 'photo_url', 'real_name']
       .forEach(k => { item[k] = ''; });
+    item.photo_none = false;
     item.shop_closest = item.shop_sold_out = false;
     if (anchor && anchor.closest('.outfit-item')) fillResultItem(anchor.closest('.outfit-item'), item);
   }
@@ -3637,30 +3638,43 @@ function applyShopLink(item, anchor, link) {
 
 // The card's photo is always of the product its button opens: the shop page's own photo, else an image search for
 // that exact product's name. With no exact product (Ella's description only), no photo rather than a different one.
+// A product link's photo is the product page's own photo; if the shop wouldn't show it to the server, a photo Google
+// found on that very page (never a look-alike: no photo is better than another piece's). PHOTO_V: photos saved before
+// that rule are looked up again.
+const PHOTO_V = 2;
+const brokenPhotos = new Set();     // shop photos that wouldn't load here: try the matched search instead
 function cardPhoto(anchor, item) {
   const card = anchor && anchor.closest('.outfit-item');
   const wrap = card && card.querySelector('.oi-img-wrap');
   if (!wrap) return;
   const hide = () => { wrap.style.display = 'none'; };
-  const known = item.shop_image || item.photo_url;
+  const own = item.shop_image && !brokenPhotos.has(item.shop_image) ? item.shop_image : '';
+  const found = item.photo_v === PHOTO_V ? item.photo_url : '';
+  const known = own || found;
   if (/^https:\/\//.test(known || '')) {
     const img = document.createElement('img');
     img.className = 'oi-img'; img.alt = ''; img.referrerPolicy = 'no-referrer';
     img.onload = () => { wrap.innerHTML = ''; wrap.appendChild(img); wrap.style.display = ''; };
-    img.onerror = () => { if (item.photo_url === known) item.photo_url = ''; hide(); };
+    img.onerror = () => {
+      if (known === own) { brokenPhotos.add(own); cardPhoto(anchor, item); return; }
+      item.photo_url = ''; item.photo_none = true; hide();
+    };
     img.src = known;
     return;
   }
+  if (item.photo_v === PHOTO_V && item.photo_none) { hide(); return; }
   const exact = item.shop_url ? (item.real_name || item.shop_title) : (item.shop_exact || (item.exact ? item.name : ''));
   if (!exact) { hide(); return; }
   fetch('/api/image-search', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ query: `${item.brand || ''} ${exact}`, currency: state.currency })
+    body: JSON.stringify({ query: `${item.brand || ''} ${exact}`, currency: state.currency, country: (state.region && state.region.code) || '',
+                           page: item.shop_url || '' })
   }).then(r => r.json()).then(res => {
-    if (!/^https:\/\//.test(res.image_url || '')) return hide();
-    item.photo_url = res.image_url;
+    if (res.error) return hide();                 // slowed down: not an answer, ask again next time
+    const ok = /^https:\/\//.test(res.image_url || '');
+    Object.assign(item, { photo_url: ok ? res.image_url : '', photo_none: !ok, photo_v: PHOTO_V });
     saveStateToStorage();
-    cardPhoto(anchor, item);
+    if (ok) cardPhoto(anchor, item); else hide();
   }).catch(hide);
 }
 

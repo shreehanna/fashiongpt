@@ -156,29 +156,82 @@ def _search_web(query, gl='in', num=10):
     return [], False
 
 
-def find_image(query, gl='in'):
-    """One product photo URL, or None."""
+def _product_key(url):
+    """What identifies a product page across a shop's country sites: the shop, its product codes, its last path part."""
+    try:
+        u = urlparse(url)
+    except ValueError:
+        return '', set(), ''
+    path = (u.path or '').lower().rstrip('/')
+    last = re.sub(r'\.(html?|aspx|php|jsp)$', '', path.rsplit('/', 1)[-1])
+    return _registrable(u.hostname or ''), set(re.findall(r'\d{5,}', path)), last
+
+
+def same_product(a, b):
+    """Are these the same product page (maybe another country's site of the same shop)? A different colour has a
+    different product code, so it isn't."""
+    ha, ca, la = _product_key(a)
+    hb, cb, lb = _product_key(b)
+    if not ha or ha != hb:
+        return False
+    if ca or cb:
+        return bool(ca & cb)
+    return len(la) >= 8 and la == lb
+
+
+_images = OrderedDict()
+
+
+def find_image(query, gl='in', page=None):
+    """One photo URL, or None. With `page` (the product page the card's button opens), only a photo Google found on
+    that very product page: the card's photo is always of what its button opens, never a look-alike."""
+    key = f'{gl}|{query.lower()}|{page or ""}'
+    with _cache_lock:
+        hit = _images.get(key)
+        if hit and time.time() - hit[0] < CACHE_SECONDS:
+            return hit[1]
     p = _provider()
+    found, failed = None, False
     try:
         if p == 'serper':
-            r = req.post('https://google.serper.dev/images', timeout=6,
-                         headers={'X-API-KEY': os.environ['SERPER_API_KEY'], 'Content-Type': 'application/json'},
-                         json={'q': query, 'gl': gl, 'num': 10})
-            search_result(r)
-            for im in r.json().get('images') or []:
-                url = im.get('imageUrl') or ''
-                if url.startswith('https://') and not url.lower().endswith('.svg'):
-                    return url
-            return None
-        if p == 'google':
+            host = _registrable(urlparse(page).hostname or '') if page else ''
+            for q in ([query, f'site:{host} {query}'] if host else [query]):
+                r = req.post('https://google.serper.dev/images', timeout=6,
+                             headers={'X-API-KEY': os.environ['SERPER_API_KEY'], 'Content-Type': 'application/json'},
+                             json={'q': q, 'gl': gl, 'num': 10})
+                search_result(r)
+                if r.status_code != 200:
+                    failed = True
+                    break
+                for im in r.json().get('images') or []:
+                    url = im.get('imageUrl') or ''
+                    if url.startswith('https://') and not url.lower().endswith('.svg') and (not page or same_product(im.get('link') or '', page)):
+                        found = url
+                        break
+                if found:
+                    break
+        elif p == 'google' and not page:
             r = req.get('https://www.googleapis.com/customsearch/v1', timeout=5, params={
                 'key': os.environ['GOOGLE_API_KEY'], 'cx': os.environ['GOOGLE_CX'], 'q': query,
                 'searchType': 'image', 'num': 1, 'imgSize': 'medium', 'safe': 'active', 'gl': gl})
             items = r.json().get('items') or []
-            return items[0]['link'] if items else None
+            found = items[0]['link'] if items else None
     except (req.RequestException, ValueError, KeyError) as e:
         print('[shop] image search failed:', e)
-    return None
+        failed = True
+    if not failed:
+        with _cache_lock:
+            _images[key] = (time.time(), found)
+            _images.move_to_end(key)
+            while len(_images) > 3000:
+                _images.popitem(last=False)
+    return found
+
+
+def image_cached(query, gl='in', page=None):
+    with _cache_lock:
+        hit = _images.get(f'{gl}|{query.lower()}|{page or ""}')
+    return bool(hit) and time.time() - hit[0] < CACHE_SECONDS
 
 
 def _clean_title(title):
