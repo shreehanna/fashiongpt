@@ -89,7 +89,7 @@ def track_event():
 
 # ── Signed looks ──────────────────────────────────────────────────────────────
 ITEM_KEYS = ('category', 'name', 'brand', 'price', 'store', 'description')
-NOTE_KEYS = ('accessories', 'hair', 'makeup', 'fragrance')
+NOTE_KEYS = ('accessories', 'hair', 'makeup', 'fragrance', 'palette', 'why')
 META_KEYS = ('occasion', 'muse', 'era', 'stylist', 'gender', 'kind')
 
 
@@ -625,7 +625,8 @@ def board_shop(bid, j, k):
 
 
 def _notes_html(sn):
-    labels = {'accessories': 'Accessories', 'hair': 'Hair', 'makeup': 'Makeup', 'fragrance': 'Fragrance'}
+    labels = {'accessories': 'Accessories', 'hair': 'Hair', 'makeup': 'Makeup', 'fragrance': 'Fragrance', 'palette': 'Colour palette',
+              'why': 'Why it works'}
     rows = [f'<p><b>{labels[k]}:</b> {e(v)}</p>' for k, v in (sn or {}).items() if k in labels and v]
     return f'<div class="notes">{"".join(rows)}</div>' if rows else ''
 

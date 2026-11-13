@@ -314,11 +314,28 @@ def weather():
 
 # ── Characters from the series, as muses ──────────────────────────────────────
 def characters():
+    """The series' characters: the cast (cast.py, each with their whole fashion identity), plus any the owner added.
+    Until the owner edits the list in owner tools, it's the whole cast and then theirs; after that, theirs as saved
+    (so a character they take out stays out). A cast member keeps their fashion identity, with the owner's own
+    line about them added to it."""
+    import cast
     try:
-        out = json.loads(kv_get('characters') or '[]')
+        saved = [c for c in json.loads(kv_get('characters') or '[]') if isinstance(c, dict) and c.get('name')]
     except Exception:
-        return []
-    return [c for c in out if isinstance(c, dict) and c.get('name')]
+        saved = []
+    if kv_get('characters:cast') != '1':
+        mine = {c['name'].lower(): c for c in saved}
+        saved = ([{'name': c['name'], 'style': (mine.get(c['name'].lower()) or {}).get('style') or c['title']} for c in cast.CAST]
+                 + [c for c in saved if not cast.find(c['name'])])
+    out = []
+    for c in saved:
+        known = cast.find(c['name'])
+        if known:
+            note = (c.get('style') or '').strip()
+            c = dict(c, title=known['title'], gender=known['gender'],
+                     profile=cast.profile(known) + (f" Also: {note}" if note and note != known['title'] else ''))
+        out.append(c)
+    return out
 
 
 def find_character(name):
@@ -333,7 +350,8 @@ def find_character(name):
 
 @bp.get('/api/characters')
 def list_characters():
-    return jsonify({'series': SERIES, 'characters': [{'name': c['name'], 'style': c.get('style', '')} for c in characters()]})
+    return jsonify({'series': SERIES, 'characters': [{'name': c['name'], 'style': c.get('title') or c.get('style', ''),
+                                                       'gender': c.get('gender', '')} for c in characters()]})
 
 
 # ── Reels ─────────────────────────────────────────────────────────────────────
@@ -505,6 +523,7 @@ def owner_characters():
         if isinstance(c, dict) and _clip(c.get('name'), 40):
             out.append({'name': _clip(c.get('name'), 40), 'style': _clip(c.get('style'), 300)})
     kv_set('characters', json.dumps(out, ensure_ascii=False))
+    kv_set('characters:cast', '1')          # the owner's list, as saved, from now on
     return owner_content()
 
 

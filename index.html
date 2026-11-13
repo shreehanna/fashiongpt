@@ -384,6 +384,8 @@ body {
   transition: all 0.16s;
 }
 .celeb-sug:hover { border-color: var(--accent); color: var(--fg); }
+.celeb-sug-char { display: inline-flex; flex-direction: column; align-items: flex-start; gap: 1px; line-height: 1.25; border-radius: 14px; }
+.celeb-sug-char small { font-size: 10.5px; letter-spacing: .02em; color: var(--fg3); font-style: italic; }
 
 .era-grid {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
@@ -3165,12 +3167,11 @@ function finishResults(data, anchors) {
     sn.innerHTML = `
       <div class="sn-title">Ella's styling notes</div>
       <div class="sn-grid">
-        ${data.styling_notes.accessories ? `<div class="sn-item"><strong>Accessories</strong>${data.styling_notes.accessories}</div>` : ''}
-        ${data.styling_notes.hair ? `<div class="sn-item"><strong>Hair</strong>${data.styling_notes.hair}</div>` : ''}
-        ${data.styling_notes.makeup ? `<div class="sn-item"><strong>Makeup</strong>${data.styling_notes.makeup}</div>` : ''}
-        ${data.styling_notes.fragrance ? `<div class="sn-item"><strong>Fragrance</strong>${data.styling_notes.fragrance}</div>` : ''}
+        ${[['accessories', 'Accessories'], ['hair', 'Hair'], ['makeup', 'Makeup'], ['fragrance', 'Fragrance'], ['palette', 'Colour palette'], ['why', 'Why it works']]
+          .filter(([k]) => data.styling_notes[k] && typeof data.styling_notes[k] === 'string')
+          .map(([k, label]) => `<div class="sn-item"><strong>${label}</strong>${esc(data.styling_notes[k])}</div>`).join('')}
       </div>
-      ${data.photo_tip ? `<div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)"><div class="sn-title">📸 Content tip</div><div style="font-size:13px;color:var(--fg2)">${data.photo_tip}</div></div>` : ''}
+      ${data.photo_tip ? `<div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)"><div class="sn-title">📸 Content tip</div><div style="font-size:13px;color:var(--fg2)">${esc(data.photo_tip)}</div></div>` : ''}
     `;
     sn.style.display = '';
   } else {
@@ -7062,8 +7063,14 @@ async function loadCharacters() {
   const tab = document.createElement('button'); tab.id = 'tab-series'; tab.className = 'detail-chip'; tab.textContent = 'The Social Representation';
   tab.onclick = () => filterCelebCategory('series', tab);
   tabs.appendChild(tab);
-  seriesCharacters.forEach(c => {
-    const d = document.createElement('div'); d.className = 'celeb-sug'; d.dataset.cat = 'series'; d.textContent = '✦ ' + c.name;
+  // the characters who dress the way the user shops come first (anyone can still pick anyone: Ella translates)
+  const mine = state.gender === 'men' ? 'men' : (state.gender === 'women' ? 'women' : '');
+  const order = seriesCharacters.slice().sort((a, b) => (b.gender === mine) - (a.gender === mine));
+  order.slice().reverse().forEach(c => {
+    const d = document.createElement('div'); d.className = 'celeb-sug celeb-sug-char'; d.dataset.cat = 'series';
+    const nm = document.createElement('span'); nm.textContent = '✦ ' + c.name;
+    d.appendChild(nm);
+    if (c.style) { const t = document.createElement('small'); t.textContent = c.style; d.appendChild(t); }
     d.title = c.style || '';
     d.onclick = () => setCharacter(c.name);
     sugs.insertBefore(d, sugs.firstChild);
@@ -7276,7 +7283,7 @@ async function loadOwnerContent(d) {
   ch.appendChild(f);
   // Characters
   const cb = document.getElementById('own-chars');
-  cb.innerHTML = `<p class="tiny" style="margin-bottom:8px">Characters from ${esc(d.series)} show up as muses on the "Who's your style icon?" screen. Describe how each one dresses; Ella follows it.</p>`;
+  cb.innerHTML = `<p class="tiny" style="margin-bottom:8px">Characters from ${esc(d.series)} show up as muses on the "Who's your style icon?" screen. The cast's whole fashion map (colours, wardrobe, accessories, footwear, signature outfit) is built in; a line here adds to it. For a character you add, describe how they dress; Ella follows it.</p>`;
   const list = (d.characters || []).slice();
   const rows = document.createElement('div');
   const draw = () => {

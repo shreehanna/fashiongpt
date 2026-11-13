@@ -468,19 +468,36 @@ def muse_rule(muse, era='', file=None, pieces=()):
         f"happened. Vary the pieces from look to look, so the same muse never gives a repeat.")
 
 
-def character_rule(char, era=''):
-    """A muse from E&L's own drama series: Ella can't know them, so the owner describes their style."""
-    name, style = char['name'][:40], (char.get('style') or '')[:300]
+def character_rule(char, era='', gender=''):
+    """A muse from E&L's own drama series: Ella can't know them, so their fashion identity comes from the owner's
+    character fashion map (cast.py), or the owner's own line about a character they added."""
+    name = char['name'][:40]
+    identity = (char.get('profile') or f"Their style: {(char.get('style') or '')[:300] or 'polished, confident, unmistakably Upper East Side'}.")[:2500]
     key = aesthetic_key(era)
     a = AESTHETICS.get(key)
     look = a['name'] if a else ('' if key in ('celeb', 'ues') else (era or '').strip()[:60])
     text = (f"\n\nMUSE RULE (this comes first): the muse is {name}, a character from E&L's drama series "
-            f"\"The Social Representation\". Their style: {style or 'polished, confident, unmistakably Upper East Side'}. "
-            f"Dress the user exactly the way {name} dresses in the series: their silhouettes, colours, labels, "
-            f"accessories, hair and makeup.")
+            f"\"The Social Representation\". Their fashion identity:\n{identity}\n"
+            f"Dress the user the way {name} dresses: their silhouettes, signature colours, kind of pieces, accessories, "
+            f"footwear, hair and makeup, adapted to this occasion. {name} must stay recognisable whatever the occasion: "
+            "a coffee date gets their everyday version, never an evening gown; black tie gets their evening version, never "
+            "streetwear. Respect the dress code, the venue, the weather and cultural expectations (at a wedding, no white "
+            "or other colours reserved for the couple).\n"
+            f"Use {name}'s own signature colours: don't default to all black, beige or neutral unless those are theirs. "
+            "Coordination over a pile of accessories; no unnecessary logos. Never invent a signature item the identity "
+            "doesn't give them. The user is the one wearing it: their budget, comfort, coverage, closet and preferences "
+            "come first, and nothing restrictive or uncomfortable is ever required to look good.")
+    char_gender = char.get('gender') or ''
+    if gender in ('women', 'men') and char_gender in ('women', 'men') and gender != char_gender:
+        text += (f" {name} dresses in {'menswear' if char_gender == 'men' else 'womenswear'} and the user wants "
+                 f"{gender}'s pieces: translate {name}'s identity (colours, mood, level of polish, kind of accessories) "
+                 f"into {gender}'s clothes.")
     if look:
         text += f" The user also picked {look}, so dress them the way {name} would wear {look}."
-    return text + f" In ella_note, mention {name} by name, the way a society columnist would."
+    return text + (f" In ella_note, mention {name} by name, the way a society columnist would, and say whether this is "
+                   f"{name}'s signature outfit from the series recreated or a new look in their style. Talk about {name} "
+                   "only: never name a real TV show or its characters. In styling_notes, also give \"palette\" (the "
+                   f"outfit's main colours) and \"why\" (one or two sentences on why it suits both {name} and the occasion).")
 
 
 def rules(gender, occasion, muse, who, mode='', budget='', country='', era='', character=None, info=None):
@@ -508,7 +525,7 @@ def rules(gender, occasion, muse, who, mode='', budget='', country='', era='', c
         return real_outfit_rule(muse.strip()[:60], muse_identity(muse), outfits, used_ids, occasion, look, file,
                                 info.get('pieces') or []) + HONEST_NAMES
     text = (house_style(gender, mode, budget, country, era) + aesthetic_rule(era) +
-            (character_rule(character, era) if character else muse_rule(muse, era, file, info.get('pieces') or [])))
+            (character_rule(character, era, gender) if character else muse_rule(muse, era, file, info.get('pieces') or [])))
     if mode in COPY_MODES:
         # Dupe and Get this look copy something: no random starting piece or palette, no forcing it to be different
         return text + HONEST_NAMES + ("\n\nCOPY THE ORIGINAL: match it as closely as the shopper can buy it: the same hero piece, the same "
