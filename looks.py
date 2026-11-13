@@ -472,7 +472,7 @@ def character_rule(char, era='', gender=''):
     """A muse from E&L's own drama series: Ella can't know them, so their fashion identity comes from the owner's
     character fashion map (cast.py), or the owner's own line about a character they added."""
     name = char['name'][:40]
-    identity = (char.get('profile') or f"Their style: {(char.get('style') or '')[:300] or 'polished, confident, unmistakably Upper East Side'}.")[:2500]
+    identity = (char.get('profile') or f"Their style: {(char.get('style') or '')[:300] or 'polished, confident, unmistakably Upper East Side'}.")[:3200]
     key = aesthetic_key(era)
     a = AESTHETICS.get(key)
     look = a['name'] if a else ('' if key in ('celeb', 'ues') else (era or '').strip()[:60])
@@ -486,7 +486,13 @@ def character_rule(char, era='', gender=''):
             f"Use {name}'s own signature colours: don't default to all black, beige or neutral unless those are theirs. "
             "Coordination over a pile of accessories; no unnecessary logos. Never invent a signature item the identity "
             "doesn't give them. The user is the one wearing it: their budget, comfort, coverage, closet and preferences "
-            "come first, and nothing restrictive or uncomfortable is ever required to look good.")
+            "come first, and nothing restrictive or uncomfortable is ever required to look good. Keeping looks new "
+            f"(the no-repeat rules) never means leaving {name}'s signature colours or silhouettes: vary the pieces and "
+            "combinations within them.")
+    if 'SILHOUETTE DNA' in identity:
+        text += (" If the user has asked for more coverage or an easier fit, keep the fitted, waist-defined, constructed "
+                 "shape and add the coverage (sleeves, a higher neckline, a longer hem, a sheer layer) instead of going "
+                 "shapeless.")
     char_gender = char.get('gender') or ''
     if gender in ('women', 'men') and char_gender in ('women', 'men') and gender != char_gender:
         text += (f" {name} dresses in {'menswear' if char_gender == 'men' else 'womenswear'} and the user wants "
@@ -536,7 +542,14 @@ def rules(gender, occasion, muse, who, mode='', budget='', country='', era='', c
              "occasion asked again. The same main pieces in a different colour or fabric still count as a repeat.")
     if given:
         text += " These have already been given, so don't recreate any of them or their main combination of pieces:\n" + '\n'.join(given)
-    return text + variation(gender, occasion, era, (muse or '').strip()[:60]) + HONEST_NAMES
+    if character:
+        # a character's look varies inside their own identity: never a random piece or palette from outside it
+        start = (f"\nStarting point for this look (to keep every look new): pick pieces true to {character['name'][:40]}'s "
+                 "identity that aren't the most obvious ones (another of their silhouettes, another of their signature "
+                 "colours), without leaving that identity.")
+    else:
+        start = variation(gender, occasion, era, (muse or '').strip()[:60])
+    return text + start + HONEST_NAMES
 
 
 COPY_MODES = ('dupe', 'reel')

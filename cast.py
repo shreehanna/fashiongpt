@@ -13,7 +13,10 @@ CAST = [
      'accessories': 'gold watches; delicate gold jewellery; quilted handbags; elegant evening clutches; minimal statement accessories',
      'footwear': 'knee-high boots; elegant heels; ballet flats; designer-inspired everyday shoes',
      'personality': 'Naturally fashionable without looking overly calculated. Feminine, polished and subtly glamorous.',
-     'reference': 'The Champagne Return: a champagne/pale-gold gown, elegant heels, delicate jewellery and an evening clutch'},
+     'reference': 'The Champagne Return: a champagne/pale-gold gown, elegant heels, delicate jewellery and an evening clutch',
+     'silhouette': ('Feminine Glamour', 'fitted mini dresses; body-skimming evening gowns; structured strapless dresses; ruched '
+                    'dresses; fitted satin gowns; elegant sweetheart necklines; sculpted waistlines; fitted skirts with '
+                    'sophisticated tops; tailored feminine separates', 'glamorous, romantic and effortlessly expensive')},
     {'name': 'Vivienne Sinclair', 'gender': 'women', 'title': 'The Manhattan Fashion Heiress',
      'aesthetic': 'refined Upper East Side luxury; classic feminine tailoring; polished designer dressing; Blair-inspired '
                   'sophistication; structured silhouettes',
@@ -23,7 +26,10 @@ CAST = [
      'accessories': 'signature headbands; pearl jewellery; diamond-inspired earrings; structured handbags; elegant watches',
      'footwear': 'classic pumps; elegant ankle boots; refined ballet flats; sophisticated heels',
      'personality': 'Impeccably coordinated. Every accessory looks intentional. She never looks messy or accidentally dressed.',
-     'reference': 'The Black Swan: a structured black gown, diamond/pearl jewellery and polished hair'},
+     'reference': 'The Black Swan: a structured black gown, diamond/pearl jewellery and polished hair',
+     'silhouette': ('Structured Sophistication', 'structured mini dresses; fitted tweed dresses; tailored skirt suits; fitted '
+                    'blazers; structured corset-inspired bodices; elegant pencil skirts; sculpted evening gowns; fitted knit '
+                    'dresses', 'immaculate, structured and meticulously coordinated')},
     {'name': 'Lea Beaumont', 'gender': 'women', 'title': 'The Parisian It-Girl',
      'aesthetic': 'Parisian chic; romantic luxury; feminine contemporary fashion; playful designer dressing; effortlessly '
                   'seductive styling without excessive exposure',
@@ -33,7 +39,10 @@ CAST = [
      'accessories': 'delicate necklaces; fine bracelets; small designer-inspired handbags; feminine earrings',
      'footwear': 'strappy heels; ballet flats; elegant boots; minimalist sandals',
      'personality': 'Playful, romantic and fashionable. Effortlessly put together, never too formal for ordinary occasions.',
-     'reference': 'The Rose Affair: a blush-pink/rose-champagne gown, delicate jewellery and romantic hair'},
+     'reference': 'The Rose Affair: a blush-pink/rose-champagne gown, delicate jewellery and romantic hair',
+     'silhouette': ('Romantic Femininity', 'fitted mini dresses; draped dresses; ruched feminine dresses; fitted off-shoulder '
+                    'tops; tailored mini skirts; satin dresses; elegant fitted evening gowns; feminine coordinated sets',
+                    'playful, romantic and effortlessly fashionable')},
     {'name': 'Scarlett Voss', 'gender': 'women', 'title': 'The Modern Socialite',
      'aesthetic': 'contemporary Manhattan luxury; sophisticated statement dressing; feminine power dressing; polished evening fashion',
      'colours': 'emerald green, black, navy, ivory, burgundy and deep jewel tones',
@@ -104,6 +113,17 @@ CAST = [
 ]
 _BY_NAME = {c['name'].lower(): c for c in CAST}
 
+# The owner's silhouette DNA for the characters with a 'silhouette' (Sienna, Vivienne, Lea): distinctly feminine, fitted
+# and carefully styled; never oversized, shapeless, excessively loose or generic modest eveningwear by default.
+SILHOUETTE_RULES = (
+    "SILHOUETTE DNA (must keep): this wardrobe is distinctly feminine, fitted and carefully styled. Never default to "
+    "oversized, shapeless, excessively loose or generic modest eveningwear. 1. Prioritise fitted, tailored and "
+    "body-skimming silhouettes. 2. Use waist definition and intentional construction. 3. Prefer sophisticated necklines "
+    "and refined detailing. 4. Oversized pieces only when specifically right for the character or the event. 5. Don't "
+    "automatically choose a floor-length loose gown for a formal occasion. 6. A gala outfit can absolutely be a fitted, "
+    "floor-length gown. 7. Keep the character's own colour palette, styling personality and accessories intact. Fitted "
+    "does not mean every outfit is a mini dress: adapt the silhouette to the event while keeping the signature aesthetic.")
+
 
 def find(name):
     return _BY_NAME.get(str(name or '').strip().lower())
@@ -116,4 +136,7 @@ def profile(c):
              f"Styling personality: {c['personality']}"]
     if c.get('reference'):
         parts.append(f"Their signature outfit in the series: {c['reference']}.")
+    if c.get('silhouette'):
+        name, shapes, mood = c['silhouette']
+        parts.append(f"Silhouette ({name}), preferred: {shapes}. Her outfits should feel {mood}. {SILHOUETTE_RULES}")
     return ' '.join(parts)
