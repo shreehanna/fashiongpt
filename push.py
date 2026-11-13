@@ -272,8 +272,10 @@ def morning_message(row, local):
                 return {'title': f"Tomorrow: {r['label']}", 'body': 'Your look is planned. Check it tonight, not at 7 am.',
                         'url': '/?open=wedding', 'tag': 'wedding'}
     if local.weekday() == 6 and prefs.get('edit', True):
-        return {'title': 'Ella’s Sunday Edit is out ✦', 'body': 'Five looks for the week ahead. Spotted: you, ahead of everyone.',
-                'url': '/?open=edit', 'tag': 'edit'}
+        import story
+        s = story.published('in' if int(row.get('tz') or 330) == 330 else 'intl')
+        if s and s.get('sunday') == story.issue_date():
+            return {'title': 'Ella’s Sunday Edit ✦', 'body': s['headline'], 'url': '/?open=edit', 'tag': 'edit'}
     if prefs.get('daily', True):
         return {'title': 'Today’s fit ✦', 'body': random.choice(DAILY_LINES), 'url': '/?open=daily', 'tag': 'daily'}
     return None
@@ -290,16 +292,12 @@ def run_tick():
         db('UPDATE el_push SET last_day = %s WHERE endpoint = %s', (local.date().isoformat(), row['endpoint']))
         if msg and send(row, msg):
             sent += 1
-    # Sunday Edit: start making this week's editions early on Sunday, before anyone opens the app
+    # Sunday Edit: this week's story is drafted from Saturday noon (and published on Sunday morning if that's on)
     try:
-        from daily import edit_sunday, start_edit
-        ist = utc + timedelta(hours=5, minutes=30)
-        if ist.weekday() == 6 and ist.hour >= 4:
-            for g in ('women', 'men'):
-                for r in ('in', 'intl'):
-                    start_edit(edit_sunday(), g, r)
+        import story
+        story.tick()
     except Exception as e:
-        print('[push] edit warm-up skipped:', e)
+        print('[push] Sunday story skipped:', e)
     if random.random() < 0.05:
         from growth import cleanup
         cleanup()

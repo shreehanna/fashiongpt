@@ -1,13 +1,12 @@
-"""Reasons to open E&L every day: today's fit from your own closet, Ella's Sunday Edit, characters from the
-series as muses, and fashion reels with "Get this look".
+"""Reasons to open E&L every day: today's fit from your own closet, characters from the series as muses, and
+fashion reels with "Get this look". (Ella's Sunday Edit, the story of the week, is in story.py.)
 
   /api/daily-fit        Ella picks today's outfit from the closet you typed in (fast model, free once a day)
   /api/closet/label     names a closet photo ("black satin slip skirt") so Ella knows what it is
   /api/weather          today's weather near you (MET Norway), for the daily fit
-  /api/edit             this week's Sunday Edit: five looks, made once a week for everyone (not per person)
   /api/characters       characters from the series, picked as a muse
   /api/reels            fashion Shorts from YouTube plus Instagram reels the owner picked
-Owner tools (owner only): /api/owner/edit, /api/owner/characters, /api/owner/reels
+Owner tools (owner only): /api/owner/characters, /api/owner/reels
 """
 import base64
 import html
@@ -313,124 +312,6 @@ def weather():
     return jsonify(out)
 
 
-# ── Ella's Sunday Edit ────────────────────────────────────────────────────────
-_edit_lock = threading.Lock()
-_edit_running = set()
-
-
-def edit_sunday(t=None):
-    d = datetime.fromtimestamp(t or time.time(), IST).date()
-    return (d - timedelta(days=(d.weekday() + 1) % 7)).isoformat()   # the Sunday this week started on
-
-
-def _edit_key(sunday, gender, region):
-    return f'edit:{sunday}:{gender}:{region}'
-
-
-def _edit_prompt(sunday, gender, region, theme):
-    from looks import HOUSE_STYLE
-    when = datetime.fromisoformat(sunday).strftime('%d %B %Y')
-    if region == 'in':
-        market = ('The readers shop in India: prices in ₹, only brands that sell and deliver in India (Zara, H&M, Mango, '
-                  'Myntra, AJIO, Nykaa Fashion, Westside, Vero Moda, AND, FabIndia, Global Desi, Tasva, Manyavar, Snitch, '
-                  'Bonkers Corner, Kalki Fashion, House of Masaba and similar). Wedding season and festivals matter here.')
-    else:
-        market = ('The readers shop outside India (mostly the US, UK and UAE): prices in US$, only brands that ship there '
-                  '(Zara, Mango, H&M, COS, Reformation, Aritzia, Revolve, & Other Stories, Massimo Dutti, Reiss, ASOS).')
-    who = 'men' if gender == 'men' else 'women'
-    theme_line = (f"This week's theme: {theme}." if theme else
-                  'Pick a theme that fits this week of the year (season, festivals, weddings, exams, holidays).')
-    return f"""You are Ella, the stylist from E&L, who narrates E&L's drama series "{SERIES}" like a society columnist: knowing, warm, a little wicked (never name any real TV show).
-Every Sunday you publish "Ella's Sunday Edit": five looks for the week ahead, set in the world of {SERIES}.
-
-Edition: week of {when}, styling {who}.
-{theme_line}
-{market}
-Mix budgets: two everyday looks, two mid-range, one splurge.
-Five different scenes across the week, each with its day, for example "Monday · Lecture at nine", "Wednesday · Dinner at the club",
-"Friday · The after-party", "Saturday · Sangeet", "Sunday · Brunch, sunglasses on". Every look must be clearly different from the others.
-{HOUSE_STYLE if who == 'women' else 'Dress him sharp and modern: tailoring, good knits, one statement piece per look.'}
-
-Return ONLY valid JSON:
-{{
-  "title": "a 3-6 word title for this week's edition",
-  "intro": "a 2-3 sentence opener starting with 'Spotted:' and ending with 'XOXO, Ella'",
-  "looks": [
-    {{
-      "scene": "Day · scene",
-      "look_name": "3-5 word name",
-      "ella_note": "2 sentences in Ella's voice about who wears this and why",
-      "items": [{{"category": "...", "name": "specific product name", "brand": "exact brand", "store": "bare domain like zara.com",
-                 "price": "price with currency symbol", "description": "one sentence"}}],
-      "styling_notes": {{"accessories": "...", "hair": "...", "makeup": "...", "fragrance": "..."}}
-    }}
-  ]
-}}
-Exactly 5 looks, 5-6 items each, real brands and realistic prices."""
-
-
-def _make_edit(sunday, gender, region):
-    key = _edit_key(sunday, gender, region)
-    try:
-        theme = _clip(kv_get('edit_theme:' + sunday), 120)
-        out = _json(_ask(_edit_prompt(sunday, gender, region, theme), 7000, quick=False))
-        looks = [l for l in (out or {}).get('looks') or [] if isinstance(l, dict) and l.get('items')]
-        if len(looks) < 3:
-            raise ValueError('the edit came back incomplete')
-        from growth import sign_look
-        for l in looks[:5]:
-            l['scene'] = _clip(l.get('scene'), 60)
-            sign_look(l, {'occasion': l['scene'], 'stylist': 'ella', 'gender': gender, 'era': theme}, kind='edit')
-        edit = {'title': _clip(out.get('title'), 80) or "Ella's Sunday Edit", 'intro': _clip(out.get('intro'), 500),
-                'theme': theme, 'sunday': sunday, 'gender': gender, 'region': region, 'looks': looks[:5], 'made_at': now()}
-        kv_set(key, json.dumps(edit, ensure_ascii=False))
-        kv_set(f'edit:latest:{gender}:{region}', key)
-        print(f'[daily] Sunday Edit ready: {key}')
-    except Exception as e:
-        print(f'[daily] Sunday Edit {key} failed: {e!r}')
-        kv_set(key + ':failed', str(now()))
-    finally:
-        with _edit_lock:
-            _edit_running.discard(key)
-
-
-def start_edit(sunday, gender, region, force=False):
-    key = _edit_key(sunday, gender, region)
-    with _edit_lock:
-        if key in _edit_running:
-            return True
-        if not force:
-            if kv_get(key):
-                return False
-            failed = kv_get(key + ':failed')
-            if failed and now() - int(failed) < 900:      # wait 15 minutes before trying again
-                return False
-        _edit_running.add(key)
-    threading.Thread(target=_make_edit, args=(sunday, gender, region), daemon=True).start()
-    return True
-
-
-@bp.get('/api/edit')
-def get_edit():
-    gender = 'men' if request.args.get('gender') == 'men' else 'women'
-    region = 'in' if request.args.get('region') == 'in' else 'intl'
-    sunday = edit_sunday()
-    key = _edit_key(sunday, gender, region)
-    try:
-        raw = kv_get(key)
-        brewing = False
-        if not raw:
-            brewing = start_edit(sunday, gender, region)
-            latest = kv_get(f'edit:latest:{gender}:{region}')
-            raw = kv_get(latest) if latest else None
-        edit = json.loads(raw) if raw else None
-    except Exception as e:
-        print('[daily] edit read failed:', e)
-        return jsonify({'edit': None, 'brewing': False}), 503
-    return jsonify({'edit': edit, 'brewing': brewing, 'current': bool(edit and edit.get('sunday') == sunday),
-                    'sunday': sunday})
-
-
 # ── Characters from the series, as muses ──────────────────────────────────────
 def characters():
     try:
@@ -610,30 +491,9 @@ def owner_content():
     if not owner_request():
         return jsonify({'error': 'not found'}), 404
     from growth import challenge_theme
-    sunday = edit_sunday()
-    status = {}
-    for g in ('women', 'men'):
-        for r in ('in', 'intl'):
-            k = _edit_key(sunday, g, r)
-            status[f'{g}_{r}'] = 'making' if k in _edit_running else ('ready' if kv_get(k) else 'not made yet')
     picks = [dict(p, has_shot=bool(kv_get('reel:shot:' + p['id']))) for p in reel_picks()]
-    return jsonify({'edit_theme': kv_get('edit_theme:' + sunday) or '', 'edit_status': status, 'sunday': sunday,
-                    'characters': characters(), 'reels': picks, 'youtube': bool(env('YOUTUBE_API_KEY')),
+    return jsonify({'characters': characters(), 'reels': picks, 'youtube': bool(env('YOUTUBE_API_KEY')),
                     'challenge': challenge_theme(), 'series': SERIES})
-
-
-@bp.post('/api/owner/edit')
-def owner_edit():
-    if not owner_request():
-        return jsonify({'error': 'not found'}), 404
-    body = request.get_json(silent=True) or {}
-    sunday = edit_sunday()
-    kv_set('edit_theme:' + sunday, _clip(body.get('theme'), 120))
-    if body.get('publish'):
-        for g in ('women', 'men'):
-            for r in ('in', 'intl'):
-                start_edit(sunday, g, r, force=True)
-    return owner_content()
 
 
 @bp.post('/api/owner/characters')

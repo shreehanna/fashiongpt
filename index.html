@@ -1353,7 +1353,36 @@ body::after {
 .plan-banner { display: flex; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap; width: 100%;
   background: rgba(251,246,236,.95); border: 1px solid var(--gold); border-radius: var(--r-lg); padding: 10px 14px; margin-bottom: 18px; text-shadow: none; font-size: 14px; }
 
-/* Sunday Edit */
+/* Sunday Edit: the story of the week */
+.story-dek { font: italic 400 19px/1.45 var(--serif); text-align: center; color: var(--fg); max-width: 32em; margin: 0 auto 14px; text-wrap: pretty; }
+.story-listen { display: flex; justify-content: center; margin: 4px 0 18px; }
+.story-body { max-width: 34em; margin: 0 auto; display: grid; gap: 14px; padding: 22px 20px; }
+.story-body p { font: 400 18px/1.6 var(--serif); color: var(--fg); text-wrap: pretty; }
+.story-body p:first-child::first-letter { float: left; font: 400 54px/0.9 var(--serif); padding: 4px 8px 0 0; color: var(--gold-ink); }
+.story-deets { margin: 24px auto 12px; text-align: center; width: fit-content; max-width: 100%; padding: 10px 18px; border-radius: 14px;
+  background: rgba(251,246,236,0.9); border: 1px solid var(--border); text-shadow: none; }
+[data-theme="dark"] .story-deets { background: var(--surface); }
+.story-sources { width: fit-content; margin-left: auto; margin-right: auto; padding: 6px 12px; border-radius: 99px; background: rgba(251,246,236,0.85); text-shadow: none; }
+[data-theme="dark"] .story-sources { background: var(--surface); }
+.story-photo { max-width: 34em; margin: 0 auto 14px; }
+.story-photo a { display: block; border-radius: 18px; overflow: hidden; background: var(--surface); border: 1px solid var(--border); }
+.story-photo img { display: block; width: 100%; height: auto; max-height: 60vh; object-fit: cover; object-position: center 20%; }
+.story-photo figcaption { width: fit-content; margin: 8px 0 0 auto; padding: 3px 10px; border-radius: 99px; font-size: 11px; color: var(--fg3);
+  background: rgba(251,246,236,0.85); text-shadow: none; }
+[data-theme="dark"] .story-photo figcaption { background: var(--surface); }
+.story-photo figcaption a { display: inline; border: 0; background: none; color: inherit; text-decoration: underline; }
+.own-story .os-photo { display: flex; gap: 10px; align-items: center; }
+.own-story .os-photo img { width: 72px; height: 90px; object-fit: cover; border-radius: 8px; background: var(--surface); }
+.story-deets h3 { font: 500 11px var(--sans); letter-spacing: .18em; text-transform: uppercase; color: var(--gold-ink); }
+.story-deets p { font: italic 15px var(--serif); color: var(--fg2); margin-top: 4px; }
+.story-actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-top: 18px; }
+.story-sources { margin-top: 16px; text-align: center; font-size: 12px; color: var(--fg3); }
+.story-sources a { color: var(--gold-ink); }
+.story-wait { text-align: center; }
+.own-story { display: grid; gap: 10px; }
+.own-story .os-head { font: 400 20px/1.25 var(--serif); }
+.own-story .os-body p { font-size: 13.5px; color: var(--fg2); margin-top: 6px; }
+.own-story .os-meta { font-size: 12px; color: var(--fg3); }
 .edit-intro { font: italic 400 18px/1.55 var(--serif); text-align: center; color: var(--fg); max-width: 34em; margin: 0 auto 18px; text-wrap: pretty; }
 .edit-look .scene { font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: var(--gold-ink); }
 .edit-look h3 { font: 500 26px/1.15 var(--serif); margin: 4px 0 6px; }
@@ -1705,7 +1734,7 @@ body::after {
     <div class="looks-meter" id="looks-meter" aria-live="polite"></div>
     <div class="today-row" id="today-row">
       <button class="today-tile" type="button" onclick="openDaily()"><span class="tt-ico" aria-hidden="true">☀️</span><span class="tt-name">Today's fit</span><span class="tt-sub" id="tt-daily">From your own closet</span></button>
-      <button class="today-tile" type="button" onclick="openEdit()"><span class="tt-ico" aria-hidden="true">✦</span><span class="tt-name">Sunday Edit</span><span class="tt-sub">5 looks a week</span><i class="tt-dot" id="tt-edit-dot" hidden></i></button>
+      <button class="today-tile" type="button" onclick="openEdit()"><span class="tt-ico" aria-hidden="true">✦</span><span class="tt-name">Sunday Edit</span><span class="tt-sub">Story of the week</span><i class="tt-dot" id="tt-edit-dot" hidden></i></button>
       <button class="today-tile" type="button" onclick="openWedding()"><span class="tt-ico" aria-hidden="true">💍</span><span class="tt-name">Weddings</span><span class="tt-sub" id="tt-wed">Every function</span></button>
       <button class="today-tile" type="button" onclick="openReels()"><span class="tt-ico" aria-hidden="true">▶</span><span class="tt-name">Reels</span><span class="tt-sub">Get the look</span></button>
       <button class="today-tile" type="button" onclick="openOwnLook('find')"><span class="tt-ico" aria-hidden="true">🔎</span><span class="tt-name">Shop any outfit</span><span class="tt-sub">Insta link or photo</span></button>
@@ -2248,7 +2277,7 @@ body::after {
     <div class="ella-badge"><span class="ella-dot"></span> <span id="edit-week">Ella's Sunday Edit</span></div>
     <h2 class="section-title" id="edit-title">Ella's <em>Sunday Edit</em></h2>
   </div>
-  <p class="edit-intro" id="edit-intro"></p>
+  <p class="story-dek" id="edit-intro"></p>
   <div id="edit-looks" style="width:100%"></div>
 </div>
 
@@ -3006,8 +3035,8 @@ function beginResults(data) {
   if (sn) sn.style.display = 'none';
   return [];
 }
-function addResultItem(item, anchors, draft) {
-  const grid = document.getElementById('outfit-grid');
+function addResultItem(item, anchors, draft, grid) {
+  grid = grid || document.getElementById('outfit-grid');
   const itemId = `item-img-${Math.random().toString(36).slice(2)}`;
   const div = document.createElement('div');
   div.className = 'outfit-item';
@@ -6280,6 +6309,7 @@ function showPlanBanner() {
 let editData = null, editPoll = null;
 function editRegion() { return state.region && state.region.code === 'IN' ? 'in' : (state.region ? 'intl' : (/^Asia\/(Kolkata|Calcutta)$/.test(Intl.DateTimeFormat().resolvedOptions().timeZone || '') ? 'in' : 'intl')); }
 async function openEdit() {
+  if (storyAudio) { storyAudio.pause(); storyAudio = null; }
   goTo('screen-edit');
   track('edit_open');
   await loadEdit();
@@ -6287,58 +6317,101 @@ async function openEdit() {
 async function loadEdit() {
   clearTimeout(editPoll);
   const box = document.getElementById('edit-looks');
-  if (!editData) box.innerHTML = '<p class="muted" style="text-align:center">Opening this week’s edit…</p>';
+  if (!editData) box.innerHTML = '<p class="muted" style="text-align:center">Opening this week’s story…</p>';
   try {
-    const d = await api(`/api/edit?gender=${state.gender === 'men' ? 'men' : 'women'}&region=${editRegion()}`);
-    editData = d;
+    editData = await api(`/api/edit?region=${editRegion()}`);
     renderEdit();
-    if (d.brewing && document.getElementById('screen-edit').classList.contains('active')) editPoll = setTimeout(loadEdit, 6000);
   } catch (e) { box.innerHTML = `<p class="muted" style="text-align:center">${esc(e.message)}</p>`; }
 }
+// Ella's Sunday Edit: one short story about the moment everyone's talking about, told through the outfit, and the
+// outfit's pieces to shop. Ella reads it out for anyone who won't read.
+let storyAudio = null;
 function renderEdit() {
-  const d = editData, e = d && d.edit;
+  const d = editData, st = d && d.story;
   const box = document.getElementById('edit-looks');
-  const week = e ? new Date(e.sunday + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'long' }) : '';
-  document.getElementById('edit-week').textContent = e ? (d.current ? `Week of ${week}` : `Last week’s edit · ${week}`) : 'Ella’s Sunday Edit';
-  document.getElementById('edit-title').innerHTML = e ? esc(e.title) : 'Ella’s <em>Sunday Edit</em>';
-  document.getElementById('edit-intro').textContent = e ? e.intro : '';
+  const when = st ? new Date(st.sunday + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'long' }) : '';
+  document.getElementById('edit-week').textContent = st ? (d.current ? `Ella’s Sunday Edit · ${when}` : `Last Sunday’s story · ${when}`) : 'Ella’s Sunday Edit';
+  document.getElementById('edit-title').textContent = st ? st.headline : 'Ella’s Sunday Edit';
+  document.getElementById('edit-intro').textContent = st ? st.dek : '';
   box.innerHTML = '';
-  if (d && d.brewing) {
-    const p = document.createElement('div'); p.className = 'panel'; p.style.textAlign = 'center';
-    p.innerHTML = '<p style="font:italic 18px var(--serif)">Ella is writing this week’s edit…</p><p class="tiny">It takes about a minute. Stay here, or come back soon.</p>';
-    box.appendChild(p);
+  if (!st) {
+    box.innerHTML = '<div class="panel story-wait"><p style="font:italic 19px var(--serif)">Ella’s writing this week’s story ✦</p><p class="tiny" style="margin-top:6px">Every Sunday: the moment everyone’s talking about, and what they wore. Check back on Sunday.</p></div>';
+    return;
   }
-  if (!e) return;
-  lsSet('el_edit_seen', e.sunday); renderTodayRow();
-  e.looks.forEach((l, i) => {
-    const card = document.createElement('div'); card.className = 'panel edit-look';
-    card.innerHTML = `<div class="scene">${esc(l.scene || '')}</div><h3>${esc(l.look_name)}</h3><p class="note">${esc(l.ella_note || '')}</p>
-      <ul class="mini-pieces">${(l.items || []).map(it => `<li><span>${esc(it.name)} <em>· ${esc(it.brand)}</em></span><span>${esc(it.price || '')}</span></li>`).join('')}</ul>`;
-    const acts = document.createElement('div'); acts.className = 'row';
-    const open = document.createElement('button'); open.className = 'btn-primary btn-small'; open.textContent = 'Open look';
-    open.onclick = () => { state.occasion = l.scene || 'Sunday Edit'; state.celeb = ''; state.era = e.theme || ''; state.planContext = null; renderResults(lookCopy(l)); goTo('screen-results'); switchTab('outfit'); track('edit_look'); };
-    const mine = document.createElement('button'); mine.className = 'btn-secondary btn-small'; mine.textContent = '✦ Make it mine';
-    mine.onclick = () => makeEditMine(l);
-    const share = document.createElement('button'); share.className = 'link-btn'; share.textContent = 'Share';
-    share.onclick = () => openRate(lookCopy(l));
-    acts.append(open, mine, share);
-    card.appendChild(acts);
-    box.appendChild(card);
-  });
+  lsSet('el_edit_seen', st.sunday); renderTodayRow();
+  // The report's own cover photo: shown from the news site, credited and linked back to it. Gone if it won't load.
+  const ph = st.photo;
+  if (ph && /^https:\/\//.test(ph.url || '') && /^https:\/\//.test(ph.link || '')) {
+    const fig = document.createElement('figure'); fig.className = 'story-photo';
+    const a = document.createElement('a'); a.href = ph.link; a.target = '_blank'; a.rel = 'noopener';
+    const img = document.createElement('img'); img.referrerPolicy = 'no-referrer'; img.decoding = 'async';
+    img.alt = st.person ? `${st.person}${st.moment ? ', ' + st.moment : ''}` : st.headline;
+    img.onerror = () => fig.remove();
+    img.src = ph.url;
+    a.appendChild(img); fig.appendChild(a);
+    const cap = document.createElement('figcaption'); cap.append('Photo via ');
+    const ca = document.createElement('a'); ca.href = ph.link; ca.target = '_blank'; ca.rel = 'noopener'; ca.textContent = ph.credit || 'the news';
+    cap.appendChild(ca); fig.appendChild(cap);
+    box.appendChild(fig);
+  }
+  // Listen: for anyone who won't read it
+  const listen = document.createElement('div'); listen.className = 'story-listen';
+  const play = document.createElement('button'); play.type = 'button'; play.className = 'btn-secondary btn-small'; play.textContent = '🔊 Ella reads it to you';
+  play.onclick = () => toggleStoryAudio(play);
+  listen.appendChild(play); box.appendChild(listen);
+  const body = document.createElement('div'); body.className = 'panel story-body';
+  (st.body || []).forEach(t => { const p = document.createElement('p'); p.textContent = t; body.appendChild(p); });
+  box.appendChild(body);
+  // The deets: each piece, with its shop link (exactly what they wore when the reports name it)
+  const head = document.createElement('div'); head.className = 'story-deets';
+  head.innerHTML = '<h3>The deets</h3>';
+  const sub = document.createElement('p'); sub.textContent = `Shop ${st.person ? st.person + '’s' : 'the'} outfit`; head.appendChild(sub);
+  box.appendChild(head);
+  const grid = document.createElement('div'); grid.className = 'outfit-grid'; grid.id = 'story-grid';
+  box.appendChild(grid);
+  const items = (st.deets || []).map(dt => ({ category: dt.category, name: dt.name, brand: dt.brand, description: dt.description,
+                                              worn: st.person || '', exact: !!dt.exact, price: '' }));
+  const anchors = [];
+  items.forEach(it => addResultItem(it, anchors, true, grid));
+  findShopLinks(items, anchors);
+  const acts = document.createElement('div'); acts.className = 'story-actions';
+  const mine = document.createElement('button'); mine.type = 'button'; mine.className = 'btn-primary'; mine.textContent = '✦ Get it for my budget';
+  mine.onclick = () => storyForMyBudget(st);
+  acts.appendChild(mine);
+  box.appendChild(acts);
+  if ((st.sources || []).length) {
+    const src = document.createElement('p'); src.className = 'story-sources';
+    src.append('As reported by ');
+    st.sources.slice(0, 3).forEach((s2, k) => {
+      if (k) src.append(k === st.sources.slice(0, 3).length - 1 ? ' and ' : ', ');
+      const a2 = document.createElement('a'); a2.href = s2.url; a2.target = '_blank'; a2.rel = 'noopener'; a2.textContent = s2.source || 'the news';
+      src.appendChild(a2);
+    });
+    box.appendChild(src);
+  }
 }
-function makeEditMine(l) {
-  if (!lookAllowed(() => makeEditMine(l))) return;
-  document.getElementById('gen-message').textContent = `Making "${l.look_name}" yours…`;
+function toggleStoryAudio(btn) {
+  if (storyAudio && !storyAudio.paused) { storyAudio.pause(); btn.textContent = '🔊 Ella reads it to you'; return; }
+  if (!storyAudio) {
+    storyAudio = ellaAudio;
+    ellaAudio.src = `/api/edit/audio?region=${editRegion()}`;
+    ellaAudio.onended = () => { btn.textContent = '🔊 Play it again'; };
+  }
+  btn.textContent = '⏸ Pause';
+  ellaAudio.play().catch(() => { btn.textContent = 'Ella’s voice isn’t available right now'; btn.disabled = true; });
+  track('edit_listen');
+}
+function storyForMyBudget(st) {
+  if (!lookAllowed(() => storyForMyBudget(st))) return;
+  const pieces = (st.deets || []).map(d => [d.brand, d.name].filter(Boolean).join(' ')).join(', ');
+  document.getElementById('gen-message').textContent = 'Getting the look for your budget…';
   goTo('screen-generating');
-  const pieces = (l.items || []).map(i => i.name).join(', ');
   requestLook('/api/outfit', {
-    occasion: l.scene || 'this week', celebrity: state.celeb || 'No specific muse', character: state.character || '', era: state.era || 'Upper East Side Glam',
-    mode: 'discover', budget: state.budget, currency: state.currency, gender: state.gender || 'women',
-    style_profile: buildQuizContext() + ` Inspired by Ella's Sunday Edit look "${l.look_name}" (${pieces}): keep its mood, but make it fit this person and their budget, with different pieces.`,
-    body_profile: state.quiz.styleSize || ''
-  }, () => { state.occasion = l.scene || 'Sunday Edit'; state.planContext = null; }).then(look => {
-    countLook(); goTo('screen-results'); switchTab('outfit'); spawnSparkles();
-  }).catch(err => { if (err.aborted) return; goTo('screen-edit'); if (!err.limit) alert(err.friendly || 'Ella hit a snag. Try again!'); });
+    mode: 'dupe', inspo_look: `${st.person}'s outfit (${st.moment}): ${pieces}`.slice(0, 400),
+    gender: state.gender, budget: state.budget, currency: state.currency, occasion: 'Sunday Edit'
+  }, () => { state.occasion = `Sunday Edit: ${st.person}`.slice(0, 60); state.celeb = ''; state.planContext = null; })
+    .then(() => { countLook(); goTo('screen-results'); switchTab('outfit'); spawnSparkles(); track('edit_look'); })
+    .catch(err => { if (err.aborted) return; goTo('screen-edit'); if (!err.limit) alert(err.friendly || 'Ella hit a snag. Try again!'); });
 }
 
 // ══ Reels ════════════════════════════════════════════════════════════════════
@@ -6462,7 +6535,7 @@ const TOUR = [
   { el: '#start-btn', line: () => 'Tap here, tell me the plan, and I’ll style you. Even like your favourite celeb.' },
   { el: '#screen-landing .landing-actions [onclick="goToGallery()"]', line: () => 'Everything you save lives here. Share a look and let your friends vote.' },
   { el: '#today-row [onclick="openDaily()"]', line: () => 'Every morning, an outfit from your own closet. Weather included.' },
-  { el: '#today-row [onclick="openEdit()"]', line: () => 'Five fresh looks from me, every single Sunday.' },
+  { el: '#today-row [onclick="openEdit()"]', line: () => 'Every Sunday: the outfit everyone\u2019s talking about, and where to get it.' },
   { el: '#today-row [onclick="openWedding()"]', line: () => 'Wedding season? Every function sorted, and no repeats.' },
   { el: '#today-row [onclick="openReels()"]', line: () => 'Scroll try-on videos, then tap Get this look.' },
   { el: '#today-row [onclick="openOwnLook(\'find\')"]', line: () => 'Saw a fit on Insta? Send me the link and I’ll find every piece.' },
@@ -6639,7 +6712,7 @@ const ABILITIES = [
   ['Plan ahead', [
     ['💍', 'Weddings', 'A look for every function, none repeating, with reminders as the day gets close.', 'Plan', () => openWedding()],
     ['📅', 'Plan my day', 'Three looks that carry you from morning to night.', 'Plan', () => openPlanDay()],
-    ['✨', 'The Sunday Edit', 'Five fresh looks from Ella every week.', 'See it', () => openEdit()],
+    ['✨', 'The Sunday Edit', 'Every Sunday, the outfit everyone\u2019s talking about, and where to get it. Ella reads it to you too.', 'Read it', () => openEdit()],
   ]],
   ['Share & play', [
     ['🗳', 'Rate my fit', 'Share any look and friends vote on it, no sign-up needed.', 'My looks', () => goToGallery()],
@@ -7007,19 +7080,74 @@ async function loadOwnerStats() {
     }
   } catch (e) { box.textContent = e.message; }
 }
+// Ella's Sunday Edit: read the draft, have her write another, publish (or let Sundays publish themselves)
+async function loadOwnerStory(d) {
+  const ed = document.getElementById('own-edit');
+  try { d = d || await api('/api/owner/story'); } catch (e) { ed.textContent = e.message; return; }
+  ed.innerHTML = '';
+  const intro = document.createElement('p'); intro.className = 'tiny';
+  intro.textContent = `The story for Sunday ${d.sunday}. Ella drafts it from Saturday noon from this week's news; nothing goes live until you publish it.`;
+  const auto = document.createElement('label'); auto.className = 'row tiny'; auto.style.gap = '8px';
+  const box = document.createElement('input'); box.type = 'checkbox'; box.checked = !!d.auto;
+  box.onchange = async () => loadOwnerStory(await api('/api/owner/story', { auto: box.checked }));
+  auto.append(box, 'Publish automatically on Sunday at 9am if I haven\u2019t reviewed it');
+  ed.append(intro, auto);
+  let busy = false;
+  [['in', 'India'], ['intl', 'Outside India']].forEach(([r, label]) => {
+    const v = d.regions[r];
+    busy = busy || v.writing;
+    const card = document.createElement('div'); card.className = 'panel own-story';
+    const t = document.createElement('div'); t.className = 'quiz-label'; t.textContent = label; card.appendChild(t);
+    const meta = document.createElement('div'); meta.className = 'os-meta';
+    meta.textContent = (v.live ? `Live now: “${v.live.headline}” (${v.live.sunday})` : 'Nothing live yet.') + (v.writing ? ' · Ella is writing…' : '') + (v.failed ? ` · Last try: ${v.failed}` : '');
+    card.appendChild(meta);
+    const dr = v.draft;
+    if (dr) {
+      const h = document.createElement('div'); h.className = 'os-head'; h.textContent = dr.headline + (dr.status === 'published' ? '  ✓ published' : '  (draft)');
+      const dek = document.createElement('div'); dek.className = 'muted'; dek.textContent = dr.dek;
+      const body = document.createElement('div'); body.className = 'os-body';
+      (dr.body || []).forEach(x => { const p = document.createElement('p'); p.textContent = x; body.appendChild(p); });
+      const deets = document.createElement('div'); deets.className = 'os-meta';
+      deets.textContent = 'The deets: ' + (dr.deets || []).map(x => [x.brand, x.name].filter(Boolean).join(' ') + (x.exact ? ' (exact)' : '')).join(' · ');
+      const src = document.createElement('div'); src.className = 'os-meta';
+      src.append('Sources: ');
+      (dr.sources || []).forEach((x, k) => { if (k) src.append(' · '); const a = document.createElement('a'); a.href = x.url; a.target = '_blank'; a.rel = 'noopener'; a.textContent = `${x.source || 'link'} (${x.date || ''})`; src.appendChild(a); });
+      card.append(h, dek);
+      const ph = document.createElement('div'); ph.className = 'os-photo os-meta';
+      if (dr.photo) {
+        const im = document.createElement('img'); im.referrerPolicy = 'no-referrer'; im.alt = ''; im.src = dr.photo.url;
+        im.onerror = () => { im.replaceWith('(this photo doesn’t load, so readers won’t see it)'); };
+        const right = document.createElement('div'); right.append(`Photo via ${dr.photo.credit || 'the news'} `);
+        const off = document.createElement('button'); off.className = 'link-btn'; off.textContent = 'Remove photo';
+        off.onclick = async () => { loadOwnerStory(await api('/api/owner/story', { region: r, action: 'nophoto' })); toast('Photo removed'); };
+        right.appendChild(off); ph.append(im, right);
+      } else ph.textContent = 'No photo with this story.';
+      card.append(ph, body, deets, src);
+    }
+    if (v.live && v.live.photo && !(dr && dr.status === 'published')) {
+      const off = document.createElement('button'); off.className = 'link-btn'; off.textContent = 'Remove the photo from the live story';
+      off.onclick = async () => { loadOwnerStory(await api('/api/owner/story', { region: r, action: 'nophoto', which: 'live' })); toast('Photo removed'); };
+      card.appendChild(off);
+    }
+    const row = document.createElement('div'); row.className = 'row';
+    if (dr && dr.status !== 'published') {
+      const pub = document.createElement('button'); pub.className = 'btn-primary btn-small'; pub.textContent = 'Publish';
+      pub.onclick = async () => { loadOwnerStory(await api('/api/owner/story', { region: r, action: 'publish' })); toast('Published ✦'); };
+      row.appendChild(pub);
+    }
+    const again = document.createElement('button'); again.className = 'btn-secondary btn-small';
+    again.textContent = dr ? 'Write a different story' : 'Write this week’s story now';
+    again.onclick = async () => { loadOwnerStory(await api('/api/owner/story', { region: r, action: 'write' })); toast('Ella is reading the news. About a minute.'); };
+    row.appendChild(again);
+    card.appendChild(row);
+    ed.appendChild(card);
+  });
+  clearTimeout(loadOwnerStory.poll);
+  if (busy) loadOwnerStory.poll = setTimeout(() => { if (document.getElementById('screen-owner').classList.contains('active')) loadOwnerStory(); }, 8000);
+}
 async function loadOwnerContent(d) {
   try { d = d || await api('/api/owner/content'); } catch (e) { document.getElementById('own-edit').textContent = e.message; return; }
-  // Sunday Edit
-  const ed = document.getElementById('own-edit');
-  ed.innerHTML = `<p class="tiny" style="margin-bottom:8px">This week (from Sunday ${esc(d.sunday)}): ${Object.entries(d.edit_status).map(([k, v]) => esc(k.replace('_', ' / ').replace('intl', 'outside India').replace(' in', ' India')) + ': ' + esc(v)).join(' · ')}</p>`;
-  const theme = document.createElement('input'); theme.className = 'quiz-input'; theme.maxLength = 120; theme.value = d.edit_theme || '';
-  theme.placeholder = 'Theme, e.g. "Episode 4: The Masquerade" (or leave empty: Ella picks)';
-  const row = document.createElement('div'); row.className = 'row'; row.style.marginTop = '8px';
-  const save = document.createElement('button'); save.className = 'btn-secondary btn-small'; save.textContent = 'Save theme';
-  save.onclick = async () => loadOwnerContent(await api('/api/owner/edit', { theme: theme.value }));
-  const pub = document.createElement('button'); pub.className = 'btn-primary btn-small'; pub.textContent = 'Make this week’s edit now';
-  pub.onclick = async () => { if (!pub.dataset.armed) { pub.dataset.armed = 1; pub.textContent = 'Tap again (4 Claude calls)'; return; } loadOwnerContent(await api('/api/owner/edit', { theme: theme.value, publish: true })); toast('Ella is writing it. About a minute.'); };
-  row.append(save, pub); ed.append(theme, row);
+  loadOwnerStory();
   // Challenge
   const ch = document.getElementById('own-challenge');
   ch.innerHTML = `<p class="muted">Now: <b>${esc(d.challenge.name)}</b>${d.challenge.custom ? ' (set by you)' : ' (automatic)'} · ${esc(d.challenge.occasion)}${d.challenge.era ? ' · ' + esc(d.challenge.era) : ''}</p>`;
@@ -7194,7 +7322,7 @@ requestLook = function (url, body, onStart) {
 
 // Open a screen from a link, the Home Screen shortcut, or a tapped notification
 function routeOpen(name) {
-  const map = { daily: openDaily, edit: openEdit, reels: openReels, wedding: openWedding, challenge: openChallenge, looks: goToGallery, closet: () => openCloset('screen-landing') };
+  const map = { daily: openDaily, edit: openEdit, reels: openReels, wedding: openWedding, challenge: openChallenge, looks: goToGallery, closet: () => openCloset('screen-landing'), owner: openOwnerTools };
   if (map[name]) map[name]();
 }
 (function () {

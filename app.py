@@ -991,6 +991,9 @@ app.register_blueprint(muses.bp)    # /api/muse/prepare, /api/owner/muse
 import identify
 identify.init(client, STYLE_MODEL)
 app.register_blueprint(identify.bp)  # /api/identify: where each piece of a screenshot or post is from
+import story
+story.init(client, STYLE_MODEL)
+app.register_blueprint(story.bp)     # /api/edit: Ella's Sunday Edit, the story of the week (and /api/owner/story)
 
 
 if __name__ == '__main__':
