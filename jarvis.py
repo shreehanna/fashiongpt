@@ -301,8 +301,13 @@ def talk():
         else:
             merged.append(dict(t))
     snap = snapshot()
-    system = (persona(a) + "\n\nSNAPSHOT (live, taken just now; the only source for facts about E&L):\n"
-              + json.dumps(snap, ensure_ascii=False, default=str))
+    system = persona(a)
+    if body.get('voice'):
+        system += (f"\n\nTHE OWNER IS TALKING TO YOU OUT LOUD right now, hands-free, and hears your reply spoken. Reply the "
+                   f"way you'd speak: 1-3 short sentences, no lists or headings, numbers said naturally; casual chat stays "
+                   f"casual. Only a hologram request gets a diagram (say \"It's on screen, {a}.\"). What you heard may "
+                   "have small transcription slips (brand names, Hinglish): read it generously.")
+    system += "\n\nSNAPSHOT (live, taken just now; the only source for facts about E&L):\n" + json.dumps(snap, ensure_ascii=False, default=str)
     try:
         msg = _ai['client'].messages.create(model=_ai['model'], max_tokens=1500, system=system, messages=merged)
     except Exception as e:

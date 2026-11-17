@@ -1411,6 +1411,38 @@ body::after {
 .jv-orb { width: 30px; height: 30px; border-radius: 50%; flex: none; background: radial-gradient(circle at 50% 45%, #e9fbff 0 12%, var(--jv-cyan) 28%, rgba(92,214,255,.15) 60%, transparent 72%);
   box-shadow: 0 0 18px rgba(92,214,255,.65); animation: jv-pulse 3.2s ease-in-out infinite; }
 .jv.is-thinking .jv-orb { animation-duration: .9s; }
+.jv[data-mode="listening"] .jv-orb { box-shadow: 0 0 22px rgba(92,214,255,.9); }
+.jv[data-mode="hearing"] .jv-orb { animation-duration: .45s; box-shadow: 0 0 30px rgba(140,255,220,.95); }
+.jv[data-mode="speaking"] .jv-orb { animation-duration: .6s; }
+.jv[data-mode="listening"] .jv-title span, .jv[data-mode="hearing"] .jv-title span { color: var(--jv-cyan); }
+.jv.is-voice .jv-log, .jv.is-voice .jv-chips, .jv.is-voice .jv-form, .jv.is-voice .jv-head .jv-orb, .jv.is-voice .jv-title span { display: none; }
+.jv-stage { display: none; }
+.jv.is-voice .jv-stage { display: grid; justify-items: center; gap: 14px; padding: 28px 0 8px; }
+.jv-core { --lvl: 0; position: relative; width: 132px; height: 132px; display: grid; place-items: center; }
+.jv-core b { width: 64px; height: 64px; border-radius: 50%; transform: scale(calc(1 + var(--lvl) * .55)); transition: transform 90ms linear;
+  background: radial-gradient(circle at 50% 45%, #f2fdff 0 14%, #9fe8ff 30%, var(--jv-cyan) 46%, rgba(92,214,255,.25) 66%, transparent 72%);
+  box-shadow: 0 0 34px rgba(92,214,255,.75), 0 0 80px rgba(92,214,255,.25); }
+.jv-core i { position: absolute; inset: 0; border-radius: 50%; border: 2px solid transparent; border-top-color: var(--jv-cyan); border-bottom-color: rgba(92,214,255,.35);
+  animation: jv-spin 7s linear infinite; }
+.jv-core i + i { inset: 16px; border-top-color: rgba(92,214,255,.4); border-left-color: var(--jv-cyan); animation-duration: 4.5s; animation-direction: reverse; }
+.jv[data-mode="thinking"] .jv-core i { animation-duration: .9s; }
+.jv[data-mode="thinking"] .jv-core i + i { animation-duration: .7s; }
+.jv[data-mode="speaking"] .jv-core b { animation: jv-talk .5s ease-in-out infinite alternate; }
+.jv[data-mode="hearing"] .jv-core b { box-shadow: 0 0 44px rgba(140,255,220,.9), 0 0 90px rgba(92,214,255,.35); }
+.jv[data-mode=""] .jv-core b { opacity: .55; }
+@keyframes jv-spin { to { transform: rotate(360deg); } }
+@keyframes jv-talk { to { transform: scale(1.18); } }
+@media (prefers-reduced-motion: reduce) { .jv-core i, .jv[data-mode="speaking"] .jv-core b { animation: none; } }
+.jv-stage-state { font: 600 11px var(--sans); letter-spacing: .34em; text-transform: uppercase; color: var(--jv-cyan); min-height: 14px; }
+.jv-sub { max-width: 30em; text-align: center; font: 400 14px/1.5 var(--sans); color: var(--jv-text); }
+.jv-confirm { display: grid; justify-items: center; gap: 8px; padding: 12px 14px; border: 1px solid var(--jv-cyan); border-radius: 14px;
+  background: rgba(92,214,255,.07); font: 500 13px var(--sans); color: var(--jv-text); text-align: center; }
+.jv-confirm .jv-act { margin: 0; }
+.jv-holo-area { width: 100%; min-width: 0; }
+.jv-holo-area .jv-holo { animation: jv-project .45s ease-out; margin: 4px 0 0; }
+@keyframes jv-project { from { opacity: 0; transform: perspective(600px) rotateX(18deg) translateY(10px); filter: blur(3px); } }
+.jv-wake { justify-self: center; background: var(--jv-cyan); color: #04121c; border: 0; border-radius: 99px; padding: 10px 18px; font: 600 13px var(--sans);
+  box-shadow: 0 0 20px rgba(92,214,255,.5); }
 @keyframes jv-pulse { 50% { transform: scale(.86); opacity: .75; } }
 @media (prefers-reduced-motion: reduce) { .jv-orb { animation: none; } }
 .jv-title { display: grid; line-height: 1.2; }
@@ -2450,13 +2482,21 @@ body::after {
   <div class="jv" id="jv">
     <div class="jv-head">
       <span class="jv-orb" aria-hidden="true"></span>
-      <div class="jv-title"><b>JARVIS</b><span id="jv-state">Online</span></div>
+      <div class="jv-title"><b>JARVIS</b><span id="jv-state" aria-live="polite">Online</span></div>
       <div class="jv-controls">
-        <button type="button" class="jv-ctl" id="jv-voice" onclick="jarvisVoiceToggle()" aria-pressed="false">Voice off</button>
+        <button type="button" class="jv-ctl" id="jv-voice" onclick="jarvisVoiceToggle()">Type instead</button>
         <select class="jv-ctl" id="jv-addr" onchange="jarvisAddress(this.value)" aria-label="What JARVIS calls you">
           <option value="ma'am">ma'am</option><option value="sir">sir</option><option value="boss">boss</option>
         </select>
       </div>
+    </div>
+    <!-- voice mode: no transcript, just JARVIS (and a hologram when you ask for one) -->
+    <div class="jv-stage" id="jv-stage">
+      <div class="jv-core" id="jv-core" aria-hidden="true"><i></i><i></i><b></b></div>
+      <div class="jv-stage-state" id="jv-stage-state" aria-live="polite">Listening</div>
+      <div class="jv-sub" id="jv-sub" hidden></div>
+      <div class="jv-confirm" id="jv-confirm" hidden></div>
+      <div class="jv-holo-area" id="jv-holo-area"></div>
     </div>
     <div class="jv-log" id="jv-log" aria-live="polite"></div>
     <div class="jv-chips" id="jv-chips"></div>
@@ -2825,6 +2865,7 @@ function restoreQuizUI() {
 
 // ── Navigation ──
 function goTo(screenId) {
+  if (screenId !== 'screen-owner' && typeof jarvisClose === 'function') jarvisClose();   // the mic is only ever on in owner tools
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById(screenId).classList.add('active');
   window.scrollTo(0, 0);
@@ -7228,11 +7269,22 @@ async function openOwnerTools() {
 // anything it would do (write or publish the story, hide a reported look, a test alert) waits for Confirm. ──
 const JV_CHIPS = ["I'm home", 'Status report', 'House Party Protocol', 'Diagnostics', 'Suit up',
                   'Pull up people this week', 'Show me how a look is made', 'Good night'];
-const jv = { history: [], busy: false, voice: false, address: "ma'am", audio: new Audio() };
-function jvSave() { try { localStorage.setItem('el_jarvis', JSON.stringify({ history: jv.history.slice(-24), voice: jv.voice, address: jv.address, greeted: jv.greeted })); } catch (e) {} }
+const jv = { history: [], busy: false, handsfree: true, address: "ma'am", audio: new Audio(), pendingAction: null };
+// hands-free: the mic stays open while owner tools are; it hears when you start and stop talking, and never
+// listens while JARVIS is speaking (so it doesn't answer itself)
+const jvMic = { stream: null, ctx: null, an: null, rec: null, chunks: [], timer: null, on: false, paused: true,
+                hearing: false, speechMs: 0, silenceMs: 0, recMs: 0, idleMs: 0, noise: 0.01, type: '' };
+function jvSave() { try { localStorage.setItem('el_jarvis', JSON.stringify({ history: jv.history.slice(-24), handsfree: jv.handsfree, address: jv.address, greeted: jv.greeted })); } catch (e) {} }
 function jvLoad() {
   try { Object.assign(jv, JSON.parse(localStorage.getItem('el_jarvis') || '{}')); } catch (e) {}
   if (!Array.isArray(jv.history)) jv.history = [];
+  if (typeof jv.handsfree !== 'boolean') jv.handsfree = true;
+}
+function jvState(text, mode) {
+  const st = document.getElementById('jv-state'), panel = document.getElementById('jv'), big = document.getElementById('jv-stage-state');
+  if (st) st.textContent = text;
+  if (big) big.textContent = String(text).replace(/…$/, '');
+  if (panel) { panel.dataset.mode = mode || ''; panel.classList.toggle('is-thinking', mode === 'thinking'); }
 }
 // a reply: text paragraphs, and every ``` block as a hologram (all escaped: nothing in a reply runs as HTML)
 function jvRender(text) {
@@ -7245,83 +7297,290 @@ function jvRender(text) {
   });
   return out.join('');
 }
+const JV_LABELS = { write_story: "Write this week's story", publish_story: "Publish this week's story", hide_look: 'Hide that look', test_alert: 'Send a test alert' };
+async function jvDo(action, row) {
+  if (row) row.remove();
+  jv.pendingAction = null;
+  try {
+    const r = await api('/api/owner/jarvis/act', Object.assign({ address: jv.address }, action));
+    jvAdd('assistant', r.say || 'Done.'); jv.history.push({ role: 'assistant', text: r.say || 'Done.' }); jvSave();
+    await jvSpeak(r.say);
+    if (action.type !== 'test_alert') loadOwnerContent();
+  } catch (e) { jvAdd('error', e.message); await jvSpeak(e.message); }
+}
+// voice mode: nothing you say is written down, and JARVIS's words are spoken, not shown. Only a hologram you asked
+// for appears (and, before he does anything, what he's about to do).
+function jvStage(role, text, action) {
+  if (role === 'user') return;
+  const holos = (String(text || '').match(/```[a-zA-Z0-9_-]*\n?[\s\S]*?```/g) || []);
+  const area = document.getElementById('jv-holo-area');
+  if (holos.length) area.innerHTML = jvRender(holos.join('\n'));
+  else if (/hologram cleared/i.test(text || '')) area.innerHTML = '';
+  if (action) {
+    const box = document.getElementById('jv-confirm');
+    box.innerHTML = ''; box.hidden = false;
+    const what = document.createElement('div'); what.textContent = (JV_LABELS[action.type] || action.type) + '? Say "yes" or tap';
+    const row = document.createElement('div'); row.className = 'jv-act';
+    const yes = document.createElement('button'); yes.type = 'button'; yes.textContent = 'Confirm';
+    const no = document.createElement('button'); no.type = 'button'; no.className = 'no'; no.textContent = 'Cancel';
+    const done = () => { box.hidden = true; box.innerHTML = ''; };
+    yes.onclick = () => { done(); jvDo(action); };
+    no.onclick = () => { done(); jv.pendingAction = null; };
+    row.append(yes, no); box.append(what, row);
+    jv.pendingAction = { action, row: { remove: done } };
+  }
+}
 function jvAdd(role, text, action) {
+  if (jv.handsfree) return jvStage(role, text, action);
   const log = document.getElementById('jv-log');
   const m = document.createElement('div');
   m.className = 'jv-msg ' + (role === 'user' ? 'me' : role === 'error' ? 'jarvis err' : 'jarvis');
   if (role === 'user') m.textContent = text; else m.innerHTML = jvRender(text);
   if (action) {
-    const labels = { write_story: "Write this week's story", publish_story: "Publish this week's story", hide_look: 'Hide that look', test_alert: 'Send a test alert' };
     const row = document.createElement('div'); row.className = 'jv-act';
-    const yes = document.createElement('button'); yes.type = 'button'; yes.textContent = 'Confirm: ' + (labels[action.type] || action.type);
+    const yes = document.createElement('button'); yes.type = 'button'; yes.textContent = 'Confirm: ' + (JV_LABELS[action.type] || action.type);
     const no = document.createElement('button'); no.type = 'button'; no.className = 'no'; no.textContent = 'Cancel';
-    yes.onclick = async () => {
-      row.remove();
-      try {
-        const r = await api('/api/owner/jarvis/act', Object.assign({ address: jv.address }, action));
-        jvAdd('assistant', r.say || 'Done.'); jv.history.push({ role: 'assistant', text: r.say || 'Done.' }); jvSave(); jvSpeak(r.say);
-        if (action.type !== 'test_alert') loadOwnerContent();
-      } catch (e) { jvAdd('error', e.message); }
-    };
-    no.onclick = () => { row.remove(); jv.history.push({ role: 'user', text: '(cancelled that)' }); jvSave(); };
+    yes.onclick = () => jvDo(action, row);
+    no.onclick = () => { row.remove(); jv.pendingAction = null; jv.history.push({ role: 'user', text: '(cancelled that)' }); jvSave(); };
     row.append(yes, no); m.appendChild(row);
+    jv.pendingAction = { action, row };            // "yes" / "do it" out loud confirms it too
   }
   log.appendChild(m);
   log.scrollTop = log.scrollHeight;
 }
+// speak, and only then listen again; resolves when it's done talking (or couldn't)
 function jvSpeak(text) {
-  if (!jv.voice || !text) return;
-  const said = String(text).replace(/```[\s\S]*?```/g, ' (hologram on screen) ').replace(/\*\*/g, '').replace(/\s+/g, ' ').trim().slice(0, 400);
-  fetch('/api/tts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: said, stylist: 'jarvis' }) })
-    .then(r => r.ok ? r.blob() : null).then(b => {
-      if (!b) return;
+  if (!jv.handsfree || !text) return Promise.resolve();
+  let said = String(text).replace(/```[\s\S]*?```/g, ' The hologram is on screen. ').replace(/\*\*/g, '').replace(/\s+/g, ' ').trim();
+  if (said.length > 400) { const cut = said.slice(0, 400); said = cut.slice(0, Math.max(cut.lastIndexOf('. '), cut.lastIndexOf('? ')) + 1) || cut; }
+  jvMicPause(true);
+  jvState('Speaking…', 'speaking');
+  return fetch('/api/tts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: said, stylist: 'jarvis' }) })
+    .then(r => r.ok ? r.blob() : null)
+    .then(b => new Promise(done => {
+      if (!b) { jvSubtitle(said); return done(); }
       if (jv.audio.src.startsWith('blob:')) URL.revokeObjectURL(jv.audio.src);
-      jv.audio.src = URL.createObjectURL(b); jv.audio.play().catch(() => {});
-    }).catch(() => {});
+      jv.audio.onended = jv.audio.onerror = () => done();
+      jv.audio.src = URL.createObjectURL(b);
+      jv.audio.play().catch(err => { if (err && err.name === 'NotAllowedError') jvNeedTap(); else jvSubtitle(said); done(); });
+    }))
+    .catch(() => {})
+    .finally(() => { setTimeout(() => { jvMicPause(false); if (!jvMic.on) jvState('Online', ''); }, 350); });
+}
+function jvSubtitle(text) {
+  // only when his voice can't play: what he said, briefly, so there's never just silence
+  const sub = document.getElementById('jv-sub');
+  if (!sub || !jv.handsfree) return;
+  sub.textContent = text; sub.hidden = false;
+  clearTimeout(jvSubtitle.t); jvSubtitle.t = setTimeout(() => { sub.hidden = true; }, Math.min(14000, 3000 + text.length * 60));
+}
+function jvNeedTap() {
+  // the browser wouldn't let JARVIS speak or listen without a tap (opened from a notification): one tap wakes him
+  if (document.getElementById('jv-wake')) return;
+  const b = document.createElement('button'); b.type = 'button'; b.id = 'jv-wake'; b.className = 'jv-wake'; b.textContent = 'Tap to wake JARVIS';
+  b.onclick = () => { b.remove(); jvUnlock(); jvGreet(true); };
+  (jv.handsfree ? document.getElementById('jv-stage') : document.getElementById('jv-log')).appendChild(b);
+}
+function jvUnlock() {
+  // inside a tap: lets the page play JARVIS's voice and read the mic later, on phones too
+  try { jv.audio.src = 'data:audio/wav;base64,UklGRrQBAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YZABAACAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA'; jv.audio.play().then(() => jv.audio.pause()).catch(() => {}); } catch (e) {}
+  try {
+    jvMic.ctx = jvMic.ctx || new (window.AudioContext || window.webkitAudioContext)();
+    if (jvMic.ctx.state === 'suspended') jvMic.ctx.resume();
+  } catch (e) {}
+}
+async function jvMicStart() {
+  if (jvMic.on) return true;
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.MediaRecorder) { jvState('Type to me: this browser has no microphone access', ''); return false; }
+  try {
+    jvMic.stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
+  } catch (e) {
+    jvState('Mic blocked: allow it in the address bar to talk', '');
+    return false;
+  }
+  try {
+    jvMic.ctx = jvMic.ctx || new (window.AudioContext || window.webkitAudioContext)();
+    if (jvMic.ctx.state === 'suspended') await jvMic.ctx.resume();
+    jvMic.an = jvMic.ctx.createAnalyser(); jvMic.an.fftSize = 1024;
+    jvMic.ctx.createMediaStreamSource(jvMic.stream).connect(jvMic.an);
+  } catch (e) { jvMicStop(); return false; }
+  jvMic.type = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg;codecs=opus'].find(t => MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(t)) || '';
+  jvMic.on = true;
+  const buf = new Float32Array(jvMic.an.fftSize);
+  jvMic.timer = setInterval(() => jvTick(buf), 50);
+  return true;
+}
+function jvMicStop() {
+  clearInterval(jvMic.timer); jvMic.timer = null;
+  try { if (jvMic.rec && jvMic.rec.state !== 'inactive') { jvMic.rec.ondataavailable = null; jvMic.rec.onstop = null; jvMic.rec.stop(); } } catch (e) {}
+  if (jvMic.stream) jvMic.stream.getTracks().forEach(t => t.stop());
+  Object.assign(jvMic, { stream: null, an: null, rec: null, chunks: [], on: false, paused: true, hearing: false });
+}
+function jvMicPause(p) {
+  jvMic.paused = p;
+  const core = document.getElementById('jv-core');
+  if (core && p) core.style.setProperty('--lvl', 0);
+  if (p) { jvRecDrop(); return; }
+  if (jvMic.on && !jv.busy) { jvRecFresh(); jvState('Listening…', 'listening'); }
+}
+// a recorder runs while listening, restarted every few seconds of quiet, so the start of what you say is never cut off
+function jvRecFresh() {
+  jvRecDrop();
+  if (!jvMic.on || jvMic.paused) return;
+  try {
+    const rec = new MediaRecorder(jvMic.stream, jvMic.type ? { mimeType: jvMic.type } : undefined);
+    jvMic.chunks = [];
+    rec.ondataavailable = e => { if (e.data && e.data.size) jvMic.chunks.push(e.data); };
+    rec.start();
+    jvMic.rec = rec; jvMic.recMs = 0; jvMic.idleMs = 0;
+  } catch (e) { jvMic.rec = null; }
+}
+function jvRecDrop() {
+  const rec = jvMic.rec; jvMic.rec = null; jvMic.hearing = false; jvMic.speechMs = jvMic.silenceMs = 0;
+  try { if (rec && rec.state !== 'inactive') { rec.ondataavailable = null; rec.onstop = null; rec.stop(); } } catch (e) {}
+}
+function jvTick(buf) {
+  if (!jvMic.on || jvMic.paused || !jvMic.an) return;
+  jvMic.an.getFloatTimeDomainData(buf);
+  let sum = 0; for (let i = 0; i < buf.length; i++) sum += buf[i] * buf[i];
+  const rms = Math.sqrt(sum / buf.length);
+  const core = document.getElementById('jv-core');
+  if (core) core.style.setProperty('--lvl', Math.min(1, rms * 9).toFixed(3));
+  if (!jvMic.rec) jvRecFresh();
+  if (!jvMic.rec) return;
+  jvMic.recMs += 50;
+  if (!jvMic.hearing) {
+    if (rms < jvMic.noise * 2) jvMic.noise = jvMic.noise * 0.97 + rms * 0.03;     // learn the room's quiet
+    if (rms > Math.max(0.02, jvMic.noise * 3.2)) {
+      jvMic.speechMs += 50;
+      if (jvMic.speechMs >= 150) { jvMic.hearing = true; jvMic.silenceMs = 0; jvState('Hearing you…', 'hearing'); }
+    } else {
+      jvMic.speechMs = 0;
+      jvMic.idleMs += 50;
+      if (jvMic.idleMs >= 6000) jvRecFresh();      // quiet for a while: start a fresh recording (keeps it short)
+    }
+    return;
+  }
+  if (rms < Math.max(0.015, jvMic.noise * 2.2)) {
+    jvMic.silenceMs += 50;
+    if (jvMic.silenceMs >= 1200 || jvMic.recMs > 30000) jvHeard();
+  } else jvMic.silenceMs = 0;
+}
+function jvHeard() {
+  const rec = jvMic.rec; jvMic.rec = null; jvMic.hearing = false;
+  if (!rec) return;
+  jvMic.paused = true;
+  jvState('Thinking…', 'thinking');
+  rec.onstop = async () => {
+    const blob = new Blob(jvMic.chunks, { type: jvMic.type || 'audio/webm' });
+    let text = '';
+    try {
+      const fd = new FormData(); fd.append('audio', blob, (jvMic.type || '').includes('mp4') ? 'talk.mp4' : 'talk.webm');
+      const r = await fetch('/api/transcribe', { method: 'POST', body: fd });
+      const d = await r.json().catch(() => ({}));
+      text = String(d.text || '').replace(/[\(\[][^\)\]]*[\)\]]/g, ' ').replace(/\s+/g, ' ').trim();
+    } catch (e) {}
+    jvVoiceCommand(text);
+  };
+  try { rec.stop(); } catch (e) { jvMicPause(false); }
+}
+// what you said out loud
+async function jvVoiceCommand(text) {
+  if (!text || text.split(' ').length < 2 && !/^(yes|yeah|yep|no|nope|cancel|confirm|thanks)\W*$/i.test(text)) return jvMicPause(false);
+  if (/\b(go to sleep|stop listening|that'?s all( for now)?|mute yourself|goodbye jarvis)\b/i.test(text)) {
+    jvAdd('user', text);
+    const bye = `Very good, ${jv.address}. I'll be here.`;
+    jvAdd('assistant', bye);
+    await jvSpeak(bye);
+    jvMicStop(); jvState('Asleep', ''); jvControls();
+    return;
+  }
+  if (jv.pendingAction) {
+    if (/^(yes|yeah|yep|confirm(ed)?|do it|go ahead|go for it|please do|publish it)\b/i.test(text)) { jvAdd('user', text); return jvDo(jv.pendingAction.action, jv.pendingAction.row); }
+    if (/^(no|nope|cancel|don'?t|leave it|scrap that)\b/i.test(text)) { jvAdd('user', text); jv.pendingAction.row.remove(); jv.pendingAction = null; const ok = `As you wish, ${jv.address}.`; jvAdd('assistant', ok); return jvSpeak(ok); }
+  }
+  return jarvisSend(text, true);
 }
 function jarvisVoiceToggle() {
-  jv.voice = !jv.voice; jvSave();
+  if (jv.handsfree && !jvMic.on) {                  // asleep (or the mic was off): this tap wakes him
+    jvUnlock();
+    const hi = `At your service, ${jv.address}.`;
+    jvAdd('assistant', hi);
+    jvMicStart().then(on => { jvControls(); return jvSpeak(hi); });
+    return;
+  }
+  jv.handsfree = !jv.handsfree; jvSave();
+  jvControls();
+  document.getElementById('jv-log').innerHTML = '';          // typing starts clean: nothing you said out loud is shown
+  if (jv.handsfree) { jvUnlock(); jvMicStart().then(on => on && jvMicPause(false)); }
+  else { jv.audio.pause(); jvMicStop(); jvState('Online', ''); document.getElementById('jv-in').focus(); }
+}
+function jvControls() {
   const b = document.getElementById('jv-voice');
-  b.setAttribute('aria-pressed', String(jv.voice)); b.textContent = jv.voice ? 'Voice on' : 'Voice off';
-  if (!jv.voice) jv.audio.pause();
+  const asleep = jv.handsfree && !jvMic.on && document.getElementById('jv-state')?.textContent === 'Asleep';
+  document.getElementById('jv').classList.toggle('is-voice', jv.handsfree);
+  b.textContent = asleep ? 'Wake JARVIS' : jv.handsfree ? 'Type instead' : 'Talk to JARVIS';
 }
 function jarvisAddress(v) { jv.address = v; jvSave(); }
-async function jarvisSend(text) {
+async function jarvisSend(text, spoken) {
   const input = document.getElementById('jv-in');
   const said = (text || input.value).trim();
   if (!said || jv.busy) return;
   input.value = '';
   jvAdd('user', said);
-  const panel = document.getElementById('jv'), state = document.getElementById('jv-state'), send = document.getElementById('jv-send');
-  jv.busy = true; panel.classList.add('is-thinking'); state.textContent = 'Thinking…'; send.disabled = true;
+  const send = document.getElementById('jv-send');
+  jv.busy = true; jvMicPause(true); jvState('Thinking…', 'thinking'); send.disabled = true;
   try {
-    const r = await api('/api/owner/jarvis', { message: said, history: jv.history.slice(-10), address: jv.address });
+    const r = await api('/api/owner/jarvis', { message: said, history: jv.history.slice(-10), address: jv.address, voice: jv.handsfree });
     jv.history.push({ role: 'user', text: said }, { role: 'assistant', text: r.reply });
     jvSave();
     jvAdd('assistant', r.reply, r.action);
-    jvSpeak(r.reply);
     track('jarvis_ask');
+    jv.busy = false;
+    await jvSpeak(r.reply);
   } catch (e) {
     jvAdd('error', e.message || 'A momentary fault. Do try again.');
+    jv.busy = false;
+    await jvSpeak(e.message);
   } finally {
-    jv.busy = false; panel.classList.remove('is-thinking'); state.textContent = 'Online'; send.disabled = false;
+    jv.busy = false; send.disabled = false;
+    if (!jvMic.on || !jv.handsfree) jvState('Online', '');
   }
+}
+// on opening owner tools: "Welcome back" out loud, then listening (and once a day, the status too)
+async function jvGreet(fromTap) {
+  const hello = `Welcome back, ${jv.address}.`;
+  jvAdd('assistant', hello);
+  const mic = jvMicStart();
+  await jvSpeak(hello);
+  const on = await mic;
+  if (jv.greeted !== todayLocal()) { jv.greeted = todayLocal(); jvSave(); await jarvisSend("I'm home", true); }
+  else if (on) jvMicPause(false);
 }
 function jarvisOpen() {
   jvLoad();
   const log = document.getElementById('jv-log');
   if (!log) return;
   log.innerHTML = '';
-  jv.history.slice(-8).forEach(t => jvAdd(t.role === 'user' ? 'user' : 'assistant', t.text));
+  jv.pendingAction = null;
+  ['jv-holo-area', 'jv-confirm'].forEach(id => { document.getElementById(id).innerHTML = ''; });
+  document.getElementById('jv-confirm').hidden = true;
+  document.getElementById('jv-sub').hidden = true;
   document.getElementById('jv-addr').value = jv.address;
-  const vb = document.getElementById('jv-voice');
-  vb.setAttribute('aria-pressed', String(!!jv.voice)); vb.textContent = jv.voice ? 'Voice on' : 'Voice off';
+  jvControls();
   const chips = document.getElementById('jv-chips');
   chips.innerHTML = '';
   JV_CHIPS.forEach(c => { const b = document.createElement('button'); b.type = 'button'; b.textContent = c; b.onclick = () => jarvisSend(c); chips.appendChild(b); });
-  // the first time each day: "Welcome home"
-  if (jv.greeted !== todayLocal()) { jv.greeted = todayLocal(); jvSave(); jarvisSend("I'm home"); }
+  if (jv.handsfree) {
+    jvUnlock();                                      // still inside the tap that opened owner tools
+    jvGreet();
+  } else if (jv.greeted !== todayLocal()) { jv.greeted = todayLocal(); jvSave(); jarvisSend("I'm home"); }
 }
+function jarvisClose() { jvMicStop(); try { jv.audio.pause(); } catch (e) {} }
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) jarvisClose();
+  else if (jv.handsfree && document.getElementById('screen-owner')?.classList.contains('active') && !jvMic.on) jvMicStart().then(on => on && jvMicPause(false));
+});
 async function loadOwnerStats() {
   const box = document.getElementById('own-growth');
   try {
