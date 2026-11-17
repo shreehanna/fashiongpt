@@ -35,8 +35,9 @@ CLIENT_EVENTS = {
     'open', 'standalone', 'install', 'share_open', 'share_story', 'share_copy', 'share_save', 'daily_open',
     'push_on', 'wedding_open', 'wedding_look', 'edit_open', 'edit_look', 'reels_open', 'reel_look', 'challenge_open',
     'challenge_enter', 'board_create', 'board_share', 'ref_open', 'paywall_limit', 'paywall_open', 'closet_add',
-    'character_pick', 'can_open', 'can_try', 'tour_open', 'tour_done', 'tour_try', 'edit_listen', 'dupe_open', 'jarvis_ask', 'tryon_open', 'tryon_done'}
-SERVER_EVENTS = {'signin', 'look', 'card_create', 'card_view', 'vote', 'cta', 'daily_fit', 'push_sent', 'report', 'identify', 'tryon'}
+    'character_pick', 'can_open', 'can_try', 'tour_open', 'tour_done', 'tour_try', 'edit_listen', 'dupe_open', 'jarvis_ask', 'tryon_open', 'tryon_done',
+    'jarvis_user_open', 'jarvis_user_talk', 'jarvis_user_look'}
+SERVER_EVENTS = {'signin', 'look', 'card_create', 'card_view', 'vote', 'cta', 'daily_fit', 'push_sent', 'report', 'identify', 'tryon', 'look_tweak'}
 _event_budget = {}
 _budget_lock = threading.Lock()
 

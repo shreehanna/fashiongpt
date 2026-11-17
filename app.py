@@ -915,6 +915,12 @@ def tts():
     ip = (request.headers.get('X-Forwarded-For') or request.remote_addr or '').split(',')[0].strip()
     if not owner_request() and not _tts_allowed(ip):
         return jsonify({'error': 'slow down'}), 429
+    spoken = None
+    if who == 'jarvis' and not owner_request():   # JARVIS for everyone: a daily cap on lines he hasn't said before
+        import concierge
+        spoken = concierge.voice_ok(text)
+        if spoken is None:
+            return jsonify({'error': 'voice limit', 'kind': 'voice_limit'}), 429
     try:
         r = req.post(
             f'https://api.elevenlabs.io/v1/text-to-speech/{voice_id}',
@@ -927,9 +933,13 @@ def tts():
             timeout=30
         )
     except req.RequestException:
+        if spoken:
+            concierge.give_back(spoken)
         return jsonify({'error': 'voice service unreachable'}), 502
     voice_result(r)
     if r.status_code != 200:
+        if spoken:
+            concierge.give_back(spoken)
         return jsonify({'error': 'voice service error', 'status': r.status_code}), 502
     if short:
         if len(_tts_cache) < 64:
@@ -1012,6 +1022,9 @@ app.register_blueprint(jarvis.bp)    # /api/owner/jarvis: the owner's private op
 import tryon
 tryon.init()
 app.register_blueprint(tryon.bp)     # /api/try-on: see the look on your own photo (OpenAI's image model)
+import concierge
+concierge.init(client, QUICK_MODEL, STYLE_MODEL)
+app.register_blueprint(concierge.bp)  # /api/concierge, /api/look-tweak: JARVIS for everyone, and stylists' quick swaps
 
 
 if __name__ == '__main__':

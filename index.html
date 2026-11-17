@@ -1470,6 +1470,55 @@ body::after {
 .jv-ping { display: block; margin: 12px auto 0; background: transparent; color: var(--jv-cyan); border: 1px dashed var(--jv-line);
   border-radius: 99px; padding: 7px 14px; font: 500 12.5px var(--sans); }
 .jv-ping:disabled { color: var(--jv-dim); cursor: default; }
+/* ── JARVIS for everyone: a small dock at the foot of the page (his own night-blue look in both themes) ── */
+.jvu { --jv-cyan: #5cd6ff; --jv-text: #d8f3ff; --jv-dim: #93b8ca; --jv-line: rgba(92,214,255,.32);
+  position: fixed; z-index: 90; left: 50%; transform: translateX(-50%); bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  width: min(560px, calc(100% - 24px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px)));
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 7px 8px;
+  border-radius: 24px; border: 1px solid var(--jv-line); background: rgba(7, 18, 28, .93);
+  -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); color: var(--jv-text); text-shadow: none;
+  box-shadow: 0 14px 40px rgba(4, 12, 20, .35); font: 400 13.5px/1.45 var(--sans); animation: jvu-in .35s ease-out; }
+@keyframes jvu-in { from { opacity: 0; transform: translate(-50%, 14px); } }
+.jvu-orb { --lvl: 0; position: relative; width: 50px; height: 50px; border-radius: 50%; border: 0; padding: 0; background: transparent;
+  display: grid; place-items: center; cursor: pointer; }
+.jvu-orb b { width: 24px; height: 24px; border-radius: 50%; transform: scale(calc(1 + var(--lvl) * .6)); transition: transform 90ms linear;
+  background: radial-gradient(circle at 50% 45%, #f2fdff 0 14%, #9fe8ff 30%, var(--jv-cyan) 48%, rgba(92,214,255,.2) 70%, transparent 74%);
+  box-shadow: 0 0 18px rgba(92,214,255,.7); }
+.jvu-orb i { position: absolute; inset: 3px; border-radius: 50%; border: 2px solid transparent; border-top-color: var(--jv-cyan);
+  border-bottom-color: rgba(92,214,255,.3); animation: jv-spin 6s linear infinite; }
+.jvu-orb:focus-visible { outline: 2px solid var(--jv-cyan); outline-offset: 2px; }
+.jvu[data-mode="asleep"] .jvu-orb b { opacity: .55; box-shadow: none; animation: jv-pulse 2.6s ease-in-out infinite; }
+.jvu[data-mode="asleep"] .jvu-orb i { animation: none; opacity: .45; }
+.jvu[data-mode="thinking"] .jvu-orb i, .jvu[data-mode="working"] .jvu-orb i { animation-duration: .8s; }
+.jvu[data-mode="speaking"] .jvu-orb b { animation: jv-talk .45s ease-in-out infinite alternate; }
+.jvu[data-mode="hearing"] .jvu-orb b { box-shadow: 0 0 26px rgba(140,255,220,.95); }
+.jvu-mid { min-width: 0; display: grid; gap: 1px; }
+.jvu-name { font: 600 10.5px/1.4 var(--sans); letter-spacing: .3em; text-transform: uppercase; color: var(--jv-cyan); }
+.jvu-name span { color: var(--jv-dim); letter-spacing: .1em; margin-left: 8px; font-weight: 500; }
+.jvu-cap { color: var(--jv-text); overflow-wrap: anywhere; }
+.jvu-cap:empty { display: none; }
+.jvu-type { grid-column: 1 / -1; display: flex; gap: 6px; margin: 0 2px 2px; }
+.jvu-type input { flex: 1; min-width: 0; background: rgba(92,214,255,.08); color: var(--jv-text); border: 1px solid var(--jv-line);
+  border-radius: 12px; padding: 7px 10px; font: 400 14px var(--sans); }
+.jvu-type input::placeholder { color: var(--jv-dim); }
+.jvu-type button { background: var(--jv-cyan); color: #04121c; border: 0; border-radius: 99px; padding: 7px 14px; font: 600 12.5px var(--sans); cursor: pointer; }
+.jvu-side { display: flex; gap: 4px; }
+.jvu-btn { width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--jv-line); background: transparent; color: var(--jv-dim);
+  font: 500 15px/1 var(--sans); cursor: pointer; display: grid; place-items: center; padding: 0; }
+.jvu-btn:hover, .jvu-btn:focus-visible { color: var(--jv-text); border-color: var(--jv-cyan); }
+.jvu-btn[aria-pressed="true"] { color: #04121c; background: var(--jv-cyan); border-color: var(--jv-cyan); }
+.jvu-fab { position: fixed; z-index: 90; right: calc(14px + env(safe-area-inset-right, 0px)); bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+  width: 52px; height: 52px; border-radius: 50%; border: 1px solid rgba(92,214,255,.4); background: rgba(7,18,28,.92); padding: 0;
+  display: grid; place-items: center; cursor: pointer; box-shadow: 0 10px 26px rgba(4,12,20,.3); }
+.jvu-fab b { width: 22px; height: 22px; border-radius: 50%; box-shadow: 0 0 14px rgba(92,214,255,.7); animation: jv-pulse 3.2s ease-in-out infinite;
+  background: radial-gradient(circle at 50% 45%, #f2fdff 0 14%, #9fe8ff 30%, #5cd6ff 48%, transparent 74%); }
+.jvu-fab:focus-visible { outline: 2px solid #5cd6ff; outline-offset: 3px; }
+body.jvu-on { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
+body.jvu-fab-on { padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px)); }
+body.jvu-on .toast, body.jvu-on .owner-alert { bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
+.outfit-item.jvu-new { animation: jvu-swap 1.8s ease-out; }
+@keyframes jvu-swap { 0% { box-shadow: 0 0 0 2px #5cd6ff, 0 0 26px rgba(92,214,255,.6); } 100% { box-shadow: 0 0 0 0 transparent; } }
+@media (prefers-reduced-motion: reduce) { .jvu, .jvu-orb i, .jvu-fab b, .jvu-orb b, .outfit-item.jvu-new { animation: none !important; } }
 .jv-wake { justify-self: center; background: var(--jv-cyan); color: #04121c; border: 0; border-radius: 99px; padding: 10px 18px; font: 600 13px var(--sans);
   box-shadow: 0 0 20px rgba(92,214,255,.5); }
 @keyframes jv-pulse { 50% { transform: scale(.86); opacity: .75; } }
@@ -2584,6 +2633,23 @@ body::after {
 <!-- ═══════════════════════════════════════════════════════════════
      VOICE MODE OVERLAY
 ═══════════════════════════════════════════════════════════════ -->
+<!-- JARVIS for everyone: greets you, hands you to Ella or Léon, and stays for the whole look -->
+<div class="jvu" id="jvu" hidden data-mode="asleep" role="region" aria-label="JARVIS, your assistant">
+  <button type="button" class="jvu-orb" id="jvu-orb" onclick="jvuOrb()" aria-label="Talk to JARVIS"><i></i><b></b></button>
+  <div class="jvu-mid">
+    <div class="jvu-name">JARVIS<span id="jvu-state" aria-live="polite">Tap to talk</span></div>
+    <div class="jvu-cap" id="jvu-cap" aria-live="polite"></div>
+  </div>
+  <div class="jvu-side">
+    <button type="button" class="jvu-btn" id="jvu-kb" onclick="jvuKeyboard()" aria-label="Type instead" aria-pressed="false" title="Type instead">⌨</button>
+    <button type="button" class="jvu-btn" onclick="jvuClose()" aria-label="Close JARVIS" title="Close">✕</button>
+  </div>
+  <form class="jvu-type" id="jvu-type" hidden onsubmit="jvuTyped(event)">
+    <input id="jvu-input" type="text" maxlength="300" autocomplete="off" enterkeyhint="send" placeholder="Tell JARVIS what you need" aria-label="Tell JARVIS what you need">
+    <button type="submit">Send</button>
+  </form>
+</div>
+<button type="button" class="jvu-fab" id="jvu-fab" hidden onclick="jvuOpen(true)" aria-label="Talk to JARVIS" title="JARVIS"><b></b></button>
 <div id="voice-overlay" role="dialog" aria-modal="true" aria-labelledby="voice-title">
   <button class="voice-close" onclick="closeVoiceMode()" aria-label="Close">✕</button>
   <div class="voice-title" id="voice-title">Talk</div>
@@ -8156,4 +8222,502 @@ renderTodayRow();
 renderInstallBanner();
 loadChallenge();
 loadCharacters();
+
+// ══ JARVIS for everyone (concierge.py) ═════════════════════════════════════════════════════════════════════════
+// He greets people when they open E&L, asks who should style them (Ella flies in with "Hi babe", Léon with
+// "Howdy, mate!"), asks whether they want something new or from their closet, and stays for the whole look:
+// "too expensive, ask Ella for a cheaper one", "I can't find the heels here", "save it", "try it on me".
+// Hands-free while his dock is open: he hears when you start and stop talking, never while anyone is speaking, and
+// goes to sleep after 90 seconds of quiet. Nothing you say is written on screen; his words only show when his voice
+// can't play (or you're typing to him). His fixed lines are kept by /api/tts after the first time, so they're free.
+const JVU = {
+  hello: 'Good day, and welcome to E&L. How may I help you?',
+  helloBack: 'Welcome back to E&L. How may I help you today?',
+  listening: "I'm listening.",
+  whatFor: "Of course. What's the occasion?",
+  whoStyles: 'Splendid. Who would you like to style you: Ella, or Léon?',
+  newOrCloset: 'Shall we create something new, or style you from your own closet?',
+  closetEmpty: "Your closet is empty for now, so they'll find you something new.",
+  ready: "There you are. If anything's too dear or hard to find, just say the word.",
+  tweak: {
+    ella: { cheaper: "Right away. I'll ask Ella for something kinder on the wallet.", findable: 'Leave it with me. Ella will find something you can buy.', different: 'Of course. Ella will try another take.' },
+    leon: { cheaper: "Right away. I'll ask Léon for something kinder on the wallet.", findable: 'Leave it with me. Léon will find something you can buy.', different: 'Of course. Léon will try another take.' }
+  },
+  noLook: "There's no look on screen just yet. What's the occasion?",
+  saved: 'Saved to your looks.',
+  tryOn: "Here you are. Add a photo of yourself, and you'll see it on you.",
+  share: 'Here you are. Share it, and let your friends rate it.',
+  fresh: 'Of course. A fresh take, coming up.',
+  restart: 'Of course. What shall we dress you for next?',
+  bye: 'Very good. Tap me whenever you need me.',
+  looksDone: "That's today's free looks, I'm afraid. E&L Pro has plenty more.",
+  swapsDone: "That's today's free swaps, I'm afraid. E&L Pro has more.",
+  snag: 'My apologies, the stylist hit a snag. Shall we try that again?',
+  lost: 'Forgive me, I lost the thread for a moment. Could you say that again?',
+  noMic: "I can't reach a microphone here, so do type to me instead.",
+  go: { daily: "Here's today's fit.", edit: "Here's this week's Sunday Edit.", wedding: 'Wedding season. Splendid.',
+        identify: "Upload the screenshot, and we'll find where each piece is from.", closet: 'Your closet.', reels: 'The reels.',
+        saved: 'Your saved looks.', home: 'Back to the start.', challenge: "This week's style challenge.", plan_day: "Let's plan your day.",
+        brand_match: 'Brand match.', dupe: "Show me the look you love, and we'll find you a dupe.", pro: 'E&L Pro.' }
+};
+const JVU_GO = {
+  daily: () => openDaily(), edit: () => openEdit(), wedding: () => openWedding(), identify: () => openOwnLook('find'),
+  closet: () => openCloset('screen-landing'), reels: () => openReels(), saved: () => goToGallery(), home: () => goToLanding(),
+  challenge: () => openChallenge(), plan_day: () => openPlanDay(), brand_match: () => openBrandMatch(), dupe: () => openDupeLook(),
+  pro: () => openPaywall('browse')
+};
+const JVU_SILENT = 'data:audio/mpeg;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjYwLjE2LjEwMAAAAAAAAAAAAAAA//NwwAAAAAAAAAAAAEluZm8AAAAPAAAABAAAAlgAenp6enp6enp6enp6enp6enp6enp6enp6pqampqampqampqampqampqampqampqamptPT09PT09PT09PT09PT09PT09PT09PT09P/////////////////////////////////AAAAAExhdmM2MC4zMQAAAAAAAAAAAAAAACQCcQAAAAAAAAJY+/rsqgAAAAAAAAAAAAAAAAD/80DEAAAAA0gAAAAATEFNRTMuMTAwVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQsRbAAADSAAAAABVVVVVVVVVVVVVVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQMSkAAADSAAAAABVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV//NCxKMAAANIAAAAAFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV';
+const jvu = { open: false, step: 'open', req: {}, history: [], busy: false, speaking: false, typing: false, audio: new Audio(),
+              heardHello: false, pendingHello: '', toldReady: false, plays: 0, picking: false };
+
+// ── his ears: hands-free listening (a recorder runs while he listens, restarted in quiet stretches) ──
+const jvuEar = { stream: null, ctx: null, an: null, rec: null, chunks: [], timer: null, on: false, paused: true, hearing: false,
+                 speechMs: 0, silenceMs: 0, recMs: 0, idleMs: 0, quietMs: 0, noise: 0.01, type: '' };
+async function jvuEarStart() {
+  if (jvuEar.on) return true;
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.MediaRecorder) return false;
+  try {
+    jvuEar.stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
+    jvuEar.ctx = jvuEar.ctx || new (window.AudioContext || window.webkitAudioContext)();
+    if (jvuEar.ctx.state === 'suspended') await jvuEar.ctx.resume();
+    jvuEar.an = jvuEar.ctx.createAnalyser(); jvuEar.an.fftSize = 1024;
+    jvuEar.ctx.createMediaStreamSource(jvuEar.stream).connect(jvuEar.an);
+  } catch (e) { jvuEarStop(); return false; }
+  jvuEar.type = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg;codecs=opus'].find(t => MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(t)) || '';
+  jvuEar.on = true; jvuEar.quietMs = 0;
+  const buf = new Float32Array(jvuEar.an.fftSize);
+  jvuEar.timer = setInterval(() => jvuEarTick(buf), 50);
+  return true;
+}
+function jvuEarStop() {
+  clearInterval(jvuEar.timer); jvuEar.timer = null;
+  jvuEarDrop();
+  if (jvuEar.stream) jvuEar.stream.getTracks().forEach(t => t.stop());
+  Object.assign(jvuEar, { stream: null, an: null, rec: null, chunks: [], on: false, paused: true, hearing: false });
+}
+function jvuEarPause(p) {
+  jvuEar.paused = p;
+  if (p) { jvuEarDrop(); document.getElementById('jvu-orb').style.setProperty('--lvl', 0); }
+  else { jvuEar.quietMs = 0; jvuEarFresh(); }
+}
+function jvuEarFresh() {
+  jvuEarDrop();
+  if (!jvuEar.on || jvuEar.paused) return;
+  try {
+    const rec = new MediaRecorder(jvuEar.stream, jvuEar.type ? { mimeType: jvuEar.type } : undefined);
+    jvuEar.chunks = [];
+    rec.ondataavailable = e => { if (e.data && e.data.size) jvuEar.chunks.push(e.data); };
+    rec.start();
+    Object.assign(jvuEar, { rec, recMs: 0, idleMs: 0 });
+  } catch (e) { jvuEar.rec = null; }
+}
+function jvuEarDrop() {
+  const rec = jvuEar.rec; Object.assign(jvuEar, { rec: null, hearing: false, speechMs: 0, silenceMs: 0 });
+  try { if (rec && rec.state !== 'inactive') { rec.ondataavailable = null; rec.onstop = null; rec.stop(); } } catch (e) {}
+}
+function jvuEarTick(buf) {
+  if (!jvuEar.on || jvuEar.paused || !jvuEar.an) return;
+  jvuEar.an.getFloatTimeDomainData(buf);
+  let sum = 0; for (let i = 0; i < buf.length; i++) sum += buf[i] * buf[i];
+  const rms = Math.sqrt(sum / buf.length);
+  document.getElementById('jvu-orb').style.setProperty('--lvl', Math.min(1, rms * 9).toFixed(3));
+  if (!jvuEar.rec) jvuEarFresh();
+  if (!jvuEar.rec) return;
+  jvuEar.recMs += 50;
+  if (!jvuEar.hearing) {
+    jvuEar.quietMs += 50;
+    if (jvuEar.quietMs >= 90000) return jvuSleep();                          // 90 s of nothing: he stops listening
+    if (rms < jvuEar.noise * 2) jvuEar.noise = jvuEar.noise * 0.97 + rms * 0.03;  // learn the room's quiet
+    if (rms > Math.max(0.02, jvuEar.noise * 3.2)) {
+      jvuEar.speechMs += 50;
+      if (jvuEar.speechMs >= 150) { jvuEar.hearing = true; jvuEar.silenceMs = 0; jvuCaption(''); jvuMode('hearing', 'Hearing you…'); }
+    } else {
+      jvuEar.speechMs = 0;
+      jvuEar.idleMs += 50;
+      if (jvuEar.idleMs >= 6000) jvuEarFresh();
+    }
+    return;
+  }
+  if (rms < Math.max(0.015, jvuEar.noise * 2.2)) {
+    jvuEar.silenceMs += 50;
+    if (jvuEar.silenceMs >= 1200 || jvuEar.recMs > 30000) jvuEarHeard();
+  } else jvuEar.silenceMs = 0;
+}
+function jvuEarHeard() {
+  const rec = jvuEar.rec; Object.assign(jvuEar, { rec: null, hearing: false, paused: true });
+  if (!rec) return;
+  jvuMode('thinking', 'Thinking…');
+  rec.onstop = async () => {
+    const blob = new Blob(jvuEar.chunks, { type: jvuEar.type || 'audio/webm' });
+    let text = '';
+    try {
+      const fd = new FormData(); fd.append('audio', blob, (jvuEar.type || '').includes('mp4') ? 'talk.mp4' : 'talk.webm');
+      const r = await fetch('/api/transcribe', { method: 'POST', body: fd });
+      const d = await r.json().catch(() => ({}));
+      text = String(d.text || '').replace(/[\(\[][^\)\]]*[\)\]]/g, ' ').replace(/\s+/g, ' ').trim();
+    } catch (e) {}
+    jvuHandle(text);
+  };
+  try { rec.stop(); } catch (e) { jvuListen(); }
+}
+
+// ── the dock ──
+function jvuMode(mode, label) {
+  const el = document.getElementById('jvu');
+  el.dataset.mode = mode;
+  document.getElementById('jvu-state').textContent = label || '';
+}
+function jvuCaption(text) { document.getElementById('jvu-cap').textContent = text || ''; }
+function jvuListen() {
+  if (!jvu.open || jvu.busy || jvu.speaking) return;
+  if (jvu.typing) return jvuMode('listening', 'Type to me');
+  if (!jvuEar.on) return jvuMode('asleep', 'Tap the orb to talk');
+  if (!ellaAudio.paused && !ellaAudio.ended) return;          // the stylist is talking: wait for her
+  jvuEarPause(false);
+  jvuMode('listening', 'Listening…');
+}
+function jvuUnlock() {
+  // inside a tap: lets the page play his voice and read the mic later, on phones too
+  try { if (!jvu.unlocked) { jvu.unlocked = true; jvu.audio.src = JVU_SILENT; jvu.audio.play().then(() => jvu.audio.pause()).catch(() => {}); } } catch (e) {}
+}
+// his voice; resolves when he's done (or couldn't). Past his daily voice limit, or if the phone won't play it, his words show instead.
+function jvuSay(text, opts) {
+  opts = opts || {};
+  if (!text) return Promise.resolve(true);
+  jvu.history.push({ role: 'jarvis', text });
+  jvu.speaking = true;
+  jvuEarPause(true);
+  jvuMode('speaking', 'Speaking…');
+  if (jvu.typing) jvuCaption(text);
+  return fetch('/api/tts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: text.slice(0, 400), stylist: 'jarvis' }) })
+    .then(r => r.ok ? r.blob() : null)
+    .then(b => new Promise(done => {
+      if (!b) { jvuCaption(text); return done(true); }
+      if (jvu.audio.src.startsWith('blob:')) URL.revokeObjectURL(jvu.audio.src);
+      jvu.audio.onended = jvu.audio.onerror = () => done(true);
+      jvu.audio.src = URL.createObjectURL(b);
+      if (!jvu.typing) jvuCaption('');
+      jvu.audio.play().catch(err => { jvuCaption(text); done(!(err && err.name === 'NotAllowedError')); });
+    }))
+    .catch(() => { jvuCaption(text); return true; })
+    .finally(() => { jvu.speaking = false; if (!opts.hold) setTimeout(jvuListen, 300); });
+}
+// Ella or Léon talking (their own voices): wait for them to start, then to finish
+function jvuStylistDone(seen, startWithin, maxMs) {
+  return new Promise(res => {
+    const t0 = Date.now();
+    const tick = () => {
+      const waited = Date.now() - t0;
+      const started = jvu.plays > seen;
+      const talking = !ellaAudio.paused && !ellaAudio.ended;
+      if (waited > (maxMs || 15000) || (!started && waited > (startWithin || 3000)) || (started && !talking)) return res();
+      setTimeout(tick, 150);
+    };
+    tick();
+  });
+}
+async function jvuOpen(fromTap, line) {
+  const el = document.getElementById('jvu');
+  const wasOpen = jvu.open;
+  el.hidden = false; jvu.open = true;
+  document.getElementById('jvu-fab').hidden = true;
+  document.body.classList.remove('jvu-fab-on'); document.body.classList.add('jvu-on');
+  if (!wasOpen) track('jarvis_user_open');
+  const hello = line || (jvu.heardHello ? JVU.listening : ((lsGet('el_jvu', {}).seen || 0) > 1 ? JVU.helloBack : JVU.hello));
+  if (fromTap) return jvuWake(hello);
+  // opened by itself: try to say hello straight away (most phones want a tap first: then his words show, and the orb waits)
+  jvuMode('speaking', '');
+  const played = await jvuSay(hello, { hold: true });
+  if (!played) {
+    jvu.history.pop();
+    jvu.pendingHello = hello;
+    jvuCaption(hello);
+    return jvuMode('asleep', 'Tap the orb to talk');
+  }
+  jvu.heardHello = true;
+  let granted = false;
+  try { granted = navigator.permissions && (await navigator.permissions.query({ name: 'microphone' })).state === 'granted'; } catch (e) {}
+  if (granted && await jvuEarStart()) return jvuListen();
+  jvuMode('asleep', 'Tap the orb to talk');
+}
+async function jvuWake(line) {
+  jvuUnlock();
+  jvu.typing = false; jvuTypingUI();
+  jvuMode('thinking', 'Waking…');
+  const on = await jvuEarStart();
+  if (!on) { jvu.typing = true; jvuTypingUI(); return jvuSay(JVU.noMic); }
+  const say = jvu.pendingHello || line || JVU.listening;
+  jvu.pendingHello = ''; jvu.heardHello = true;
+  jvuCaption('');
+  return jvuSay(say);
+}
+function jvuOrb() {
+  if (jvu.busy || jvu.speaking) return;
+  if (jvuEar.on && !jvu.typing) return jvuSleep();
+  jvuWake(jvu.heardHello ? JVU.listening : '');
+}
+function jvuSleep() {
+  jvuEarStop();
+  try { jvu.audio.pause(); } catch (e) {}
+  jvu.speaking = false;
+  if (jvu.open) jvuMode('asleep', jvu.typing ? 'Type to me' : 'Tap the orb to talk');
+}
+function jvuClose() {
+  jvuSleep();
+  jvu.open = false; jvu.typing = false; jvuTypingUI();
+  document.getElementById('jvu').hidden = true;
+  document.body.classList.remove('jvu-on');
+  jvuShowFab();
+}
+function jvuShowFab() {
+  const owner = document.getElementById('screen-owner')?.classList.contains('active');
+  const fab = document.getElementById('jvu-fab');
+  fab.hidden = jvu.open || owner;
+  document.body.classList.toggle('jvu-fab-on', !fab.hidden);
+}
+function jvuHide() {   // owner tools have their own JARVIS
+  if (jvu.open) jvuClose();
+  document.getElementById('jvu-fab').hidden = true;
+  document.body.classList.remove('jvu-fab-on');
+}
+function jvuTypingUI() {
+  document.getElementById('jvu-type').hidden = !jvu.typing;
+  document.getElementById('jvu-kb').setAttribute('aria-pressed', jvu.typing ? 'true' : 'false');
+}
+function jvuKeyboard() {
+  jvu.typing = !jvu.typing;
+  jvuTypingUI();
+  if (jvu.typing) {
+    jvuEarStop();
+    jvuMode('listening', 'Type to me');
+    const i = document.getElementById('jvu-input'); i.value = ''; i.focus();
+  } else {
+    jvuCaption('');
+    jvuWake(JVU.listening);
+  }
+}
+function jvuTyped(e) {
+  e.preventDefault();
+  const i = document.getElementById('jvu-input');
+  const text = i.value.trim();
+  if (!text || jvu.busy) return;
+  i.value = '';
+  jvuUnlock();
+  jvuHandle(text);
+}
+
+// ── what they said ──
+function jvuWhichStylist(t) {
+  const ella = /\b(ella|ela|ellah|bella|eller)\b/i.test(t), leon = /\b(l[eé]on|leone?|lion|leo|layon)\b/i.test(t);
+  return ella && !leon ? 'ella' : leon && !ella ? 'leon' : '';
+}
+function jvuWhichMode(t) {
+  if (/\b(closet|wardrobe|my own|my clothes|already (have|own)|what i (have|own)|from mine)\b/i.test(t)) return 'closet';
+  if (/\b(new|fresh|discover|shop|buy|generate|create|something else|surprise)\b/i.test(t)) return 'discover';
+  return '';
+}
+function jvuLookOnScreen() {
+  const o = state.currentOutfit;
+  const onResults = document.getElementById('screen-results').classList.contains('active');
+  return onResults && o && Array.isArray(o.items) && o.items.length ? o : null;
+}
+async function jvuHandle(text) {
+  text = String(text || '').trim();
+  if (!jvu.open) return;
+  if (!text || (text.split(' ').length < 2 && !/^(ella|l[eé]on|leo|yes|no|new|closet|save|thanks?|bye|goodbye)\W*$/i.test(text))) return jvuListen();
+  jvu.busy = true;
+  try {
+    if (/\b(go to sleep|stop listening|stop talking|be quiet|shut up|that'?s all|bye,? jarvis|goodbye)\b/i.test(text) && text.split(' ').length <= 6) {
+      jvu.history.push({ role: 'user', text });
+      jvu.busy = false;
+      await jvuSay(JVU.bye, { hold: true });
+      return jvuSleep();
+    }
+    if (jvu.step === 'stylist') {
+      const s = jvuWhichStylist(text);
+      if (s) { jvu.history.push({ role: 'user', text }); jvu.req.stylist = s; return await jvuNext(); }
+    }
+    if (jvu.step === 'mode') {
+      const m = jvuWhichMode(text);
+      if (m) { jvu.history.push({ role: 'user', text }); jvu.req.mode = m; return await jvuNext(); }
+    }
+    track('jarvis_user_talk');
+    const r = await jvuThink(text);
+    await jvuAct(r);
+  } finally {
+    jvu.busy = false;
+    jvuListen();
+  }
+}
+async function jvuThink(text) {
+  jvuMode('thinking', 'Thinking…');
+  const look = jvuLookOnScreen();
+  const body = {
+    text, step: jvu.step, stylist: jvu.req.stylist || '', occasion: jvu.req.occasion || (look ? state.occasion : '') || '',
+    closet: (state.closetItems || []).length, history: jvu.history.slice(-6),
+    look: look ? { look_name: look.look_name, items: look.items.map(i => ({ category: i.category, name: i.name, brand: i.brand, price: i.price })) } : null
+  };
+  jvu.history.push({ role: 'user', text });
+  try { return await api('/api/concierge', body); }
+  catch (e) { return (e.data && e.data.say) ? e.data : { intent: 'chat', say: JVU.lost }; }
+}
+async function jvuAct(r) {
+  const q = jvu.req;
+  switch (r.intent) {
+    case 'outfit': {
+      const o = r.outfit || {};
+      if (jvu.step === 'results' && o.occasion && o.occasion !== q.occasion) { delete q.mode; }
+      ['occasion', 'budget', 'gender', 'celeb', 'city', 'season'].forEach(k => { if (o[k]) q[k] = o[k]; });
+      if (r.stylist && r.stylist !== q.stylist) { q.stylist = r.stylist; q.shown = false; }
+      if (r.mode) q.mode = r.mode;
+      return jvuNext();
+    }
+    case 'stylist':
+      if (r.stylist && r.stylist !== q.stylist) { q.stylist = r.stylist; q.shown = false; }
+      return q.stylist ? jvuNext() : jvuSay(r.say || JVU.whoStyles);
+    case 'mode':
+      if (r.mode) q.mode = r.mode;
+      return q.mode ? jvuNext() : jvuSay(r.say || JVU.newOrCloset);
+    case 'tweak': return jvuTweak(r.tweak || {});
+    case 'do': return jvuDo(r.do);
+    case 'go': return jvuGo(r.go);
+    case 'stop': jvu.busy = false; await jvuSay(r.say || JVU.bye, { hold: true }); return jvuSleep();
+    default: return jvuSay(r.say || JVU.lost);
+  }
+}
+// ask for whatever's still missing, in order: the occasion, the stylist, new or closet. Then style.
+async function jvuNext() {
+  const q = jvu.req;
+  if (!q.occasion) { jvu.step = 'occasion'; return jvuSay(JVU.whatFor); }
+  if (!q.stylist) { jvu.step = 'stylist'; return jvuSay(JVU.whoStyles); }
+  if (!q.shown) {
+    q.shown = true;
+    const seen = jvu.plays;
+    jvu.picking = true;
+    try { chooseStylist(q.stylist); } finally { jvu.picking = false; }
+    jvuEarPause(true);
+    jvuMode('speaking', q.stylist === 'leon' ? 'Léon is here' : 'Ella is here');
+    await jvuStylistDone(seen, 3200, 6000);   // "Hi babe" / "Howdy, mate!"
+    if (q.mode && motionOK()) await new Promise(r => setTimeout(r, 1300));   // let her fly home before the page changes
+  }
+  if (!q.mode) {
+    if ((state.closetItems || []).length) { jvu.step = 'mode'; return jvuSay(JVU.newOrCloset); }
+    q.mode = 'discover';
+    if (motionOK()) await new Promise(r => setTimeout(r, 1300));
+  } else if (q.mode === 'closet' && !(state.closetItems || []).length) {
+    q.mode = 'discover';
+    await jvuSay(JVU.closetEmpty, { hold: true });
+  }
+  return jvuStartLook();
+}
+async function jvuStartLook() {
+  const q = jvu.req;
+  if (!lookAllowed(() => jvuStartLook())) { jvu.step = 'open'; return jvuSay(JVU.looksDone); }
+  state.occasion = q.occasion;
+  state.city = q.city || ''; state.season = q.season || '';
+  if (q.budget) selectBudget(q.budget);
+  if (q.gender) selectGender(q.gender);
+  if (q.celeb) state.celeb = q.celeb;
+  else if (!state.character) state.celeb = 'No specific muse';
+  state.era = '';                               // the occasion decides: Indian festive wear for a sangeet, UES glam otherwise
+  selectMode(q.mode || 'discover');
+  jvu.step = 'working';
+  jvuEarPause(true);
+  jvuMode('working', (q.stylist === 'leon' ? 'Léon' : 'Ella') + ' is styling…');
+  document.getElementById('gen-message').textContent = (state.celeb && state.celeb !== 'No specific muse' && !state.character) ? `Finding a real ${state.celeb} outfit for ${state.occasion}…` : `Building your look for ${state.occasion}…`;
+  track('jarvis_user_look');
+  const seen = jvu.plays;
+  goTo('screen-generating');
+  await generateOutfitFromState();
+  if (!jvuLookOnScreen()) { jvu.step = 'open'; return; }      // it didn't work out: the page has said why
+  jvu.step = 'results';
+  await jvuStylistDone(seen + 1, 2500, 20000);               // her loading line has played; now her note about the look
+  if (!jvu.toldReady) { jvu.toldReady = true; return jvuSay(JVU.ready); }
+}
+async function jvuTweak(t) {
+  const look = jvuLookOnScreen();
+  if (!look) { jvu.step = 'occasion'; jvu.req = {}; return jvuSay(JVU.noLook); }
+  const who = activeStylist === 'leon' ? 'leon' : 'ella';
+  const want = ['cheaper', 'findable', 'different'].includes(t.want) ? t.want : 'different';
+  const asking = api('/api/look-tweak', { look, pieces: t.pieces || [], want, note: t.note || '', stylist: who,
+    occasion: state.occasion, budget: state.budget, currency: state.currency, gender: state.gender || 'women' });
+  asking.catch(() => {});
+  await jvuSay(JVU.tweak[who][want], { hold: true });
+  jvuMode('working', (who === 'leon' ? 'Léon' : 'Ella') + ' is swapping…');
+  let res;
+  try { res = await asking; }
+  catch (e) { return jvuSay(e.status === 429 ? JVU.swapsDone : (e.status === 503 && e.message ? e.message : JVU.snag)); }
+  renderResults(res);
+  const cards = document.querySelectorAll('#outfit-grid > .outfit-item');
+  (res.changed || []).forEach((n, k) => {
+    const c = cards[n - 1];
+    if (!c) return;
+    c.classList.remove('jvu-new'); void c.offsetWidth; c.classList.add('jvu-new');
+    if (!k) { try { c.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (e) {} }
+  });
+  if (res.ella_note) {
+    const seen = jvu.plays;
+    stylistSpeak(shortNote(res.ella_note), who);
+    jvuMode('speaking', (who === 'leon' ? 'Léon' : 'Ella') + ' is talking');
+    await jvuStylistDone(seen, 3000, 15000);
+  }
+}
+function jvuDo(what) {
+  if (what === 'new_look') { jvu.req = { stylist: jvu.req.stylist, shown: !!jvu.req.stylist }; jvu.step = 'occasion'; goToLanding(); return jvuSay(JVU.restart); }
+  const look = jvuLookOnScreen();
+  if (!look) { jvu.step = 'occasion'; return jvuSay(JVU.noLook); }
+  if (what === 'save') { saveLook(); return jvuSay(JVU.saved); }
+  if (what === 'try_on') { openTryOn(); return jvuSay(JVU.tryOn); }
+  if (what === 'share') { openShareCard(); return jvuSay(JVU.share); }
+  if (what === 'refresh') {
+    Object.assign(jvu.req, { occasion: jvu.req.occasion || state.occasion, stylist: activeStylist, shown: true, mode: state.mode || 'discover' });
+    return jvuSay(JVU.fresh, { hold: true }).then(() => jvuStartLook());
+  }
+  return jvuSay(JVU.lost);
+}
+function jvuGo(where) {
+  const f = JVU_GO[where];
+  if (!f) return jvuSay(JVU.lost);
+  jvu.step = 'open';
+  try { f(); } catch (e) { console.warn('[jarvis] could not open', where, e); }
+  return jvuSay(JVU.go[where] || 'Here you are.');
+}
+
+// ── hooks into the rest of the app ──
+['play', 'playing'].forEach(ev => ellaAudio.addEventListener(ev, () => {
+  if (String(ellaAudio.src).startsWith('data:')) return;      // the silent unlock on someone's first tap
+  if (ev === 'play') jvu.plays += 1;
+  if (jvu.open) jvuEarPause(true);
+}));
+['ended', 'pause', 'error'].forEach(ev => ellaAudio.addEventListener(ev, () => { if (jvu.open && jvu.step !== 'working') setTimeout(jvuListen, 350); }));
+// tapping Ella or Léon yourself while he's asking counts as the answer
+const _chooseStylistJvu = chooseStylist;
+chooseStylist = function (name) {
+  _chooseStylistJvu(name);
+  if (jvu.open && jvu.step === 'stylist' && !jvu.picking && !jvu.busy) {
+    jvu.req.stylist = name; jvu.req.shown = true;
+    jvu.busy = true;
+    const seen = jvu.plays - 0;
+    jvuStylistDone(seen, 3200, 6000).then(() => { jvu.busy = false; return jvuNext(); }).finally(() => { jvu.busy = false; jvuListen(); });
+  }
+};
+const _goToJvu = goTo;
+goTo = function (id) {
+  _goToJvu(id);
+  if (id === 'screen-owner') jvuHide(); else jvuShowFab();
+};
+const _openVoiceModeJvu = openVoiceMode;
+openVoiceMode = function () { if (jvu.open) jvuSleep(); _openVoiceModeJvu(); };   // one microphone at a time
+document.addEventListener('visibilitychange', () => { if (document.hidden && jvu.open) jvuSleep(); });
+// once a day, when the app opens on its front page, he says hello
+(function jvuBoot() {
+  setTimeout(() => {
+    if (!document.getElementById('screen-landing').classList.contains('active') || document.querySelector('.overlay.active, #voice-overlay.active')) return jvuShowFab();
+    const st = lsGet('el_jvu', {}) || {};
+    const day = todayLocal();
+    if (st.day === day) return jvuShowFab();
+    lsSet('el_jvu', { day, seen: (st.seen || 0) + 1 });
+    jvuOpen(false, (st.seen || 0) ? JVU.helloBack : JVU.hello);
+  }, 1400);
+})();
 </script>
