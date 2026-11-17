@@ -1,5 +1,5 @@
 from flask import Flask, request, jsonify, send_from_directory, Response, g, stream_with_context
-import anthropic
+import ai   # Claude or OpenAI (AI_PROVIDER in Render)
 import json
 import hashlib
 import base64
@@ -18,7 +18,7 @@ from push import bp as push_bp                          # Home Screen app + morn
 
 # static_folder=None: only index.html is served, so app.py, pro.py and any data files can't be downloaded
 app = Flask(__name__, static_folder=None)
-client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
+client = ai.make_client()
 watch_claude(client)   # counts each call's cost and alerts the owner if credits run low or out
 
 
@@ -844,6 +844,9 @@ VOICES = {
              'settings': {'stability': 0.35, 'similarity_boost': 0.9, 'style': 0.75, 'use_speaker_boost': True}},
     'leon': {'env': 'LEON_VOICE_ID', 'default': 'cIMwmTggaef4oj037F51',
              'settings': {'stability': 0.45, 'similarity_boost': 0.9, 'style': 0.55, 'use_speaker_boost': True}},
+    # the owner's assistant in owner tools: calm and even. JARVIS_VOICE_ID in Render picks a British butler voice.
+    'jarvis': {'env': 'JARVIS_VOICE_ID', 'default': 'cIMwmTggaef4oj037F51',
+               'settings': {'stability': 0.7, 'similarity_boost': 0.85, 'style': 0.15, 'use_speaker_boost': True}},
 }
 import time
 from collections import deque
@@ -1003,6 +1006,9 @@ app.register_blueprint(identify.bp)  # /api/identify: where each piece of a scre
 import story
 story.init(client, STYLE_MODEL)
 app.register_blueprint(story.bp)     # /api/edit: Ella's Sunday Edit, the story of the week (and /api/owner/story)
+import jarvis
+jarvis.init(client, STYLE_MODEL)
+app.register_blueprint(jarvis.bp)    # /api/owner/jarvis: the owner's private operations assistant
 
 
 if __name__ == '__main__':

@@ -34,7 +34,9 @@ IST = timezone(timedelta(hours=5, minutes=30))
 REMIND_EVERY = 12 * 3600          # repeat an unresolved alert twice a day, not on every request
 VOICE_CHECK_EVERY = 6 * 3600
 # USD per million tokens (input, output). An estimate; override with CLAUDE_PRICE_IN / CLAUDE_PRICE_OUT.
-CLAUDE_PRICES = {'haiku-5': (0.10, 0.50), 'sonnet-5': (2.0, 10.0), 'haiku': (1.0, 5.0), 'sonnet': (3.0, 15.0), 'opus': (5.0, 25.0)}
+CLAUDE_PRICES = {'gpt-6.1-terra': (1.0, 5.0), 'gpt-6.1-sol': (2.0, 10.0), 'gpt-6-astra': (10.0, 50.0), 'gpt-6-sol': (2.0, 10.0),
+                 'gpt-6-luna': (0.10, 0.50), 'gpt-5.6-terra': (2.0, 12.0), 'gpt-5.6-sol': (4.0, 20.0), 'gpt-5.6-luna': (0.20, 1.20),
+                 'haiku-5': (0.10, 0.50), 'sonnet-5': (2.0, 10.0), 'haiku': (1.0, 5.0), 'sonnet': (3.0, 15.0), 'opus': (5.0, 25.0)}
 
 SERVICES = {
     'claude': {'name': 'Claude', 'what': 'styling', 'unit': 'usd', 'env': 'ANTHROPIC_API_KEY',
@@ -45,6 +47,17 @@ SERVICES = {
                'link': 'https://serper.dev/'},
 }
 SEVERITY = {'ok': 0, 'off': 0, 'low': 1, 'out': 2, 'key': 2}
+
+
+def _brain():
+    """'claude' is whichever model writes the looks (ai.py): Claude, or OpenAI after the switch."""
+    import ai
+    return ai.provider()
+
+
+if _brain() == 'openai':
+    SERVICES['claude'] = {'name': 'OpenAI', 'what': 'styling', 'unit': 'usd', 'env': 'OPENAI_API_KEY',
+                          'link': 'https://platform.openai.com/settings/organization/billing/overview'}
 
 bp = Blueprint('alerts', __name__)
 
@@ -194,8 +207,16 @@ def _resolved(svc):
 
 
 # ── Balances you type in (Claude, Serper) ─────────────────────────────────────
+def _balance(svc):
+    """The balance typed in for this service (for 'claude', only if it was typed in for the model in use now)."""
+    b = _get('bal:' + svc)
+    if b and svc == 'claude' and b.get('provider', 'anthropic') != _brain():
+        return None
+    return b
+
+
 def _spend(svc, amount):
-    b = _get('bal:' + svc) or {'balance': None, 'spent': 0.0}
+    b = _balance(svc) or {'balance': None, 'spent': 0.0, 'provider': _brain() if svc == 'claude' else None}
     b['spent'] = float(b.get('spent') or 0) + amount
     _set('bal:' + svc, b)
     _resolved(svc)
@@ -210,7 +231,7 @@ def _spend(svc, amount):
 
 
 def set_balance(svc, amount):
-    _set('bal:' + svc, {'balance': float(amount), 'spent': 0.0, 'set_at': time.time()})
+    _set('bal:' + svc, {'balance': float(amount), 'spent': 0.0, 'set_at': time.time(), 'provider': _brain() if svc == 'claude' else None})
     cur = _get('alert:' + svc)
     if cur and cur.get('level') in ('low', 'out'):
         report(svc, 'ok')
@@ -225,11 +246,14 @@ def claude_problem(e):
     status = getattr(e, 'status_code', None)
     text = str(e).lower()
     body = getattr(e, 'body', None)
-    etype = ''
-    if isinstance(body, dict):
-        etype = str((body.get('error') or {}).get('type') or '').lower()
-    if status == 402 or etype in ('billing_error', 'payment_required') or any(w in text for w in (
-            'credit balance', 'purchase credits', 'plans & billing', 'billing', 'spend limit', 'usage limit')):
+    etype = code = ''
+    if isinstance(body, dict) and isinstance(body.get('error'), dict):
+        etype = str(body['error'].get('type') or '').lower()
+        code = str(body['error'].get('code') or '').lower()
+    if status == 402 or etype in ('billing_error', 'payment_required', 'insufficient_quota') or code in (
+            'insufficient_quota', 'billing_hard_limit_reached', 'billing_not_active') or any(w in text for w in (
+            'credit balance', 'purchase credits', 'plans & billing', 'billing', 'spend limit', 'usage limit',
+            'exceeded your current quota')):
         return 'out'
     if status in (401, 403) or etype in ('authentication_error', 'permission_error'):
         return 'key'
@@ -251,18 +275,26 @@ def _claude_down(e):
     kind = claude_problem(e)
     if not kind:
         return None
-    text = ("Anthropic says the credit balance is too low, so no looks can be made. Add credits "
-            "(or switch on auto-reload) in the Claude Console." if kind == 'out' else
-            f"Anthropic refused the API key ({getattr(e, 'status_code', '?')}). Check ANTHROPIC_API_KEY "
-            "in Render: was the key deleted or changed?")
+    if _brain() == 'openai':
+        text = ("OpenAI says the API credits have run out (or the monthly budget is used up), so no looks can be made. "
+                "Add credits on platform.openai.com; with ChatGPT Pro, claim this month's API credits in ChatGPT's "
+                "billing settings." if kind == 'out' else
+                f"OpenAI refused the API key ({getattr(e, 'status_code', '?')}). Check OPENAI_API_KEY in Render: was "
+                "the key deleted or changed?")
+    else:
+        text = ("Anthropic says the credit balance is too low, so no looks can be made. Add credits "
+                "(or switch on auto-reload) in the Claude Console." if kind == 'out' else
+                f"Anthropic refused the API key ({getattr(e, 'status_code', '?')}). Check ANTHROPIC_API_KEY "
+                "in Render: was the key deleted or changed?")
     later(report, 'claude', kind, text)
     return ServiceDown("Ella's taking a short break. Please try again in a little while.")
 
 
 def _claude_used(model, msg):
     usage = getattr(msg, 'usage', None)
+    used = getattr(msg, 'model', None)
     if usage is not None:
-        later(_spend, 'claude', _claude_cost(model or '', usage))
+        later(_spend, 'claude', _claude_cost(used if isinstance(used, str) and used else (model or ''), usage))
     else:
         later(_resolved, 'claude')
 
@@ -431,7 +463,7 @@ def status():
         row['level'] = a.get('level') or 'ok'
         row['text'] = a.get('text') or ''
         if svc in ('claude', 'search'):
-            b = _get('bal:' + svc) or {}
+            b = _balance(svc) or {}
             if b.get('balance'):
                 row['balance'] = b['balance']
                 row['left'] = max(0.0, b['balance'] - float(b.get('spent') or 0))

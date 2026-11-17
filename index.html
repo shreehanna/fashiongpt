@@ -1403,6 +1403,44 @@ body::after {
 .own-story .os-body p { font-size: 13.5px; color: var(--fg2); margin-top: 6px; }
 .own-story .os-meta { font-size: 12px; color: var(--fg3); }
 .own-story .os-steps { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
+/* JARVIS: one deliberate look (a lab hologram) in both themes */
+.jv { --jv-bg: #07121c; --jv-panel: #0b1b29; --jv-line: rgba(92, 214, 255, .28); --jv-cyan: #5cd6ff; --jv-text: #d8f3ff; --jv-dim: #7fa9bd;
+  background: radial-gradient(120% 80% at 50% 0%, #0f2a3d 0%, var(--jv-bg) 70%); color: var(--jv-text); border: 1px solid var(--jv-line);
+  border-radius: 18px; padding: 16px; margin-bottom: 16px; box-shadow: 0 0 0 1px rgba(92,214,255,.06), 0 10px 40px rgba(0,0,0,.35); text-shadow: none; }
+.jv-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.jv-orb { width: 30px; height: 30px; border-radius: 50%; flex: none; background: radial-gradient(circle at 50% 45%, #e9fbff 0 12%, var(--jv-cyan) 28%, rgba(92,214,255,.15) 60%, transparent 72%);
+  box-shadow: 0 0 18px rgba(92,214,255,.65); animation: jv-pulse 3.2s ease-in-out infinite; }
+.jv.is-thinking .jv-orb { animation-duration: .9s; }
+@keyframes jv-pulse { 50% { transform: scale(.86); opacity: .75; } }
+@media (prefers-reduced-motion: reduce) { .jv-orb { animation: none; } }
+.jv-title { display: grid; line-height: 1.2; }
+.jv-title b { font: 600 14px var(--sans); letter-spacing: .32em; color: var(--jv-cyan); }
+.jv-title span { font-size: 11.5px; color: var(--jv-dim); letter-spacing: .04em; }
+.jv-controls { margin-left: auto; display: flex; gap: 8px; }
+.jv-ctl { background: transparent; color: var(--jv-text); border: 1px solid var(--jv-line); border-radius: 99px; padding: 5px 12px; font: 500 12px var(--sans); }
+.jv-ctl[aria-pressed="true"] { border-color: var(--jv-cyan); color: var(--jv-cyan); }
+.jv-ctl option { background: var(--jv-panel); color: var(--jv-text); }
+.jv-log { margin: 14px 0 10px; max-height: 460px; overflow-y: auto; display: grid; gap: 10px; padding-right: 2px; }
+.jv-msg { font: 400 14px/1.55 var(--sans); max-width: 100%; min-width: 0; }
+.jv-msg p { margin: 0 0 6px; }
+.jv-msg p:last-child { margin-bottom: 0; }
+.jv-msg.me { justify-self: end; background: rgba(92,214,255,.12); border: 1px solid var(--jv-line); border-radius: 14px 14px 4px 14px; padding: 8px 12px; color: #eafaff; }
+.jv-msg.jarvis { border-left: 2px solid var(--jv-cyan); padding: 2px 0 2px 12px; }
+.jv-msg.err { color: #ffb4a8; border-left-color: #ff8a7a; }
+.jv-holo { margin: 8px 0; padding: 12px; overflow-x: auto; background: rgba(92,214,255,.06); border: 1px solid var(--jv-line); border-radius: 10px;
+  font: 12.5px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: #9fe8ff; text-shadow: 0 0 6px rgba(92,214,255,.45); white-space: pre; }
+.jv-act { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+.jv-act button { background: var(--jv-cyan); color: #04121c; border: 0; border-radius: 99px; padding: 7px 14px; font: 600 12.5px var(--sans); }
+.jv-act button.no { background: transparent; color: var(--jv-dim); border: 1px solid var(--jv-line); }
+.jv-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+.jv-chips button { background: transparent; color: var(--jv-dim); border: 1px solid var(--jv-line); border-radius: 99px; padding: 5px 11px; font: 500 12px var(--sans); }
+.jv-chips button:hover { color: var(--jv-cyan); border-color: var(--jv-cyan); }
+.jv-form { display: flex; gap: 8px; }
+.jv-form input { flex: 1; min-width: 0; background: rgba(0,0,0,.25); color: var(--jv-text); border: 1px solid var(--jv-line); border-radius: 12px; padding: 10px 12px; font: 14px var(--sans); }
+.jv-form input::placeholder { color: var(--jv-dim); }
+.jv-form input:focus { outline: none; border-color: var(--jv-cyan); box-shadow: 0 0 0 3px rgba(92,214,255,.15); }
+.jv-form button { background: var(--jv-cyan); color: #04121c; border: 0; border-radius: 12px; padding: 0 16px; font: 600 13px var(--sans); }
+.jv-form button:disabled { opacity: .5; }
 .edit-intro { font: italic 400 18px/1.55 var(--serif); text-align: center; color: var(--fg); max-width: 34em; margin: 0 auto 18px; text-wrap: pretty; }
 .edit-look .scene { font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: var(--gold-ink); }
 .edit-look h3 { font: 500 26px/1.15 var(--serif); margin: 4px 0 6px; }
@@ -2407,6 +2445,25 @@ body::after {
   <div class="section-head">
     <h2 class="section-title">Owner <em>tools</em></h2>
     <p class="section-desc">Only you can see this.</p>
+  </div>
+  <!-- JARVIS: the owner's private operations assistant (jarvis.py) -->
+  <div class="jv" id="jv">
+    <div class="jv-head">
+      <span class="jv-orb" aria-hidden="true"></span>
+      <div class="jv-title"><b>JARVIS</b><span id="jv-state">Online</span></div>
+      <div class="jv-controls">
+        <button type="button" class="jv-ctl" id="jv-voice" onclick="jarvisVoiceToggle()" aria-pressed="false">Voice off</button>
+        <select class="jv-ctl" id="jv-addr" onchange="jarvisAddress(this.value)" aria-label="What JARVIS calls you">
+          <option value="ma'am">ma'am</option><option value="sir">sir</option><option value="boss">boss</option>
+        </select>
+      </div>
+    </div>
+    <div class="jv-log" id="jv-log" aria-live="polite"></div>
+    <div class="jv-chips" id="jv-chips"></div>
+    <form class="jv-form" onsubmit="event.preventDefault(); jarvisSend();">
+      <input id="jv-in" type="text" placeholder="JARVIS, status report…" autocomplete="off" aria-label="Talk to JARVIS">
+      <button type="submit" id="jv-send">Send</button>
+    </form>
   </div>
   <div class="panel"><div class="quiz-label">Growth</div><div id="own-growth">Loading…</div></div>
   <div class="panel"><div class="quiz-label">Ella's Sunday Edit</div><div id="own-edit"></div></div>
@@ -7162,8 +7219,108 @@ renderOwnerHealth = function () {
 };
 async function openOwnerTools() {
   goTo('screen-owner');
+  jarvisOpen();
   loadOwnerStats();
   loadOwnerContent();
+}
+
+// ── JARVIS: the owner's private operations assistant (jarvis.py). Talks about E&L from a live snapshot;
+// anything it would do (write or publish the story, hide a reported look, a test alert) waits for Confirm. ──
+const JV_CHIPS = ["I'm home", 'Status report', 'House Party Protocol', 'Diagnostics', 'Suit up',
+                  'Pull up people this week', 'Show me how a look is made', 'Good night'];
+const jv = { history: [], busy: false, voice: false, address: "ma'am", audio: new Audio() };
+function jvSave() { try { localStorage.setItem('el_jarvis', JSON.stringify({ history: jv.history.slice(-24), voice: jv.voice, address: jv.address, greeted: jv.greeted })); } catch (e) {} }
+function jvLoad() {
+  try { Object.assign(jv, JSON.parse(localStorage.getItem('el_jarvis') || '{}')); } catch (e) {}
+  if (!Array.isArray(jv.history)) jv.history = [];
+}
+// a reply: text paragraphs, and every ``` block as a hologram (all escaped: nothing in a reply runs as HTML)
+function jvRender(text) {
+  const out = [];
+  String(text || '').split(/```[a-zA-Z0-9_-]*\n?/).forEach((part, i) => {
+    if (i % 2) { if (part.trim()) out.push(`<pre class="jv-holo">${esc(part.replace(/\n$/, ''))}</pre>`); return; }
+    part.split(/\n{2,}/).map(p => p.trim()).filter(Boolean).forEach(p => {
+      out.push('<p>' + esc(p).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/\n/g, '<br>') + '</p>');
+    });
+  });
+  return out.join('');
+}
+function jvAdd(role, text, action) {
+  const log = document.getElementById('jv-log');
+  const m = document.createElement('div');
+  m.className = 'jv-msg ' + (role === 'user' ? 'me' : role === 'error' ? 'jarvis err' : 'jarvis');
+  if (role === 'user') m.textContent = text; else m.innerHTML = jvRender(text);
+  if (action) {
+    const labels = { write_story: "Write this week's story", publish_story: "Publish this week's story", hide_look: 'Hide that look', test_alert: 'Send a test alert' };
+    const row = document.createElement('div'); row.className = 'jv-act';
+    const yes = document.createElement('button'); yes.type = 'button'; yes.textContent = 'Confirm: ' + (labels[action.type] || action.type);
+    const no = document.createElement('button'); no.type = 'button'; no.className = 'no'; no.textContent = 'Cancel';
+    yes.onclick = async () => {
+      row.remove();
+      try {
+        const r = await api('/api/owner/jarvis/act', Object.assign({ address: jv.address }, action));
+        jvAdd('assistant', r.say || 'Done.'); jv.history.push({ role: 'assistant', text: r.say || 'Done.' }); jvSave(); jvSpeak(r.say);
+        if (action.type !== 'test_alert') loadOwnerContent();
+      } catch (e) { jvAdd('error', e.message); }
+    };
+    no.onclick = () => { row.remove(); jv.history.push({ role: 'user', text: '(cancelled that)' }); jvSave(); };
+    row.append(yes, no); m.appendChild(row);
+  }
+  log.appendChild(m);
+  log.scrollTop = log.scrollHeight;
+}
+function jvSpeak(text) {
+  if (!jv.voice || !text) return;
+  const said = String(text).replace(/```[\s\S]*?```/g, ' (hologram on screen) ').replace(/\*\*/g, '').replace(/\s+/g, ' ').trim().slice(0, 400);
+  fetch('/api/tts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: said, stylist: 'jarvis' }) })
+    .then(r => r.ok ? r.blob() : null).then(b => {
+      if (!b) return;
+      if (jv.audio.src.startsWith('blob:')) URL.revokeObjectURL(jv.audio.src);
+      jv.audio.src = URL.createObjectURL(b); jv.audio.play().catch(() => {});
+    }).catch(() => {});
+}
+function jarvisVoiceToggle() {
+  jv.voice = !jv.voice; jvSave();
+  const b = document.getElementById('jv-voice');
+  b.setAttribute('aria-pressed', String(jv.voice)); b.textContent = jv.voice ? 'Voice on' : 'Voice off';
+  if (!jv.voice) jv.audio.pause();
+}
+function jarvisAddress(v) { jv.address = v; jvSave(); }
+async function jarvisSend(text) {
+  const input = document.getElementById('jv-in');
+  const said = (text || input.value).trim();
+  if (!said || jv.busy) return;
+  input.value = '';
+  jvAdd('user', said);
+  const panel = document.getElementById('jv'), state = document.getElementById('jv-state'), send = document.getElementById('jv-send');
+  jv.busy = true; panel.classList.add('is-thinking'); state.textContent = 'Thinking…'; send.disabled = true;
+  try {
+    const r = await api('/api/owner/jarvis', { message: said, history: jv.history.slice(-10), address: jv.address });
+    jv.history.push({ role: 'user', text: said }, { role: 'assistant', text: r.reply });
+    jvSave();
+    jvAdd('assistant', r.reply, r.action);
+    jvSpeak(r.reply);
+    track('jarvis_ask');
+  } catch (e) {
+    jvAdd('error', e.message || 'A momentary fault. Do try again.');
+  } finally {
+    jv.busy = false; panel.classList.remove('is-thinking'); state.textContent = 'Online'; send.disabled = false;
+  }
+}
+function jarvisOpen() {
+  jvLoad();
+  const log = document.getElementById('jv-log');
+  if (!log) return;
+  log.innerHTML = '';
+  jv.history.slice(-8).forEach(t => jvAdd(t.role === 'user' ? 'user' : 'assistant', t.text));
+  document.getElementById('jv-addr').value = jv.address;
+  const vb = document.getElementById('jv-voice');
+  vb.setAttribute('aria-pressed', String(!!jv.voice)); vb.textContent = jv.voice ? 'Voice on' : 'Voice off';
+  const chips = document.getElementById('jv-chips');
+  chips.innerHTML = '';
+  JV_CHIPS.forEach(c => { const b = document.createElement('button'); b.type = 'button'; b.textContent = c; b.onclick = () => jarvisSend(c); chips.appendChild(b); });
+  // the first time each day: "Welcome home"
+  if (jv.greeted !== todayLocal()) { jv.greeted = todayLocal(); jvSave(); jarvisSend("I'm home"); }
 }
 async function loadOwnerStats() {
   const box = document.getElementById('own-growth');

@@ -18,7 +18,7 @@ from flask import Blueprint, Response
 from pro import FREE_PER_DAY, PRICES, PRO_PER_DAY, intl_prices
 
 legal = Blueprint('legal', __name__)
-UPDATED = '13 November 2026'
+UPDATED = '15 November 2026'
 
 
 def _v(name, fallback):
@@ -36,7 +36,14 @@ def _ctx():
         'm': f"{PRICES['monthly']:,}", 'y': f"{PRICES['yearly']:,}",
         'um': f"{intl_prices()['monthly']:.2f}", 'uy': f"{intl_prices()['yearly']:.2f}",
         'free': FREE_PER_DAY, 'cap': PRO_PER_DAY,
+        'ai': _ai_company(),
     }
+
+
+def _ai_company():
+    """Whoever writes the looks right now (AI_PROVIDER in Render): the policy names them."""
+    import ai
+    return 'OpenAI' if ai.provider() == 'openai' else 'Anthropic'
 
 
 PAGES = {
@@ -90,8 +97,8 @@ PAGES = {
 <ul>
   <li><b>Google sign-in:</b> your name, email address and profile picture, used to run your account and Pro subscription.</li>
   <li><b>Styling details:</b> your quiz answers, occasion, budget and any text or voice request you send, used only to create your looks. Voice recordings are sent for transcription and aren't stored by us. Saved looks, boards, wedding plans and closet photos stay in your browser on your device.</li>
-  <li><b>Your closet and today's fit:</b> when you ask for today's fit, the names of the clothes in your closet (not the photos), your plans and the weather are sent to Anthropic to pick the outfit. Closet photos are sent to Anthropic to name each item; we don't keep them.</li>
-  <li><b>Get this look and Shop any outfit:</b> if you paste a link to a post (Instagram, TikTok, Pinterest or YouTube), we fetch that post's public picture and caption from the app it's on. That picture, or a screenshot you upload, is sent to Anthropic to see the outfit. To find where each piece is from, a cut-out of each piece is put up at a private, unguessable web address for 15 minutes so Google Lens (through Serper) can search for it, then deleted. We don't store your picture or show it to anyone; we keep the list of pieces we found for 7 days, under a one-way code made from the picture, so the same picture doesn't cost you another look.</li>
+  <li><b>Your closet and today's fit:</b> when you ask for today's fit, the names of the clothes in your closet (not the photos), your plans and the weather are sent to {ai} to pick the outfit. Closet photos are sent to {ai} to name each item; we don't keep them.</li>
+  <li><b>Get this look and Shop any outfit:</b> if you paste a link to a post (Instagram, TikTok, Pinterest or YouTube), we fetch that post's public picture and caption from the app it's on. That picture, or a screenshot you upload, is sent to {ai} to see the outfit. To find where each piece is from, a cut-out of each piece is put up at a private, unguessable web address for 15 minutes so Google Lens (through Serper) can search for it, then deleted. We don't store your picture or show it to anyone; we keep the list of pieces we found for 7 days, under a one-way code made from the picture, so the same picture doesn't cost you another look.</li>
   <li><b>Ella's Sunday Edit:</b> the photo at the top of the story is the news report's own cover photo. Your browser loads it straight from that news site (as a shared link's preview does), so that site sees your IP address, like any visit. We send it nothing else about you.</li>
   <li><b>Weather:</b> for today's fit, if you allow location, your browser sends us a rough position (rounded to about 10 km). We pass it to MET Norway for the forecast and don't store it.</li>
   <li><b>Shared looks and boards:</b> when you tap Share, the look (its name, Ella's note, the pieces and the occasion) gets a public page that anyone with the link can open. Your first name is shown only if you choose. Votes are anonymous; to stop vote-stuffing we keep a browser cookie and a one-way code made from the voter's network address, never the address itself. You can take a shared page down at any time from My Looks.</li>
@@ -102,7 +109,7 @@ PAGES = {
   <li><b>Analytics:</b> Google Analytics records anonymous visit statistics.</li>
 </ul>
 <h2>Who processes it for us</h2>
-<p>Anthropic (AI that writes the looks), ElevenLabs (stylist voices, and turning your voice requests into text), Google (sign-in, product image search, analytics, YouTube videos in Reels, and Android notifications), Apple and Mozilla (notifications on their devices and browsers), Instagram, TikTok and Pinterest (the public picture of a post you paste), MET Norway (weather), Razorpay and Dodo Payments (payments), BigDataCloud (turning a location into a country), Serper (product search, and Google Lens for Shop any outfit), Render (hosting) and Neon (database). They process data only to provide their service to us.</p>
+<p>{ai} (AI that writes the looks), ElevenLabs (stylist voices, and turning your voice requests into text), Google (sign-in, product image search, analytics, YouTube videos in Reels, and Android notifications), Apple and Mozilla (notifications on their devices and browsers), Instagram, TikTok and Pinterest (the public picture of a post you paste), MET Norway (weather), Razorpay and Dodo Payments (payments), BigDataCloud (turning a location into a country), Serper (product search, and Google Lens for Shop any outfit), Render (hosting) and Neon (database). They process data only to provide their service to us.</p>
 <h2>Cookies</h2>
 <p>We use one essential cookie to keep you signed in, to count free looks and to count one vote per person, and analytics cookies from Google Analytics. When you play a reel, YouTube (in privacy-enhanced mode) or Instagram may set their own cookies.</p>
 <h2>How long we keep it</h2>
