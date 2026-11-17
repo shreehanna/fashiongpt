@@ -5213,7 +5213,7 @@ function updateLooksMeter() {
     : `${n} free look${n === 1 ? '' : 's'} left today`;
 }
 // ── Owner only: which APIs are fine, low or out ──
-const HEALTH_LABEL = { ok: 'OK', low: 'Running low', out: 'Ran out', key: 'Key rejected', off: 'Off' };
+const HEALTH_LABEL = { ok: 'OK', low: 'Running low', out: 'Ran out', key: 'Key rejected', voice: 'A voice needs fixing', off: 'Off' };
 let ownerAlertHidden = '';
 try { ownerAlertHidden = sessionStorage.getItem('el_alert_hidden') || ''; } catch (e) {}
 function healthAmount(unit, n) {
@@ -5233,7 +5233,7 @@ function healthLine(h) {
   return 'Working.';
 }
 function worstHealth() {
-  const rank = { key: 3, out: 3, low: 2 };
+  const rank = { key: 3, out: 3, low: 2, voice: 2 };
   return ((ME && ME.health) || []).filter(h => rank[h.level]).sort((a, b) => rank[b.level] - rank[a.level]);
 }
 function updateOwnerAlert() {
@@ -5248,12 +5248,14 @@ function updateOwnerAlert() {
   const text = document.createElement('span');
   text.className = 'oa-text';
   const b = document.createElement('b');
-  b.textContent = `⚠ ${h.name} ${h.level === 'low' ? 'is running low' : h.level === 'out' ? 'has run out' : 'rejected its key'}`;
+  b.textContent = h.level === 'voice' ? `⚠ ${(h.text || '').split("'s voice")[0] || 'A'}'s voice can't be used`
+    : `⚠ ${h.name} ${h.level === 'low' ? 'is running low' : h.level === 'out' ? 'has run out' : 'rejected its key'}`;
   const tiny = h.left != null && h.left < (h.unit === 'usd' ? 0.005 : 1);
-  text.append(b, h.level === 'low' && h.left != null ? (tiny ? ' · almost nothing left' : ` · about ${healthAmount(h.unit, h.left)} left`) : ` · ${h.what} ${h.level === 'low' ? 'may stop soon' : 'is down'}`);
+  text.append(b, h.level === 'voice' ? ' · the other voices are fine'
+    : h.level === 'low' && h.left != null ? (tiny ? ' · almost nothing left' : ` · about ${healthAmount(h.unit, h.left)} left`) : ` · ${h.what} ${h.level === 'low' ? 'may stop soon' : 'is down'}`);
   if (bad.length > 1) text.append(` · +${bad.length - 1} more`);
   const top = document.createElement('a');
-  top.href = h.link; top.target = '_blank'; top.rel = 'noopener'; top.textContent = 'Top up ↗';
+  top.href = h.link; top.target = '_blank'; top.rel = 'noopener'; top.textContent = h.level === 'voice' ? 'Fix ↗' : 'Top up ↗';
   const more = document.createElement('button');
   more.type = 'button'; more.textContent = 'Details'; more.onclick = () => openPaywall('browse');
   const x = document.createElement('button');
@@ -8268,7 +8270,7 @@ const JVU_GO = {
 };
 const JVU_SILENT = 'data:audio/mpeg;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjYwLjE2LjEwMAAAAAAAAAAAAAAA//NwwAAAAAAAAAAAAEluZm8AAAAPAAAABAAAAlgAenp6enp6enp6enp6enp6enp6enp6enp6pqampqampqampqampqampqampqampqamptPT09PT09PT09PT09PT09PT09PT09PT09P/////////////////////////////////AAAAAExhdmM2MC4zMQAAAAAAAAAAAAAAACQCcQAAAAAAAAJY+/rsqgAAAAAAAAAAAAAAAAD/80DEAAAAA0gAAAAATEFNRTMuMTAwVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQsRbAAADSAAAAABVVVVVVVVVVVVVVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQMSkAAADSAAAAABVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV//NCxKMAAANIAAAAAFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV';
 const jvu = { open: false, step: 'open', req: {}, history: [], busy: false, speaking: false, typing: false, audio: new Audio(),
-              heardHello: false, pendingHello: '', toldReady: false, plays: 0, picking: false };
+              heardHello: false, pendingHello: '', toldReady: false, picking: false, cut: null };
 
 // ── his ears: hands-free listening (a recorder runs while he listens, restarted in quiet stretches) ──
 const jvuEar = { stream: null, ctx: null, an: null, rec: null, chunks: [], timer: null, on: false, paused: true, hearing: false,
@@ -8330,7 +8332,7 @@ function jvuEarTick(buf) {
     if (rms < jvuEar.noise * 2) jvuEar.noise = jvuEar.noise * 0.97 + rms * 0.03;  // learn the room's quiet
     if (rms > Math.max(0.02, jvuEar.noise * 3.2)) {
       jvuEar.speechMs += 50;
-      if (jvuEar.speechMs >= 150) { jvuEar.hearing = true; jvuEar.silenceMs = 0; jvuCaption(''); jvuMode('hearing', 'Hearing you…'); }
+      if (jvuEar.speechMs >= 150) { jvuEar.hearing = true; jvuEar.silenceMs = 0; jvuMode('hearing', 'Hearing you…'); }
     } else {
       jvuEar.speechMs = 0;
       jvuEar.idleMs += 50;
@@ -8387,31 +8389,41 @@ function jvuSay(text, opts) {
   jvu.history.push({ role: 'jarvis', text });
   jvu.speaking = true;
   jvuEarPause(true);
-  jvuMode('speaking', 'Speaking…');
   if (jvu.typing) jvuCaption(text);
-  return fetch('/api/tts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: text.slice(0, 400), stylist: 'jarvis' }) })
-    .then(r => r.ok ? r.blob() : null)
+  const voice = fetch('/api/tts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: text.slice(0, 400), stylist: 'jarvis' }) })
+    .then(r => r.ok ? r.blob() : null).catch(() => null);
+  return jvuEllaQuiet(350, 30000)                           // Ella or Léon always go first
+    .then(() => voice)
+    .then(b => jvuEllaBusy() ? jvuEllaQuiet(350, 30000).then(() => b) : b)   // she started while his line was on its way
     .then(b => new Promise(done => {
+      jvuMode('speaking', 'Speaking…');
       if (!b) { jvuCaption(text); return done(true); }
       if (jvu.audio.src.startsWith('blob:')) URL.revokeObjectURL(jvu.audio.src);
-      jvu.audio.onended = jvu.audio.onerror = () => done(true);
+      const finish = ok => { jvu.cut = null; done(ok); };
+      jvu.audio.onended = jvu.audio.onerror = () => finish(true);
+      jvu.cut = () => { try { jvu.audio.pause(); } catch (e) {} jvuCaption(text); finish(true); };   // she started mid-sentence: he stops, his words show
       jvu.audio.src = URL.createObjectURL(b);
       if (!jvu.typing) jvuCaption('');
-      jvu.audio.play().catch(err => { jvuCaption(text); done(!(err && err.name === 'NotAllowedError')); });
+      jvu.audio.play().catch(err => { jvuCaption(text); finish(!(err && err.name === 'NotAllowedError')); });
     }))
     .catch(() => { jvuCaption(text); return true; })
     .finally(() => { jvu.speaking = false; if (!opts.hold) setTimeout(jvuListen, 300); });
 }
-// Ella or Léon talking (their own voices): wait for them to start, then to finish
-function jvuStylistDone(seen, startWithin, maxMs) {
+// Ella or Léon: talking now, or a line on its way (asked for, still being made). JARVIS waits for both.
+let jvuEllaPending = 0;
+function jvuEllaBusy() {
+  return jvuEllaPending > 0 || (!ellaAudio.paused && !ellaAudio.ended && !String(ellaAudio.src).startsWith('data:'));
+}
+// resolves once they've been quiet, with nothing on its way, for quietMs (or after maxMs, whatever happens)
+function jvuEllaQuiet(quietMs, maxMs) {
   return new Promise(res => {
     const t0 = Date.now();
+    let since = 0;
     const tick = () => {
-      const waited = Date.now() - t0;
-      const started = jvu.plays > seen;
-      const talking = !ellaAudio.paused && !ellaAudio.ended;
-      if (waited > (maxMs || 15000) || (!started && waited > (startWithin || 3000)) || (started && !talking)) return res();
-      setTimeout(tick, 150);
+      const now = Date.now();
+      if (jvuEllaBusy()) since = 0; else if (!since) since = now;
+      if (now - t0 > (maxMs || 30000) || (since && now - since >= quietMs)) return res();
+      setTimeout(tick, 100);
     };
     tick();
   });
@@ -8526,6 +8538,7 @@ async function jvuHandle(text) {
   if (!jvu.open) return;
   if (!text || (text.split(' ').length < 2 && !/^(ella|l[eé]on|leo|yes|no|new|closet|save|thanks?|bye|goodbye)\W*$/i.test(text))) return jvuListen();
   jvu.busy = true;
+  if (!jvu.typing) jvuCaption('');          // his last words stay up until they've actually said something new
   try {
     if (/\b(go to sleep|stop listening|stop talking|be quiet|shut up|that'?s all|bye,? jarvis|goodbye)\b/i.test(text) && text.split(' ').length <= 6) {
       jvu.history.push({ role: 'user', text });
@@ -8592,12 +8605,11 @@ async function jvuNext() {
   if (!q.stylist) { jvu.step = 'stylist'; return jvuSay(JVU.whoStyles); }
   if (!q.shown) {
     q.shown = true;
-    const seen = jvu.plays;
     jvu.picking = true;
     try { chooseStylist(q.stylist); } finally { jvu.picking = false; }
     jvuEarPause(true);
     jvuMode('speaking', q.stylist === 'leon' ? 'Léon is here' : 'Ella is here');
-    await jvuStylistDone(seen, 3200, 6000);   // "Hi babe" / "Howdy, mate!"
+    await jvuEllaQuiet(motionOK() ? 1900 : 500, 9000);   // "Hi babe" / "Howdy, mate!" (she says it 1.5 s into her flight)
     if (q.mode && motionOK()) await new Promise(r => setTimeout(r, 1300));   // let her fly home before the page changes
   }
   if (!q.mode) {
@@ -8626,12 +8638,11 @@ async function jvuStartLook() {
   jvuMode('working', (q.stylist === 'leon' ? 'Léon' : 'Ella') + ' is styling…');
   document.getElementById('gen-message').textContent = (state.celeb && state.celeb !== 'No specific muse' && !state.character) ? `Finding a real ${state.celeb} outfit for ${state.occasion}…` : `Building your look for ${state.occasion}…`;
   track('jarvis_user_look');
-  const seen = jvu.plays;
   goTo('screen-generating');
   await generateOutfitFromState();
   if (!jvuLookOnScreen()) { jvu.step = 'open'; return; }      // it didn't work out: the page has said why
   jvu.step = 'results';
-  await jvuStylistDone(seen + 1, 2500, 20000);               // her loading line has played; now her note about the look
+  await jvuEllaQuiet(1500, 40000);                           // her note about the look goes first, however long it takes to make
   if (!jvu.toldReady) { jvu.toldReady = true; return jvuSay(JVU.ready); }
 }
 async function jvuTweak(t) {
@@ -8656,10 +8667,9 @@ async function jvuTweak(t) {
     if (!k) { try { c.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (e) {} }
   });
   if (res.ella_note) {
-    const seen = jvu.plays;
     stylistSpeak(shortNote(res.ella_note), who);
     jvuMode('speaking', (who === 'leon' ? 'Léon' : 'Ella') + ' is talking');
-    await jvuStylistDone(seen, 3000, 15000);
+    await jvuEllaQuiet(500, 30000);
   }
 }
 function jvuDo(what) {
@@ -8684,9 +8694,16 @@ function jvuGo(where) {
 }
 
 // ── hooks into the rest of the app ──
+const _stylistSpeakJvu = stylistSpeak;
+stylistSpeak = async function (text, who = activeStylist) {
+  if (!text || who !== activeStylist) return;
+  jvuEllaPending += 1;
+  try { return await _stylistSpeakJvu(text, who); }
+  finally { jvuEllaPending -= 1; }
+};
 ['play', 'playing'].forEach(ev => ellaAudio.addEventListener(ev, () => {
   if (String(ellaAudio.src).startsWith('data:')) return;      // the silent unlock on someone's first tap
-  if (ev === 'play') jvu.plays += 1;
+  if (jvu.cut) jvu.cut();                                     // Ella goes first: JARVIS stops mid-sentence
   if (jvu.open) jvuEarPause(true);
 }));
 ['ended', 'pause', 'error'].forEach(ev => ellaAudio.addEventListener(ev, () => { if (jvu.open && jvu.step !== 'working') setTimeout(jvuListen, 350); }));
@@ -8697,8 +8714,7 @@ chooseStylist = function (name) {
   if (jvu.open && jvu.step === 'stylist' && !jvu.picking && !jvu.busy) {
     jvu.req.stylist = name; jvu.req.shown = true;
     jvu.busy = true;
-    const seen = jvu.plays - 0;
-    jvuStylistDone(seen, 3200, 6000).then(() => { jvu.busy = false; return jvuNext(); }).finally(() => { jvu.busy = false; jvuListen(); });
+    jvuEllaQuiet(motionOK() ? 1900 : 500, 9000).then(() => { jvu.busy = false; return jvuNext(); }).finally(() => { jvu.busy = false; jvuListen(); });
   }
 };
 const _goToJvu = goTo;

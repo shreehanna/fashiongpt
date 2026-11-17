@@ -130,6 +130,8 @@ def pending(services, story, reported, now=None):
     for s in services:
         if s.get('level') in ('out', 'key'):
             out.append((3, f"{s['name']} ({s.get('what')}) is down: {s.get('text') or s['level']}"))
+        elif s.get('level') == 'voice':
+            out.append((2, s.get('text') or "One of the voices can't be used."))
         elif s.get('level') == 'low':
             out.append((2, f"{s['name']} is running low: {s.get('text') or ''}".strip()))
         elif s.get('level') == 'off' and s.get('what') == 'styling':

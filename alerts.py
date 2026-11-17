@@ -376,8 +376,15 @@ def watch_claude(client):
 
 
 # ── ElevenLabs ────────────────────────────────────────────────────────────────
+VOICE_WHO = {'jarvis': 'JARVIS', 'ella': 'Ella', 'leon': 'Léon'}
+ONE_VOICE = ('voice_access_denied', 'requires verification', 'verify your voice', 'voice_not_found', 'voice not found',
+             'invalid_voice', 'voice_does_not_exist', 'voice does not exist')
+
+
 def voice_problem(status, text):
     t = (text or '').lower()
+    if status in (400, 401, 403, 404, 422) and any(s in t for s in ONE_VOICE):
+        return 'voice'      # the key is fine: one voice ID can't be used (a clone that needs verifying, or a wrong ID)
     if status == 402 or 'quota_exceeded' in t or 'exceeds your quota' in t or \
             ('credit' in t and ('insufficient' in t or 'not enough' in t or 'exceed' in t)):
         return 'out'
@@ -386,13 +393,16 @@ def voice_problem(status, text):
     return None
 
 
-def voice_result(r):
-    """Call after every ElevenLabs request with its response."""
+def voice_result(r, who=None, env_name=None):
+    """Call after every ElevenLabs request with its response (and, for speech, whose voice it was)."""
     try:
         if r.status_code == 200:
-            later(_voice_ok)
+            later(_voice_ok, who)
             return
         kind = voice_problem(r.status_code, r.text[:600])
+        if kind == 'voice':
+            later(_one_voice, who if who in VOICE_WHO else 'ella', env_name or '', r.text[:600])
+            return
         if kind:
             text = ("ElevenLabs says the character quota is used up, so Ella and Léon can't speak or listen."
                     if kind == 'out' else
@@ -403,9 +413,34 @@ def voice_result(r):
         print('[alerts] voice_result failed:', e)
 
 
-def _voice_ok():
+def _voice_ok(who=None):
     _resolved('voice')
+    cur = _get('alert:voice:' + who) if who in VOICE_WHO else None
+    if cur and cur.get('level') == 'voice':
+        _set('alert:voice:' + who, {'level': 'ok', 'text': '', 'at': time.time(), 'sent': time.time()})
+        send(f"E&L: {VOICE_WHO[who]}'s voice is working again", 'Back to normal, nothing to do.', urgent=False)
     check_voice()
+
+
+def _one_voice(who, env_name, raw):
+    """One voice can't be used, while the key and everyone else's voice are fine. Kept apart from the ElevenLabs
+    status, so Ella speaking fine doesn't mark it fixed (and ping the owner) every few seconds."""
+    name, setting = VOICE_WHO[who], env_name or (who.upper() + '_VOICE_ID')
+    if 'verif' in (raw or '').lower():
+        text = (f"{name}'s voice is a cloned voice, and ElevenLabs won't let E&L use it until it's verified. Only the "
+                f"person whose voice it is can verify it (in ElevenLabs: Voices, open it, Verify). Otherwise pick a voice "
+                f"that needs no verifying (Voice Library or Voice Design) and put its ID in {setting} in Render.")
+    else:
+        text = (f"ElevenLabs can't find or use {name}'s voice. Check the voice ID in {setting} in Render: the voice "
+                f"must be saved in the same ElevenLabs workspace as the API key.")
+    text += (" Until then his words show on screen instead." if who == 'jarvis' else f" Until then {name} stays quiet.") + \
+        " The other voices are fine."
+    cur = _get('alert:voice:' + who) or {}
+    now = time.time()
+    if cur.get('level') == 'voice' and cur.get('text') == text and now - float(cur.get('sent') or 0) < REMIND_EVERY:
+        return
+    _set('alert:voice:' + who, {'level': 'voice', 'text': text, 'at': cur.get('at', now) if cur.get('level') == 'voice' else now, 'sent': now})
+    send(f"E&L: {name}'s voice can't be used", text, 'https://elevenlabs.io/app/voice-lab')
 
 
 def check_voice(force=False):
@@ -487,6 +522,12 @@ def status():
                 row['left'] = max(0.0, b['balance'] - float(b.get('spent') or 0))
             row['spent'] = float(b.get('spent') or 0)
         else:
+            if row['level'] == 'ok':   # the key works, but one voice might not
+                for who in VOICE_WHO:
+                    a = _get('alert:voice:' + who) or {}
+                    if a.get('level') == 'voice':
+                        row.update(level='voice', text=a.get('text') or '', link='https://elevenlabs.io/app/voice-lab')
+                        break
             v = _get('voice:left') or {}
             if 'left' in v:
                 row['left'], row['balance'], row['reset'] = v['left'], v['limit'], v.get('reset')

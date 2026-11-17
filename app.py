@@ -10,7 +10,7 @@ from regions import brands_for, prompt_note
 import re
 from pro import owner_request, refund_look
 from looks import create_unique, stream_unique, RepeatError, STYLE_MODEL   # every look checked against every look ever given
-from alerts import watch_claude, voice_result, ServiceDown, bp as alerts_bp   # tells the owner when an API runs low
+from alerts import watch_claude, voice_result, voice_problem, ServiceDown, bp as alerts_bp   # tells the owner when an API runs low
 from growth import sign_look, track, bp as growth_bp   # shareable "Rate my fit" links, boards, challenge, stats
 import daily                                            # today's fit, Sunday Edit, characters, reels
 import muses                                            # real style files, so muses are dressed like themselves
@@ -936,7 +936,20 @@ def tts():
         if spoken:
             concierge.give_back(spoken)
         return jsonify({'error': 'voice service unreachable'}), 502
-    voice_result(r)
+    voice_result(r, who, voice['env'])
+    if r.status_code != 200 and who != 'jarvis' and voice_id != voice['default'] \
+            and voice_problem(r.status_code, r.text[:600]) == 'voice':
+        # the voice ID set in Render can't be used (a clone that needs verifying, or a typo): the owner has been
+        # told, and meanwhile Ella / Léon keep talking in their usual voice. (JARVIS's usual voice is Léon's, so his
+        # words show on screen instead.)
+        try:
+            r2 = req.post(f"https://api.elevenlabs.io/v1/text-to-speech/{voice['default']}",
+                          headers={'xi-api-key': key, 'Content-Type': 'application/json', 'Accept': 'audio/mpeg'},
+                          json={'text': text, 'model_id': TTS_MODEL, 'voice_settings': voice['settings']}, timeout=30)
+            if r2.status_code == 200:
+                return Response(r2.content, mimetype='audio/mpeg')
+        except req.RequestException:
+            pass
     if r.status_code != 200:
         if spoken:
             concierge.give_back(spoken)
