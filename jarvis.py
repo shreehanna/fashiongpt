@@ -146,7 +146,18 @@ def pending(services, story, reported, now=None):
         out.append((2, 'No Sunday story yet this week'))
     if reported:
         out.append((2, f"{len(reported)} reported look(s) to review"))
+    if not _phones():
+        out.append((2, "JARVIS can't ping the owner's phone yet: turn on E&L notifications on the phone, signed in "
+                       "(owner tools: \"Let JARVIS ping this phone\")"))
     return [{'urgency': u, 'what': w} for u, w in sorted(out, key=lambda x: -x[0])]
+
+
+def _phones():
+    try:
+        import push
+        return len(push.owner_phones())
+    except Exception:
+        return 0
 
 
 def snapshot():
@@ -175,6 +186,7 @@ def snapshot():
         'sunday_story': story_now,
         'reported_looks': reported,
         'pending_for_owner': pending(services, story_now, reported, now),
+        'owner_phones_jarvis_can_ping': _phones(),
         'chennai_weather_next_12h': chennai_weather(),
     }
 
@@ -242,7 +254,9 @@ It happens only if the owner taps Confirm. Never say an action is done unless th
 - write_story: write this week's Sunday story now (or a different one); costs a few searches and AI calls.
 - publish_story: publish this week's draft so everyone sees it.
 - hide_look: hide a reported shared look.
-- test_alert: send a test alert to the owner's phone/email.
+- test_alert: ping the owner's phone (E&L's own notifications; also ntfy/email if set up) to check it reaches them.
+  "owner_phones_jarvis_can_ping" in the snapshot says how many phones you can reach; if it's 0, say so plainly and
+  tell the owner to tap "Let JARVIS ping this phone" in owner tools on their phone (on iPhone, from the Home Screen app).
 
 HONESTY RULES (non-negotiable)
 - Every number, status and fact about E&L comes from the SNAPSHOT below, taken just now. If it isn't there, say you
@@ -348,9 +362,16 @@ def act():
     if kind == 'test_alert':
         import alerts
         if not alerts.channels():
-            return jsonify({'ok': False, 'say': f'No alert channel is set up, {a}: add NTFY_TOPIC, or RESEND_API_KEY and ALERT_EMAIL, in Render.'})
-        sent = alerts.send('E&L: test alert', "If you're reading this, API alerts reach you. Nothing to do.", urgent=False)
-        return jsonify({'ok': bool(sent), 'say': f'Test alert sent, {a}.' if sent else f"It didn't go through, {a}."})
+            return jsonify({'ok': False, 'say': f"I've no way to reach your phone yet, {a}. On your phone, open E&L signed in as "
+                                                "you and tap \"Let JARVIS ping this phone\" in owner tools, then ask me again. "
+                                                "(On an iPhone, add E&L to the Home Screen first.)"})
+        sent = alerts.send('JARVIS: test ping', "If you're reading this, I can reach you. Nothing to do.", urgent=False)
+        names = {'app': 'your phone', 'phone': 'ntfy', 'email': 'your email'}
+        got = [names[k] for k, v in sent.items() if v and k in names]
+        missed = [names[k] for k, v in sent.items() if not v and k in names]
+        if not got:
+            return jsonify({'ok': False, 'say': f"I tried, {a}, but nothing went through. Turn notifications back on for E&L on your phone."})
+        return jsonify({'ok': True, 'say': f"Pinged {' and '.join(got)}, {a}." + (f" ({', '.join(missed)} didn't take it.)" if missed else '')})
     table = {'l': 'el_cards', 'b': 'el_boards'}.get(str(body.get('kind') or ''))
     cid = str(body.get('id') or '')
     if not table or not re.fullmatch(r'[A-Za-z0-9_-]{4,40}', cid):

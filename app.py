@@ -1009,6 +1009,9 @@ app.register_blueprint(story.bp)     # /api/edit: Ella's Sunday Edit, the story 
 import jarvis
 jarvis.init(client, STYLE_MODEL)
 app.register_blueprint(jarvis.bp)    # /api/owner/jarvis: the owner's private operations assistant
+import tryon
+tryon.init()
+app.register_blueprint(tryon.bp)     # /api/try-on: see the look on your own photo (OpenAI's image model)
 
 
 if __name__ == '__main__':

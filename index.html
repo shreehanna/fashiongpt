@@ -625,6 +625,32 @@ body {
   padding: 24px;
 }
 .overlay.active { display: flex; }
+/* Try it on me */
+.tryon-sheet { max-height: calc(100vh - 32px); overflow-y: auto; }
+.tryon-intro, .tryon-small, .tryon-left { font-size: 13px; color: var(--fg2); line-height: 1.5; margin: 0 0 12px; }
+.tryon-small { font-size: 12px; color: var(--fg3); text-align: center; margin: 10px 0; }
+.tryon-left { text-align: center; margin: 10px 0 0; }
+.tryon-drop { display: grid; place-items: center; min-height: 170px; border: 1.5px dashed var(--border2, var(--border)); border-radius: 14px;
+  background: var(--bg2); cursor: pointer; overflow: hidden; margin-bottom: 12px; position: relative; }
+.tryon-drop input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.tryon-drop img { width: 100%; max-height: 300px; object-fit: contain; display: block; }
+.tryon-drop span { font-size: 14px; color: var(--fg2); padding: 20px; }
+.tryon-drop img:not([hidden]) + span { position: absolute; bottom: 8px; padding: 4px 10px; border-radius: 99px; font-size: 12px; background: var(--card); }
+.tryon-consent { display: flex; gap: 10px; align-items: flex-start; font-size: 12.5px; color: var(--fg2); line-height: 1.45; margin-bottom: 14px; cursor: pointer; }
+.tryon-consent input { margin-top: 2px; flex: none; width: 18px; height: 18px; accent-color: var(--accent); }
+.tryon-go { width: 100%; }
+.tryon-go:disabled { opacity: .45; cursor: not-allowed; }
+.tryon-wait { text-align: center; padding: 24px 0 8px; }
+.tryon-wait p { margin: 8px 0 0; font-size: 14px; color: var(--fg); }
+.tryon-spinner { width: 54px; height: 54px; margin: 0 auto 10px; border-radius: 50%; border: 3px solid var(--border); border-top-color: var(--accent);
+  animation: tryon-spin 1s linear infinite; }
+@keyframes tryon-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .tryon-spinner { animation-duration: 3s; } }
+.tryon-img { display: block; width: 100%; max-height: 62vh; object-fit: contain; border-radius: 14px; background: var(--bg2); }
+.tryon-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+.tryon-actions > * { flex: 1 1 140px; text-align: center; text-decoration: none; }
+.tryon-error { margin-top: 12px; padding: 10px 12px; border-radius: 12px; background: var(--bg2); color: var(--fg); font-size: 13px; line-height: 1.5; }
+.tryon-error .btn-primary { margin-top: 10px; width: 100%; }
 .share-card {
   background: var(--card); border-radius: var(--r-lg);
   padding: 28px; max-width: 400px; width: 100%;
@@ -1441,6 +1467,9 @@ body::after {
 .jv-holo-area { width: 100%; min-width: 0; }
 .jv-holo-area .jv-holo { animation: jv-project .45s ease-out; margin: 4px 0 0; }
 @keyframes jv-project { from { opacity: 0; transform: perspective(600px) rotateX(18deg) translateY(10px); filter: blur(3px); } }
+.jv-ping { display: block; margin: 12px auto 0; background: transparent; color: var(--jv-cyan); border: 1px dashed var(--jv-line);
+  border-radius: 99px; padding: 7px 14px; font: 500 12.5px var(--sans); }
+.jv-ping:disabled { color: var(--jv-dim); cursor: default; }
 .jv-wake { justify-self: center; background: var(--jv-cyan); color: #04121c; border: 0; border-radius: 99px; padding: 10px 18px; font: 600 13px var(--sans);
   box-shadow: 0 0 20px rgba(92,214,255,.5); }
 @keyframes jv-pulse { 50% { transform: scale(.86); opacity: .75; } }
@@ -2208,6 +2237,7 @@ body::after {
     <div class="styling-notes" id="styling-notes"></div>
     <div class="results-actions">
       <button class="btn-primary" onclick="saveLook()">♡ Save this look</button>
+      <button class="btn-secondary tryon-btn" onclick="openTryOn()">✦ Try it on me</button>
       <button class="btn-secondary" onclick="openShareCard()">↗ Rate my fit</button>
       <button class="btn-secondary" onclick="shareAsImage()">⬇ Save as image</button>
       <button class="btn-secondary" onclick="generateOutfit()">↺ Refresh</button>
@@ -2398,6 +2428,42 @@ body::after {
 <!-- ═══════════════════════════════════════════════════════════════
      WHAT CAN ELLA DO? Everything, grouped, each with a way straight in
 ═══════════════════════════════════════════════════════════════ -->
+<!-- Try it on me: the look on your own photo (tryon.py). The photo is never saved. -->
+<div class="overlay" id="tryon-overlay" role="dialog" aria-modal="true" aria-labelledby="tryon-title">
+  <div class="share-card tryon-sheet">
+    <div class="sc-header">
+      <div class="sc-title" id="tryon-title">Try it on you ✦</div>
+      <button class="sc-close" type="button" onclick="closeTryOn()" aria-label="Close">✕</button>
+    </div>
+    <div id="tryon-pick">
+      <p class="tryon-intro">Add a full-length photo of you: standing, good light, just you in it. Ella dresses you in this look.</p>
+      <label class="tryon-drop" for="tryon-file">
+        <input type="file" id="tryon-file" accept="image/*" onchange="tryOnPicked(event)">
+        <img id="tryon-preview" alt="Your photo" hidden>
+        <span id="tryon-drop-text">📸 Take or choose a photo</span>
+      </label>
+      <label class="tryon-consent"><input type="checkbox" id="tryon-ok" onchange="tryOnReady()">
+        <span>This is me, I'm 18 or older, and my photo can be sent to OpenAI to make the picture. E&amp;L never saves it.</span></label>
+      <button class="btn-primary tryon-go" id="tryon-go" type="button" onclick="tryOnGo()" disabled>✦ Dress me</button>
+      <p class="tryon-left" id="tryon-left"></p>
+    </div>
+    <div id="tryon-wait" class="tryon-wait" hidden>
+      <div class="tryon-spinner" aria-hidden="true"></div>
+      <p id="tryon-line">Ella's pulling the pieces off the rail…</p>
+      <p class="tryon-small">This takes about 30 to 60 seconds.</p>
+    </div>
+    <div id="tryon-result" hidden>
+      <img id="tryon-img" class="tryon-img" alt="You, wearing this look (an AI preview)">
+      <p class="tryon-small">AI preview: the fit and colours of the real pieces may differ.</p>
+      <div class="tryon-actions">
+        <a class="btn-secondary" id="tryon-save" download="my-e-and-l-look.jpg">⬇ Save picture</a>
+        <button class="btn-secondary" type="button" onclick="tryOnAgain()">Try another photo</button>
+      </div>
+    </div>
+    <div class="tryon-error" id="tryon-error" hidden></div>
+  </div>
+</div>
+
 <div class="overlay" id="can-overlay" role="dialog" aria-modal="true" aria-labelledby="can-title">
   <div class="share-card can-sheet">
     <div class="sc-header">
@@ -2504,6 +2570,7 @@ body::after {
       <input id="jv-in" type="text" placeholder="JARVIS, status report…" autocomplete="off" aria-label="Talk to JARVIS">
       <button type="submit" id="jv-send">Send</button>
     </form>
+    <button type="button" class="jv-ping" id="jv-ping" onclick="jarvisPingSetup()" hidden>🔔 Let JARVIS ping this phone</button>
   </div>
   <div class="panel"><div class="quiz-label">Growth</div><div id="own-growth">Loading…</div></div>
   <div class="panel"><div class="quiz-label">Ella's Sunday Edit</div><div id="own-edit"></div></div>
@@ -5383,6 +5450,130 @@ function renderPaywall() {
   document.getElementById('pro-skip').hidden = !(proReason === 'limit' && !PRO.paymentsLive);
 }
 
+// ── Try it on me (tryon.py) ──────────────────────────────────────────────────
+// The photo stays in this page only (so a second look doesn't need it again); it's never saved anywhere.
+let tryOnPhoto = null, tryOnPoll = null, tryOnLines = null;
+const TRYON_LINES = ["Ella's pulling the pieces off the rail…", 'Steaming the hem…', 'Checking the fit on you…',
+                     'Getting the light just right…', 'Almost ready, darling…'];
+function tryOnShow(which) {
+  ['tryon-pick', 'tryon-wait', 'tryon-result'].forEach(id => { document.getElementById(id).hidden = id !== which; });
+}
+function tryOnError(text, extra) {
+  const box = document.getElementById('tryon-error');
+  box.textContent = text || '';
+  if (extra) box.appendChild(extra);
+  box.hidden = !text;
+}
+async function openTryOn() {
+  if (!state.currentOutfit) return;
+  tryOnShow('tryon-pick'); tryOnError('');
+  document.getElementById('tryon-overlay').classList.add('active');
+  track('tryon_open');
+  const left = document.getElementById('tryon-left');
+  left.textContent = '';
+  try {
+    const r = await api('/api/try-on/left');
+    if (!r.ready) { left.textContent = "Try-on isn't switched on yet."; document.getElementById('tryon-go').disabled = true; return; }
+    left.textContent = r.left == null ? '' : r.left > 0 ? `${r.left} try-on${r.left === 1 ? '' : 's'} left today` : 'No try-ons left today';
+  } catch (e) {}
+  tryOnReady();
+}
+function closeTryOn() {
+  document.getElementById('tryon-overlay').classList.remove('active');
+  clearTimeout(tryOnPoll); clearInterval(tryOnLines);
+}
+async function shrinkPhoto(file, edge) {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = no; i.src = url; });
+    const k = Math.min(1, edge / Math.max(img.naturalWidth, img.naturalHeight));
+    const c = document.createElement('canvas');
+    c.width = Math.max(1, Math.round(img.naturalWidth * k)); c.height = Math.max(1, Math.round(img.naturalHeight * k));
+    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+    return await new Promise(ok => c.toBlob(ok, 'image/jpeg', 0.9));
+  } finally { URL.revokeObjectURL(url); }
+}
+async function tryOnPicked(e) {
+  const file = e.target.files && e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+  tryOnError('');
+  try {
+    tryOnPhoto = await shrinkPhoto(file, 1536);
+  } catch (err) {
+    tryOnPhoto = null;
+    tryOnError("That file didn't open as a photo. Try a JPG or PNG.");
+  }
+  const pv = document.getElementById('tryon-preview');
+  if (pv.src.startsWith('blob:')) URL.revokeObjectURL(pv.src);
+  if (tryOnPhoto) { pv.src = URL.createObjectURL(tryOnPhoto); pv.hidden = false; document.getElementById('tryon-drop-text').textContent = 'Change photo'; }
+  tryOnReady();
+}
+function tryOnReady() {
+  const go = document.getElementById('tryon-go');
+  const left = document.getElementById('tryon-left').textContent;
+  go.disabled = !(tryOnPhoto && document.getElementById('tryon-ok').checked) || /isn't switched on/.test(left);
+}
+function tryOnPieces() {
+  return (state.currentOutfit.items || []).map(it => ({
+    category: it.category || '', name: it.name || '', real_name: it.real_name || '', brand: it.brand || '', description: it.description || '',
+    shop_image: (it.shop_image && !brokenPhotos.has(it.shop_image)) ? it.shop_image : (it.photo_v === PHOTO_V ? (it.photo_url || '') : '')
+  }));
+}
+async function tryOnGo() {
+  if (!tryOnPhoto || !state.currentOutfit) return;
+  tryOnError('');
+  const fd = new FormData();
+  fd.append('photo', tryOnPhoto, 'me.jpg');
+  fd.append('consent', document.getElementById('tryon-ok').checked ? '1' : '0');
+  fd.append('look', JSON.stringify({ items: tryOnPieces() }));
+  document.getElementById('tryon-go').disabled = true;
+  let d = {}, res;
+  try {
+    res = await fetch('/api/try-on', { method: 'POST', body: fd });
+    d = await res.json().catch(() => ({}));
+  } catch (e) { res = null; }
+  if (!res || !res.ok) {
+    tryOnReady();
+    if (d.kind === 'limit') {
+      document.getElementById('tryon-left').textContent = 'No try-ons left today';
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'btn-primary';
+      b.textContent = d.pro ? 'OK' : d.signed_in ? `✦ Get ${5} a day with Pro` : 'Sign in or go Pro for more';
+      b.onclick = d.pro ? () => tryOnError('') : () => { closeTryOn(); openPaywall('tryon'); };
+      return tryOnError((d.error || 'No try-ons left today.') + ' ', b);
+    }
+    return tryOnError(d.error || "Couldn't start the try-on. Check your connection and try again.");
+  }
+  if (d.left != null) document.getElementById('tryon-left').textContent = d.left > 0 ? `${d.left} try-on${d.left === 1 ? '' : 's'} left today` : 'No try-ons left today';
+  tryOnShow('tryon-wait');
+  let i = 0;
+  document.getElementById('tryon-line').textContent = TRYON_LINES[0];
+  clearInterval(tryOnLines);
+  tryOnLines = setInterval(() => { i = Math.min(i + 1, TRYON_LINES.length - 1); document.getElementById('tryon-line').textContent = TRYON_LINES[i]; }, 9000);
+  const started = Date.now();
+  const poll = async () => {
+    let r = {};
+    try { r = await api('/api/try-on/' + encodeURIComponent(d.job)); } catch (e) { r = { state: e.status === 404 ? 'failed' : 'working', error: 'That try-on got lost. Please try again.' }; }
+    if (r.state === 'working' && Date.now() - started < 180000) { tryOnPoll = setTimeout(poll, 2500); return; }
+    clearInterval(tryOnLines);
+    if (r.state === 'done') {
+      const img = document.getElementById('tryon-img');
+      img.src = r.image;
+      document.getElementById('tryon-save').href = r.image;
+      tryOnShow('tryon-result');
+      track('tryon_done');
+    } else {
+      tryOnShow('tryon-pick'); tryOnReady();
+      tryOnError(r.error || "Ella couldn't make the picture this time. Try again in a minute.");
+    }
+  };
+  tryOnPoll = setTimeout(poll, 4000);
+}
+function tryOnAgain() {
+  document.getElementById('tryon-img').src = '';
+  tryOnShow('tryon-pick'); tryOnError('');
+  openTryOn();
+}
 function openPaywall(reason, retry) {
   proReason = reason || 'browse';
   proRetry = retry || null;
@@ -7571,10 +7762,54 @@ function jarvisOpen() {
   const chips = document.getElementById('jv-chips');
   chips.innerHTML = '';
   JV_CHIPS.forEach(c => { const b = document.createElement('button'); b.type = 'button'; b.textContent = c; b.onclick = () => jarvisSend(c); chips.appendChild(b); });
+  jvPingButton();
+  jvRelinkPhone();
   if (jv.handsfree) {
     jvUnlock();                                      // still inside the tap that opened owner tools
     jvGreet();
   } else if (jv.greeted !== todayLocal()) { jv.greeted = todayLocal(); jvSave(); jarvisSend("I'm home"); }
+}
+// JARVIS's pings (alerts, "the Sunday draft is ready", a test ping) reach every phone where the owner turned this on,
+// signed in. Only his pings: the morning outfit notes stay as they were.
+function jvPingButton() {
+  const b = document.getElementById('jv-ping');
+  if (!b) return;
+  if (!pushSupported()) {
+    const iphone = /iPhone|iPad|iPod/.test(navigator.userAgent);
+    b.hidden = !iphone; b.disabled = true;
+    b.textContent = "🔔 For JARVIS's pings on iPhone: add E&L to your Home Screen, then open it from there";
+    return;
+  }
+  b.disabled = false; b.textContent = '🔔 Let JARVIS ping this phone';
+  b.hidden = Notification.permission === 'granted' && (pushState().on || lsGet('el_jarvis_ping', false));
+}
+async function jarvisPingSetup() {
+  try {
+    const perm = await Notification.requestPermission();
+    if (perm !== 'granted') { toast('Notifications are off for E&L. Turn them on in your browser settings.', 4000); return; }
+    const reg = await navigator.serviceWorker.ready;
+    const { key } = await api('/api/push/key');
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToBytes(key) });
+    const morning = !!pushState().on;      // keep the morning notes exactly as they were
+    await api('/api/push/subscribe', { subscription: sub.toJSON(), tz: -new Date().getTimezoneOffset(), hour: pushState().hour || 8,
+      reminders: weddingReminders(), prefs: { daily: morning, edit: morning, votes: morning, reminders: morning } });
+    lsSet('el_jarvis_ping', true);
+    toast(`Done ✦ JARVIS can ping this phone now.`);
+  } catch (e) { toast('Couldn’t turn on notifications here. ' + (e.message || ''), 4000); }
+  jvPingButton();
+}
+async function jvRelinkPhone() {
+  // notifications turned on before signing in belong to "someone": opening owner tools makes them the owner's
+  if (!pushSupported() || Notification.permission !== 'granted' || !(pushState().on || lsGet('el_jarvis_ping', false))) return;
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.getSubscription();
+    if (!sub) { lsSet('el_jarvis_ping', false); return jvPingButton(); }
+    const morning = !!pushState().on;
+    await api('/api/push/subscribe', { subscription: sub.toJSON(), tz: -new Date().getTimezoneOffset(), hour: pushState().hour || 8,
+      reminders: weddingReminders(), prefs: { daily: morning, edit: morning, votes: morning, reminders: morning } });
+  } catch (e) {}
 }
 function jarvisClose() { jvMicStop(); try { jv.audio.pause(); } catch (e) {} }
 document.addEventListener('visibilitychange', () => {

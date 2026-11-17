@@ -125,8 +125,19 @@ def _fmt(svc, amount):
 
 
 # ── Sending ───────────────────────────────────────────────────────────────────
+def _owner_phones():
+    try:
+        import push
+        return push.owner_phones()
+    except Exception as e:
+        print('[alerts] phones unknown:', e)
+        return []
+
+
 def channels():
     out = []
+    if _owner_phones():
+        out.append('app')              # the owner's phone, through E&L's own notifications (no setup)
     if env('NTFY_TOPIC'):
         out.append('phone')
     if env('RESEND_API_KEY') and env('ALERT_EMAIL'):
@@ -138,6 +149,13 @@ def send(title, text, link=None, urgent=True):
     """Push + email to whatever is set up. Returns {'phone': True/False, 'email': ...}."""
     sent = {}
     full = text + (f'\n\nTop up: {link}' if link else '')
+    if _owner_phones():
+        try:
+            import push
+            sent['app'] = push.notify_owner({'title': title, 'body': text[:240], 'tag': 'alert', 'ttl': 24 * 3600}, wait=True) > 0
+        except Exception as e:
+            sent['app'] = False
+            print('[alerts] app notification failed:', e)
     if env('NTFY_TOPIC'):
         try:
             body = {'topic': env('NTFY_TOPIC'), 'title': title, 'message': full,

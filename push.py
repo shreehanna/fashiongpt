@@ -173,6 +173,36 @@ def _rows(where='', params=()):
     return out
 
 
+def owner_whos():
+    """Every identity the owner uses (each owner email, signed in), plus the browser that last opened owner tools."""
+    from pro import owner_emails
+    whos = {'u:' + e.lower() for e in owner_emails()}
+    w = kv_get('owner:who')
+    if w:
+        whos.add(w.lower())
+    return sorted(whos)
+
+
+def owner_phones():
+    """The owner's phones (and browsers) with E&L notifications on."""
+    whos = owner_whos()
+    if not whos:
+        return []
+    return _rows(f"WHERE LOWER(who) IN ({', '.join(['%s'] * len(whos))})", tuple(whos))
+
+
+def notify_owner(message, wait=False):
+    """A notification to every phone the owner turned notifications on (alerts, JARVIS, the Sunday draft). With
+    wait, sends now and returns how many phones took it; otherwise in the background, returns how many it tries."""
+    rows = owner_phones()
+    message = dict({'kind': 'owner', 'tag': 'owner', 'url': '/?open=owner'}, **message)
+    if wait:
+        return sum(1 for r in rows if send(r, message))
+    if rows:
+        threading.Thread(target=lambda: [send(r, message) for r in rows], daemon=True).start()
+    return len(rows)
+
+
 def notify_who(who, message):
     """Push to every phone this person turned notifications on (in the background)."""
     rows = [r for r in _rows('WHERE who = %s', (who,)) if r['prefs'].get(message.get('kind', 'daily'), True)]

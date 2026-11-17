@@ -502,13 +502,11 @@ def _sunday_morning(t=None):
 
 def _tell_owner(story):
     """A notification to the owner's phone: the draft is ready to read."""
-    who = kv_get('owner:who')
-    if not who or auto_publish():
+    if auto_publish():
         return
     try:
-        from push import notify_who
-        notify_who(who, {'title': 'Sunday story ready to review ✦', 'body': story['headline'], 'url': '/?open=owner',
-                         'tag': 'story', 'kind': 'owner'})
+        from push import notify_owner
+        notify_owner({'title': 'Sunday story ready to review ✦', 'body': story['headline'], 'url': '/?open=owner', 'tag': 'story'})
     except Exception as e:
         print('[story] could not tell the owner:', e)
 
