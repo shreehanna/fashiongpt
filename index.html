@@ -7607,6 +7607,44 @@ function jvAdd(role, text, action) {
   log.appendChild(m);
   log.scrollTop = log.scrollHeight;
 }
+// ── JARVIS's voice, as loud as Ella's and Léon's ──
+// His ElevenLabs voice comes out quieter than theirs, and an <audio> player can't go past 100%. So each of his lines
+// is decoded here, its speaking level measured (ignoring the pauses) and lifted to a normal speaking level (never
+// turned down), with the peaks softly rounded off so it never crackles. It then plays exactly as before, so phones
+// treat it like any other sound on the page. If anything goes wrong, the line plays as it came.
+const JV_LOUD = { target: 0.15, most: 3.5 };     // speaking level about -16.5 dBFS; at most 3.5x (+11 dB)
+async function jvLouder(blob) {
+  try {
+    const Off = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+    if (!Off || !blob || !blob.size) return blob;
+    const ab = await blob.arrayBuffer();
+    const ctx = new Off(1, 1, 44100);
+    const buf = await new Promise((res, rej) => { const p = ctx.decodeAudioData(ab, res, rej); if (p && p.catch) p.catch(rej); });
+    const d = buf.getChannelData(0), rate = buf.sampleRate, n = Math.max(1, Math.round(rate * 0.02));
+    let pow = 0, frames = 0;
+    for (let i = 0; i + n <= d.length; i += n) {        // 20 ms at a time, skipping the near-silent ones
+      let e = 0; for (let j = i; j < i + n; j++) e += d[j] * d[j];
+      e /= n; if (e > 1e-5) { pow += e; frames++; }
+    }
+    const level = frames ? Math.sqrt(pow / frames) : 0;
+    const gain = level ? Math.min(JV_LOUD.most, JV_LOUD.target / level) : 1;
+    if (gain < 1.12) return blob;                        // already as loud as the others
+    const out = new DataView(new ArrayBuffer(44 + d.length * 2));
+    const str = (o, t) => { for (let i = 0; i < t.length; i++) out.setUint8(o + i, t.charCodeAt(i)); };
+    str(0, 'RIFF'); out.setUint32(4, 36 + d.length * 2, true); str(8, 'WAVEfmt '); out.setUint32(16, 16, true);
+    out.setUint16(20, 1, true); out.setUint16(22, 1, true); out.setUint32(24, rate, true); out.setUint32(28, rate * 2, true);
+    out.setUint16(32, 2, true); out.setUint16(34, 16, true); str(36, 'data'); out.setUint32(40, d.length * 2, true);
+    for (let i = 0; i < d.length; i++) {
+      let y = d[i] * gain;
+      const a = Math.abs(y);
+      if (a > 0.85) y = Math.sign(y) * (0.85 + 0.15 * Math.tanh((a - 0.85) / 0.15));   // round off the peaks
+      out.setInt16(44 + i * 2, Math.round(Math.max(-1, Math.min(1, y)) * 32767), true);
+    }
+    const wav = new Blob([out], { type: 'audio/wav' });
+    wav.jvGain = gain;
+    return wav;
+  } catch (e) { return blob; }
+}
 // speak, and only then listen again; resolves when it's done talking (or couldn't)
 function jvSpeak(text) {
   if (!jv.handsfree || !text) return Promise.resolve();
@@ -7616,6 +7654,7 @@ function jvSpeak(text) {
   jvState('Speaking…', 'speaking');
   return fetch('/api/tts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: said, stylist: 'jarvis' }) })
     .then(r => r.ok ? r.blob() : null)
+    .then(b => b ? jvLouder(b) : null)
     .then(b => new Promise(done => {
       if (!b) { jvSubtitle(said); return done(); }
       if (jv.audio.src.startsWith('blob:')) URL.revokeObjectURL(jv.audio.src);
@@ -8391,7 +8430,7 @@ function jvuSay(text, opts) {
   jvuEarPause(true);
   if (jvu.typing) jvuCaption(text);
   const voice = fetch('/api/tts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: text.slice(0, 400), stylist: 'jarvis' }) })
-    .then(r => r.ok ? r.blob() : null).catch(() => null);
+    .then(r => r.ok ? r.blob() : null).then(b => b ? jvLouder(b) : null).catch(() => null);
   return jvuEllaQuiet(350, 30000)                           // Ella or Léon always go first
     .then(() => voice)
     .then(b => jvuEllaBusy() ? jvuEllaQuiet(350, 30000).then(() => b) : b)   // she started while his line was on its way
