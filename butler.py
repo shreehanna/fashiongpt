@@ -8,11 +8,15 @@ to the AI: it only sees names, and the number is looked up here after it picks o
   GET  /api/owner/contacts              JARVIS's contacts
   POST /api/owner/contacts              add or update one: {name, phone, app}
   POST /api/owner/contacts/delete       {name}
-  POST /api/owner/contacts/import       a .vcf file from iPhone Contacts (share a contact, or export from iCloud.com)
+  POST /api/owner/contacts/import       {contacts: [{name, phones}]} read from a .vcf on the phone itself (so only names
+                                        and numbers ever leave it), or the .vcf file. A whole phone book is fine.
+  POST /api/owner/contacts/clear        remove them all
   Reminders are pushed to the owner's phones when due: checked every 30 s while E&L is awake, and on every
   /api/cron/tick (set cron-job.org to every 5 minutes so they're never more than a few minutes late).
 """
+import difflib
 import json
+import quopri
 import re
 import secrets
 import threading
@@ -27,9 +31,10 @@ from pro import db, kv_get, kv_set, owner_request, env
 
 bp = Blueprint('butler', __name__)
 IST = timezone(timedelta(hours=5, minutes=30))
-MAX_CONTACTS, MAX_NOTES = 3000, 200
+MAX_CONTACTS, MAX_NOTES = 5000, 200
 APPS = ('whatsapp', 'sms')
-CALLS = ('phone', 'facetime', 'facetime_audio')
+CALLS = ('phone', 'facetime', 'facetime_audio', 'whatsapp')
+LISTEN_FOR = ['JARVIS', 'Ella', 'Léon', 'E&L', 'WhatsApp', 'FaceTime', 'Sunday Edit', 'Instagram', 'reels']
 _lock = threading.Lock()
 
 
@@ -68,7 +73,12 @@ def contacts():
 
 
 def _save_contacts(rows):
-    rows = sorted(rows, key=lambda c: c['name'].lower())[:MAX_CONTACTS]
+    seen, unique = set(), []
+    for c in rows:                                # one entry per name
+        if c['name'].lower() not in seen:
+            seen.add(c['name'].lower())
+            unique.append(c)
+    rows = sorted(unique, key=lambda c: c['name'].lower())[:MAX_CONTACTS]
     kv_set('jarvis:contacts', json.dumps(rows, ensure_ascii=False))
     return rows
 
@@ -77,10 +87,39 @@ def add_contact(name, phone, app='whatsapp'):
     name, phone = _clip(name, 60), phone_clean(phone)
     if not name or not phone:
         return None
+    old = next((c for c in contacts() if c['name'].lower() == name.lower()), {})
     rows = [c for c in contacts() if c['name'].lower() != name.lower()]
-    rows.append({'name': name, 'phone': phone, 'app': app if app in APPS else 'whatsapp'})
+    row = {'name': name, 'phone': phone, 'app': app if app in APPS else 'whatsapp'}
+    row.update({k: old[k] for k in ('star', 'used') if old.get(k)})
+    rows.append(row)
     _save_contacts(rows)
-    return rows[-1]
+    return row
+
+
+def _used(name):
+    rows = contacts()
+    for c in rows:
+        if c['name'] == name:
+            c['used'] = int(time.time())
+            _save_contacts(rows)
+            return
+
+
+def keyterms(limit=90):
+    """Names for the speech-to-text to listen out for: starred contacts first, then the ones JARVIS called or
+    messaged most recently, then E&L's own words. (ElevenLabs bills a 20 s minimum past 100 terms, so it stays under.)"""
+    rows = sorted(contacts(), key=lambda c: (0 if c.get('star') else 1, -(c.get('used') or 0)))
+    out, seen = [], set()
+    for c in rows:
+        if not (c.get('star') or c.get('used')):
+            break
+        n = re.sub(r'[<>{}\[\]\\]', '', c['name']).strip()
+        n = ' '.join(n.split()[:5])[:50]
+        if n and n.lower() not in seen:
+            seen.add(n.lower()); out.append(n)
+        if len(out) >= limit:
+            break
+    return out + [t for t in LISTEN_FOR if t.lower() not in seen][:max(0, 99 - len(out))]
 
 
 def _norm(s):
@@ -105,17 +144,71 @@ def find(name):
     pool = starts or words
     if len(pool) == 1:
         return pool, []
+    if not pool:                                  # misheard or spelt differently: "Arman", "Rayan", "Shri"
+        qs = q.split()
+        sure = [c for c in rows if all(any(_sure(w, t) for t in _norm(c['name']).split()) for w in qs)]
+        whole = [c for c in sure if len(_norm(c['name']).split()) == len(qs)]   # "Rayan" -> Ryan, not Ryan Mathew
+        if len(sure) == 1 or len(whole) == 1:
+            return (sure if len(sure) == 1 else whole), []
+        # only a maybe ("Kavya" for Kavitha): ask, never dial a guess
+        pool = sure or [c for c in rows if all(any(_like(w, t) for t in _norm(c['name']).split()) for w in qs)]
     return [], pool[:5]
 
 
+def sound(w):
+    """How a name sounds, roughly, the way Indian names get spelt and misheard: Armaan ~ Arman, Shree ~ Shri ~ Sri,
+    Karthik ~ Kartik, Jananee ~ Janani, Mohammed ~ Muhammad."""
+    w = re.sub(r'[^a-z]', '', str(w or '').lower())
+    for a, b in (('ph', 'f'), ('bh', 'b'), ('dh', 'd'), ('gh', 'g'), ('jh', 'j'), ('kh', 'k'), ('th', 't'), ('sh', 's'),
+                 ('ch', 'c'), ('ck', 'k'), ('q', 'k'), ('z', 'j'), ('w', 'v'), ('x', 'ks'), ('ee', 'i'), ('ii', 'i'),
+                 ('oo', 'u'), ('uu', 'u'), ('aa', 'a'), ('ey', 'i'), ('y', 'i')):
+        w = w.replace(a, b)
+    w = re.sub(r'(.)\1+', r'\1', w)                         # double letters
+    w = w[:1] + re.sub(r'h', '', w[1:])                     # a silent h: Shreehanna ~ Srianna
+    w = w[:1] + re.sub(r'[aeiou]', lambda m: 'a' if m.group(0) in 'ao' else ('i' if m.group(0) in 'ie' else 'u'), w[1:])
+    return w
+
+
+def _sure(a, b):
+    """Surely the same name: it sounds the same ("arman" ~ "armaan", "shri" ~ "shree"), a one-letter slip
+    ("rayan" ~ "ryan"), or the start of it ("shree" for "shreehanna")."""
+    if a == b:
+        return True
+    if len(a) < 3 or len(b) < 3 or a[0] != b[0]:
+        return False
+    sa, sb = sound(a), sound(b)
+    if sa == sb or (len(sa) >= 3 and sb.startswith(sa)):
+        return True
+    return abs(len(a) - len(b)) <= 1 and difflib.SequenceMatcher(None, a, b).ratio() >= 0.85
+
+
+def _like(a, b):
+    """Maybe the same name ("kavya" ~ "kavitha"): good enough to show JARVIS, or to ask "did you mean...?", never
+    to dial on its own."""
+    if _sure(a, b):
+        return True
+    if len(a) < 3 or len(b) < 3 or a[0] != b[0]:
+        return False
+    sa, sb = sound(a), sound(b)
+    if abs(len(a) - len(b)) <= 2 and difflib.SequenceMatcher(None, a, b).ratio() >= 0.8:
+        return True
+    return len(sa) >= 4 and abs(len(sa) - len(sb)) <= 2 and difflib.SequenceMatcher(None, sa, sb).ratio() >= 0.9
+
+
+SKIP = {'call', 'text', 'message', 'tell', 'ask', 'send', 'whatsapp', 'facetime', 'ring', 'phone', 'number', 'remind',
+        'me', 'my', 'to', 'the', 'and', 'that', 'him', 'her', 'them', 'please', 'jarvis', 'on', 'in', 'at', 'for', 'a', 'i'}
+
+
 def names_for(said, limit=150):
-    """The names JARVIS may use: all of them if there aren't many, else just the ones that came up."""
+    """The names JARVIS may use: all of them if there aren't many, else just the ones that came up (allowing slips)."""
     rows = contacts()
     if len(rows) <= limit:
         return [c['name'] for c in rows], 0
-    words = set(_norm(said).split())
-    hit = [c['name'] for c in rows if words & set(_norm(c['name']).split())]
-    return hit[:40], len(rows) - len(hit[:40])
+    words = [w for w in _norm(said).split() if w not in SKIP]
+    sure = [c['name'] for c in rows if any(_sure(w, t) for t in _norm(c['name']).split() for w in words)]
+    maybe = [c['name'] for c in rows if c['name'] not in sure and any(_like(w, t) for t in _norm(c['name']).split() for w in words)]
+    hit = (sure + maybe)[:40]                     # sure matches always make it in
+    return hit, len(rows) - len(hit)
 
 
 def parse_vcf(text):
@@ -127,6 +220,11 @@ def parse_vcf(text):
         for line in card.splitlines():
             key, _, val = line.partition(':')
             k = key.upper()
+            if 'QUOTED-PRINTABLE' in k:
+                try:
+                    val = quopri.decodestring(val.encode()).decode('utf-8', 'replace')
+                except Exception:
+                    pass
             if k == 'FN' or k.startswith('FN;'):
                 fn = val
             elif k == 'N' or k.startswith('N;'):
@@ -160,6 +258,21 @@ def save_contact():
     return jsonify({'ok': True, 'contact': c, 'contacts': contacts()})
 
 
+@bp.post('/api/owner/contacts/star')
+def star_contact():
+    if not owner_request():
+        return jsonify({'error': 'not found'}), 404
+    name = _clip((request.get_json(silent=True) or {}).get('name'), 60).lower()
+    rows = contacts()
+    for c in rows:
+        if c['name'].lower() == name:
+            if c.get('star'):
+                c.pop('star')
+            else:
+                c['star'] = 1
+    return jsonify({'ok': True, 'contacts': _save_contacts(rows)})
+
+
 @bp.post('/api/owner/contacts/delete')
 def delete_contact():
     if not owner_request():
@@ -173,11 +286,23 @@ def delete_contact():
 def import_contacts():
     if not owner_request():
         return jsonify({'error': 'not found'}), 404
-    f = request.files.get('file')
-    raw = f.read(4 * 1024 * 1024 + 1) if f else (request.get_data() or b'')
-    if len(raw) > 4 * 1024 * 1024:
-        return jsonify({'error': 'That file is too big (4 MB at most).'}), 400
-    found = parse_vcf(raw.decode('utf-8', 'replace'))
+    body = request.get_json(silent=True) if request.is_json else None
+    if body is not None:                          # read on the phone: just names and numbers
+        found = []
+        for c in (body.get('contacts') or [])[:MAX_CONTACTS * 2]:
+            if not isinstance(c, dict):
+                continue
+            phones = c.get('phones') if isinstance(c.get('phones'), list) else [c.get('phone')]
+            phone = next((phone_clean(p) for p in phones[:6] if phone_clean(p)), '')
+            name = _clip(c.get('name'), 60)
+            if name and phone:
+                found.append({'name': name, 'phone': phone, 'app': 'whatsapp'})
+    else:
+        f = request.files.get('file')
+        raw = f.read(8 * 1024 * 1024 + 1) if f else (request.get_data() or b'')
+        if len(raw) > 8 * 1024 * 1024:
+            return jsonify({'error': 'That file is too big. Import it from E&L on your phone instead (only names and numbers get sent).'}), 400
+        found = parse_vcf(raw.decode('utf-8', 'replace'))
     if not found:
         return jsonify({'error': "No names with phone numbers in that file. Export it from Contacts as a vCard (.vcf)."}), 400
     have = {c['name'].lower(): c for c in contacts()}
@@ -186,7 +311,15 @@ def import_contacts():
             c['app'] = have[c['name'].lower()].get('app', 'whatsapp')
         have[c['name'].lower()] = c
     rows = _save_contacts(list(have.values()))
-    return jsonify({'ok': True, 'added': len(found), 'contacts': rows})
+    return jsonify({'ok': True, 'added': len(found), 'contacts': rows, 'kept': len(rows), 'max': MAX_CONTACTS})
+
+
+@bp.post('/api/owner/contacts/clear')
+def clear_contacts():
+    if not owner_request():
+        return jsonify({'error': 'not found'}), 404
+    kv_set('jarvis:contacts', '[]')
+    return jsonify({'ok': True, 'contacts': []})
 
 
 # ── notes ─────────────────────────────────────────────────────────────────────
@@ -364,12 +497,18 @@ def handle(act, a):
                 return {'say': f"I don't have a number for {first or 'them'}, {a}. Tell me \"save {first or 'their'} number\" and "
                                "the number, or add them under Contacts in owner tools."}
             who = hit[0]
+        if who['name'] != who['phone']:
+            _used(who['name'])
         if kind == 'call':
-            how = (args[1].lower() if len(args) > 1 else 'phone')
+            how = (args[1].lower().replace(' ', '_') if len(args) > 1 else 'phone')
             how = how if how in CALLS else 'phone'
+            if how == 'whatsapp':             # WhatsApp has no link that starts a call: its chat opens (or a Shortcut calls)
+                return {'card': {'type': 'call', 'via': 'whatsapp', 'name': who['name'], 'phone': who['phone'],
+                                 'label': f"💬 WhatsApp {who['name']} (then tap 📞)", 'href': f"https://wa.me/{_digits(who['phone'])}"}}
             scheme = {'phone': 'tel:', 'facetime': 'facetime:', 'facetime_audio': 'facetime-audio:'}[how]
             label = {'phone': 'Call', 'facetime': 'FaceTime', 'facetime_audio': 'FaceTime audio'}[how]
-            return {'card': {'type': 'call', 'name': who['name'], 'label': f"📞 {label} {who['name']}", 'href': scheme + who['phone']}}
+            return {'card': {'type': 'call', 'via': how, 'name': who['name'], 'phone': who['phone'],
+                             'label': f"📞 {label} {who['name']}", 'href': scheme + who['phone']}}
         named = len(args) > 1 and args[1].lower() in APPS
         app = args[1].lower() if named else who.get('app', 'whatsapp')
         msg = _clip('|'.join(args[2:] if named else args[1:]), 1000)
@@ -421,7 +560,9 @@ YOUR PERSONAL SIDE
 You're also the owner's personal assistant, not only E&L's: answer anything (general knowledge, study help, maths,
 plans, writing, advice) like a brilliant all-round assistant, in the same voice. You can also do these, with ONE line
 at the very end of your reply, exactly in this form (pick at most one per reply):
-- [[action: call NAME]] (or "| facetime" / "| facetime_audio"): NAME exactly as in CONTACTS, or a number they said.
+- [[action: call NAME]] (or "| whatsapp" for a WhatsApp call, "| facetime", "| facetime_audio"): NAME exactly as in
+  CONTACTS, or a number they said. What you heard may be misspelt (Indian names especially: "Arman" is "Armaan",
+  "Shri" is "Shree"): pick the CONTACTS name it sounds like. If two could fit, ask which one.
 - [[action: message NAME | whatsapp | TEXT]] (or "| sms" for Messages/iMessage). WhatsApp unless they say SMS,
   iMessage or Messages. TEXT is the message itself, written as the owner would text it: first person, casual, their
   words tidied up, never signed by you, never calling anyone "{a}".
@@ -435,8 +576,9 @@ at the very end of your reply, exactly in this form (pick at most one per reply)
 - [[action: search | QUERY]]: whenever the answer depends on anything current or that you might not know (news,
   scores, prices, weather outside Chennai, opening hours, anything recent). Reply with ONLY that line; you'll be given
   fresh results and then answer from them, naming the source in a word or two.
-HOW THESE WORK, be honest about it: you can't place calls or send messages yourself. A card appears and one tap opens
-the Phone, WhatsApp or Messages with everything filled in; the owner taps call or send. So say "Ready, {a}. Tap to
-call." or "It's written, {a}. Tap to send.", never "calling now" or "sent". Reminders, notes and saved contacts happen
+HOW THESE WORK, be honest about it: you can't finish a call or send a message yourself. For a call, the iPhone's own
+"Call?" box pops up straight away (Apple makes every app confirm calls; only Siri can skip it), so say "Calling NAME,
+{a}. Just confirm." For a message, WhatsApp or Messages opens with it written: "It's written, {a}. Tap to send."
+Never say a message was "sent" or a call "connected". Reminders, notes and saved contacts happen
 straight away ("Done, {a}." is right). If someone isn't in CONTACTS, don't guess a number: say so. You can't read their
 messages, calls, calendar, photos or notifications, or control the phone's settings, music volume or smart devices."""

@@ -1490,6 +1490,21 @@ body::after {
 .jv-book li span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .jv-book li small { color: var(--jv-dim); }
 .jv-book li button { background: transparent; color: var(--jv-dim); border: 1px solid var(--jv-line); padding: 2px 8px; }
+.jv-book button.jv-pick { background: transparent; color: var(--jv-cyan); border: 1px dashed var(--jv-line); }
+.jv-book-bar { display: flex; gap: 8px; align-items: center; }
+.jv-book-bar input { flex: 1; }
+.jv-book-bar span { color: var(--jv-dim); font: 500 12px var(--sans); white-space: nowrap; }
+.jv-book li button.star { border: 0; color: var(--jv-dim); font-size: 16px; padding: 0 2px; }
+.jv-book li button.star.on { color: var(--jv-cyan); }
+.jv-direct { border-top: 1px solid var(--jv-line); padding-top: 10px; color: var(--jv-dim); font: 400 12.5px/1.5 var(--sans); }
+.jv-direct summary { color: var(--jv-cyan); cursor: pointer; font-weight: 500; }
+.jv-direct ol { margin: 6px 0; padding-left: 20px; display: grid; gap: 4px; }
+.jv-book .jv-direct li { display: list-item; color: var(--jv-dim); font: 400 12.5px/1.5 var(--sans); }
+.jv-direct b { color: var(--jv-text); }
+.jv-check { display: flex; gap: 8px; align-items: center; color: var(--jv-text); }
+.jv-check input { flex: none; width: 18px; height: 18px; accent-color: var(--jv-cyan); }
+.jv-book button.jv-clear { justify-self: start; background: transparent; color: var(--jv-dim); border: 1px solid var(--jv-line); }
+.jv-book button.jv-clear.armed { color: #ffb4a8; border-color: #ffb4a8; }
 /* ── JARVIS for everyone: a small dock at the foot of the page (his own night-blue look in both themes) ── */
 .jvu { --jv-cyan: #5cd6ff; --jv-text: #d8f3ff; --jv-dim: #93b8ca; --jv-line: rgba(92,214,255,.32);
   position: fixed; z-index: 90; left: 50%; transform: translateX(-50%); bottom: calc(12px + env(safe-area-inset-bottom, 0px));
@@ -2645,16 +2660,38 @@ body.jvu-on .toast, body.jvu-on .owner-alert { bottom: calc(96px + env(safe-area
     </div>
     <div class="jv-book" id="jv-book" hidden>
       <h4>JARVIS's contacts</h4>
-      <p>Who he can call or message for you. The numbers stay in E&amp;L, never in his AI: he only sees names.
-        On iPhone, tap a contact in Contacts, then Share Contact, then Save to Files, and import that .vcf here.</p>
+      <p>Who he can call or message for you. The numbers stay in E&amp;L, never in his AI: he only sees names.</p>
+      <p><b>Your whole phone book:</b> in the Contacts app, tap <b>Lists</b>, press and hold <b>All Contacts</b>, tap
+        <b>Export</b>, then <b>Save to Files</b>. Import that file here, on your phone. It's read right here: only names and
+        numbers are sent, never photos, emails, addresses or birthdays.</p>
       <form onsubmit="jvBookAdd(event)">
         <input id="jv-book-name" placeholder="Name (e.g. Mom)" maxlength="60" aria-label="Name" required>
         <input id="jv-book-phone" placeholder="Phone (+91 …)" inputmode="tel" maxlength="24" aria-label="Phone number" required>
         <select id="jv-book-app" aria-label="Message them on"><option value="whatsapp">WhatsApp</option><option value="sms">Messages</option></select>
         <button type="submit">Add</button>
       </form>
-      <label class="jv-file">⬆ Import a .vcf from Contacts<input type="file" id="jv-book-file" accept=".vcf,text/vcard,text/x-vcard" hidden onchange="jvBookImport(this)"></label>
+      <label class="jv-file">⬆ Import your contacts (.vcf)<input type="file" id="jv-book-file" accept=".vcf,text/vcard,text/x-vcard" hidden onchange="jvBookImport(this)"></label>
+      <button type="button" class="jv-pick" id="jv-book-pick" onclick="jvBookPick()" hidden>📱 Pick from my phone's contacts</button>
+      <div class="jv-book-bar">
+        <input id="jv-book-q" type="search" placeholder="Search contacts" aria-label="Search JARVIS's contacts" oninput="jvBookShow()">
+        <span id="jv-book-count" aria-live="polite"></span>
+      </div>
+      <p>★ the people you call most: JARVIS listens out for those names, so he catches them even when they're hard to hear.</p>
       <ul id="jv-book-list"></ul>
+      <button type="button" class="jv-clear" id="jv-book-clear" onclick="jvBookClear(this)" hidden>Remove all</button>
+      <details class="jv-direct">
+        <summary>Direct calls and WhatsApp calls (iPhone Shortcuts)</summary>
+        <p>WhatsApp has no link that starts a call, so without this JARVIS opens the chat and you tap 📞. With two
+          Shortcuts, he calls straight away (phone or WhatsApp). Set up once:</p>
+        <ol>
+          <li>Open <b>Shortcuts</b>, tap <b>+</b>, name it exactly <b>JARVIS Call</b>.</li>
+          <li>Add the <b>Call</b> action. Tap its contact field and choose <b>Shortcut Input</b>.</li>
+          <li>Make another one named exactly <b>JARVIS WhatsApp Call</b>: the same, but in the Call action choose
+            <b>WhatsApp</b> as the app.</li>
+          <li>Tick the box below on this phone. The first time, iPhone asks to let E&amp;L open Shortcuts: allow it.</li>
+        </ol>
+        <label class="jv-check"><input type="checkbox" id="jv-sc" onchange="jvShortcutsSet(this.checked)"> I've added both Shortcuts on this phone</label>
+      </details>
     </div>
   </div>
   <div class="panel"><div class="quiz-label">Growth</div><div id="own-growth">Loading…</div></div>
@@ -7645,8 +7682,15 @@ function jvAdd(role, text, action) {
 }
 // one-tap cards: JARVIS has found the number and written the message; one tap opens the Phone, WhatsApp, Messages
 // or the app with it all filled in (no website can call or send by itself: the phone asks you to confirm)
+// with the iPhone Shortcuts "JARVIS Call" / "JARVIS WhatsApp Call" added (Contacts panel), calls go through them
+function jvShortcuts() { try { return localStorage.getItem('el_jv_shortcuts') === '1'; } catch (e) { return false; } }
 function jvCard(card) {
-  if (!card || !/^(tel:|sms:|facetime(-audio)?:|instagram:\/\/|whatsapp:\/\/|https:\/\/|\/\?open=)/.test(card.href || '')) return;
+  if (card && card.type === 'call' && card.phone && jvShortcuts() && (card.via === 'phone' || card.via === 'whatsapp')) {
+    const name = card.via === 'whatsapp' ? 'JARVIS WhatsApp Call' : 'JARVIS Call';
+    card = Object.assign({}, card, { href: `shortcuts://run-shortcut?name=${encodeURIComponent(name)}&input=text&text=${encodeURIComponent(card.phone)}`,
+                                     label: (card.via === 'whatsapp' ? '📞 WhatsApp call ' : '📞 Call ') + card.name });
+  }
+  if (!card || !/^(tel:|sms:|facetime(-audio)?:|instagram:\/\/|whatsapp:\/\/|shortcuts:\/\/run-shortcut\?|https:\/\/|\/\?open=)/.test(card.href || '')) return;
   const box = jv.handsfree ? document.getElementById('jv-confirm') : document.createElement('div');
   box.innerHTML = '';
   if (jv.handsfree) box.hidden = false; else box.className = 'jv-msg jarvis';
@@ -7661,6 +7705,9 @@ function jvCard(card) {
   row.append(go, no); box.appendChild(row);
   if (!jv.handsfree) { const log = document.getElementById('jv-log'); log.appendChild(box); log.scrollTop = log.scrollHeight; }
   jv.pendingAction = { card, row: { remove: done } };
+  // a call dials straight away: the iPhone shows its own "Call?" box (Apple makes every app confirm a call, only Siri
+  // skips it). If the phone won't open it without a tap, the card is still here.
+  if (card.type === 'call' && /^(tel:|facetime|shortcuts:)/.test(card.href)) setTimeout(() => { try { location.href = card.href; } catch (e) {} }, 300);
 }
 function jvGo(card) {
   // said "yes": try to open it straight away (the phone may still want a tap on the card)
@@ -7669,22 +7716,41 @@ function jvGo(card) {
     else location.href = card.href;
   } catch (e) { const say = `Tap the card, ${jv.address}.`; return jvSpeak(say); }
 }
+function jvShortcutsSet(on) {
+  try { localStorage.setItem('el_jv_shortcuts', on ? '1' : '0'); } catch (e) {}
+  toast(on ? 'JARVIS will call through your Shortcuts on this phone.' : 'JARVIS will use the call card again.');
+}
 async function jvBookToggle() {
   const box = document.getElementById('jv-book'), btn = document.getElementById('jv-book-btn');
   box.hidden = !box.hidden; btn.setAttribute('aria-expanded', String(!box.hidden));
+  document.getElementById('jv-book-pick').hidden = !('contacts' in navigator && 'select' in (navigator.contacts || {}));
+  document.getElementById('jv-sc').checked = jvShortcuts();
   if (!box.hidden) { try { jvBookShow((await api('/api/owner/contacts')).contacts); } catch (e) { toast(e.message); } }
 }
+let jvBook = [];
 function jvBookShow(rows) {
+  if (rows) jvBook = rows;
+  const q = (document.getElementById('jv-book-q').value || '').trim().toLowerCase();
+  const hits = (q ? jvBook.filter(c => c.name.toLowerCase().includes(q) || c.phone.includes(q.replace(/\D/g, '') || '~')) : jvBook)
+    .slice().sort((a, b) => (b.star ? 1 : 0) - (a.star ? 1 : 0));            // starred first
+  document.getElementById('jv-book-count').textContent = q ? `${hits.length} of ${jvBook.length}` : `${jvBook.length} saved`;
+  document.getElementById('jv-book-clear').hidden = !jvBook.length;
   const ul = document.getElementById('jv-book-list'); ul.innerHTML = '';
-  (rows || []).forEach(c => {
+  hits.slice(0, 200).forEach(c => {
     const li = document.createElement('li');
     const n = document.createElement('span'); n.textContent = c.name;
     const ph = document.createElement('small'); ph.textContent = c.phone + (c.app === 'sms' ? ' · Messages' : ' · WhatsApp');
     const x = document.createElement('button'); x.type = 'button'; x.textContent = '✕'; x.setAttribute('aria-label', 'Remove ' + c.name);
     x.onclick = async () => { try { jvBookShow((await api('/api/owner/contacts/delete', { name: c.name })).contacts); } catch (e) { toast(e.message); } };
-    li.append(n, ph, x); ul.appendChild(li);
+    const st = document.createElement('button'); st.type = 'button'; st.className = 'star' + (c.star ? ' on' : '');
+    st.textContent = c.star ? '★' : '☆'; st.setAttribute('aria-pressed', c.star ? 'true' : 'false');
+    st.setAttribute('aria-label', (c.star ? 'Unstar ' : 'Star ') + c.name + ' (JARVIS listens out for starred names)');
+    st.onclick = async () => { try { jvBookShow((await api('/api/owner/contacts/star', { name: c.name })).contacts); } catch (e) { toast(e.message); } };
+    li.append(st, n, ph, x); ul.appendChild(li);
   });
-  if (!(rows || []).length) { const li = document.createElement('li'); li.innerHTML = '<small>No contacts yet.</small>'; ul.appendChild(li); }
+  const more = document.createElement('li');
+  if (!hits.length) { more.innerHTML = q ? '<small>No one by that name.</small>' : '<small>No contacts yet.</small>'; ul.appendChild(more); }
+  else if (hits.length > 200) { more.innerHTML = `<small>…and ${hits.length - 200} more. Search to find someone.</small>`; ul.appendChild(more); }
 }
 async function jvBookAdd(e) {
   e.preventDefault();
@@ -7694,17 +7760,62 @@ async function jvBookAdd(e) {
     name.value = ''; phone.value = '';
   } catch (err) { toast(err.message); }
 }
+// a .vcf (one contact or the whole phone book): read here, so only names and numbers ever leave the phone
+function jvParseVcf(text) {
+  const qp = v => { try { return decodeURIComponent(v.replace(/=\r?\n/g, '').replace(/=([0-9A-F]{2})/gi, '%$1')); } catch (e) { return v; } };
+  const out = [];
+  String(text || '').replace(/\r?\n[ \t]/g, '').split(/BEGIN:VCARD/i).slice(1).forEach(raw => {
+    let fn = '', n = '';
+    const tels = [];
+    raw.split(/END:VCARD/i)[0].split(/\r?\n/).forEach(line => {
+      const i = line.indexOf(':');
+      if (i < 0) return;
+      const key = line.slice(0, i).toUpperCase();
+      let val = line.slice(i + 1).trim();
+      if (key.includes('QUOTED-PRINTABLE')) val = qp(val);
+      const base = key.split(';')[0].split('.').pop();
+      if (base === 'FN') fn = val;
+      else if (base === 'N') { const p = val.split(';'); n = [p[1], p[0]].filter(Boolean).join(' '); }
+      else if (base === 'TEL') tels.push([/CELL|MOBILE|IPHONE/.test(key) ? 0 : 1, val]);
+    });
+    const name = (fn || n).replace(/\\([,;])/g, '$1').trim().slice(0, 60);
+    if (name && tels.length) out.push({ name, phones: tels.sort((a, b) => a[0] - b[0]).map(t => t[1]).slice(0, 4) });
+  });
+  return out;
+}
+async function jvBookSend(found) {
+  if (!found.length) return toast("No names with phone numbers there. Export it from Contacts as a vCard (.vcf).");
+  try {
+    const d = await api('/api/owner/contacts/import', { contacts: found });
+    jvBookShow(d.contacts);
+    toast(`JARVIS now knows ${d.kept} contact${d.kept === 1 ? '' : 's'}.` + (d.kept >= d.max ? ` (${d.max} is the most he keeps.)` : ''));
+  } catch (err) { toast(err.message); }
+}
 async function jvBookImport(input) {
   const f = input.files && input.files[0];
   input.value = '';
   if (!f) return;
-  const fd = new FormData(); fd.append('file', f);
+  toast('Reading your contacts…');
+  let text = '';
+  try { text = await f.text(); } catch (e) { return toast("Couldn't read that file."); }
+  return jvBookSend(jvParseVcf(text));
+}
+async function jvBookPick() {
+  // where the phone offers it (Android Chrome; iPhone only with Safari's Contact Picker flag on): pick as many as you like
   try {
-    const r = await fetch('/api/owner/contacts/import', { method: 'POST', body: fd });
-    const d = await r.json().catch(() => ({}));
-    if (!r.ok) throw new Error(d.error || 'That file didn\'t work.');
-    jvBookShow(d.contacts); toast(`Added ${d.added} contact${d.added === 1 ? '' : 's'} for JARVIS.`);
-  } catch (err) { toast(err.message); }
+    const picked = await navigator.contacts.select(['name', 'tel'], { multiple: true });
+    return jvBookSend((picked || []).map(c => ({ name: String((c.name || [])[0] || '').trim(), phones: (c.tel || []).slice(0, 4) })).filter(c => c.name && c.phones.length));
+  } catch (e) { if (e && e.name !== 'AbortError') toast("Your phone didn't share its contacts."); }
+}
+function jvBookClear(btn) {
+  // two taps, so a slip can't wipe them all
+  if (!btn.classList.contains('armed')) {
+    btn.classList.add('armed'); btn.textContent = `Tap again to remove all ${jvBook.length}`;
+    clearTimeout(btn._t); btn._t = setTimeout(() => { btn.classList.remove('armed'); btn.textContent = 'Remove all'; }, 4000);
+    return;
+  }
+  clearTimeout(btn._t); btn.classList.remove('armed'); btn.textContent = 'Remove all';
+  api('/api/owner/contacts/clear', {}).then(d => { jvBookShow(d.contacts); toast('Contacts removed from JARVIS.'); }).catch(e => toast(e.message));
 }
 // ── JARVIS's voice, as loud as Ella's and Léon's ──
 // His ElevenLabs voice comes out quieter than theirs, and an <audio> player can't go past 100%. So each of his lines
@@ -7873,6 +7984,7 @@ function jvHeard() {
     let text = '';
     try {
       const fd = new FormData(); fd.append('audio', blob, (jvMic.type || '').includes('mp4') ? 'talk.mp4' : 'talk.webm');
+      fd.append('hint', 'jarvis');               // the server listens out for your contacts' names
       const r = await fetch('/api/transcribe', { method: 'POST', body: fd });
       const d = await r.json().catch(() => ({}));
       text = String(d.text || '').replace(/[\(\[][^\)\]]*[\)\]]/g, ' ').replace(/\s+/g, ' ').trim();

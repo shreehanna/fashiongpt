@@ -991,14 +991,24 @@ def transcribe():
     if len(q) >= STT_PER_IP and not owner_request():
         return jsonify({'error': 'slow down'}), 429
     q.append(now)
+    form = {'model_id': os.environ.get('STT_MODEL', 'scribe_v1'), 'tag_audio_events': 'false'}
+    if request.form.get('hint') == 'jarvis' and owner_request():
+        # the owner talking to JARVIS: listen out for the names they call and message (Armaan, Shree...), which a
+        # plain transcription mangles. Newer Scribe model, about 20% more per request, owner only.
+        import butler
+        terms = butler.keyterms()
+        if terms:
+            form = dict(form, model_id=os.environ.get('JARVIS_STT_MODEL', 'scribe_v2'), keyterms=terms)
+
+    def ask(fields):
+        return req.post('https://api.elevenlabs.io/v1/speech-to-text', headers={'xi-api-key': key}, data=fields,
+                        files={'file': (audio.filename or 'talk.webm', data, audio.mimetype or 'application/octet-stream')},
+                        timeout=60)
     try:
-        r = req.post(
-            'https://api.elevenlabs.io/v1/speech-to-text',
-            headers={'xi-api-key': key},
-            data={'model_id': os.environ.get('STT_MODEL', 'scribe_v1'), 'tag_audio_events': 'false'},
-            files={'file': (audio.filename or 'talk.webm', data, audio.mimetype or 'application/octet-stream')},
-            timeout=60
-        )
+        r = ask(form)
+        if r.status_code in (400, 404, 422) and 'keyterms' in form:     # if the names list is refused, plain transcription
+            print('[talk] keyterms refused, retrying without:', r.status_code, r.text[:200])
+            r = ask({'model_id': os.environ.get('STT_MODEL', 'scribe_v1'), 'tag_audio_events': 'false'})
     except req.RequestException:
         return jsonify({'error': 'voice service unreachable'}), 502
     voice_result(r)
