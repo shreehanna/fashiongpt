@@ -18,7 +18,7 @@ from flask import Blueprint, Response
 from pro import FREE_PER_DAY, PRICES, PRO_PER_DAY, intl_prices
 
 legal = Blueprint('legal', __name__)
-UPDATED = '17 November 2026'
+UPDATED = '18 November 2026'
 
 
 def _v(name, fallback):
@@ -99,6 +99,7 @@ PAGES = {
   <li><b>Google sign-in:</b> your name, email address and profile picture, used to run your account and Pro subscription.</li>
   <li><b>Styling details:</b> your quiz answers, occasion, budget and any text or voice request you send, used only to create your looks. Voice recordings are sent for transcription and aren't stored by us. Saved looks, boards, wedding plans and closet photos stay in your browser on your device.</li>
   <li><b>Your closet and today's fit:</b> when you ask for today's fit, the names of the clothes in your closet (not the photos), your plans and the weather are sent to {ai} to pick the outfit. Closet photos are sent to {ai} to name each item; we don't keep them.</li>
+  <li><b>Dupe a look from a photo:</b> the photo you add is sent to {ai} to see what's being worn, then Ella builds an affordable version. We don't store your photo; we keep the list of pieces for 7 days, under a one-way code made from the photo, so the same photo doesn't cost again.</li>
   <li><b>Get this look and Shop any outfit:</b> if you paste a link to a post (Instagram, TikTok, Pinterest or YouTube), we fetch that post's public picture and caption from the app it's on. That picture, or a screenshot you upload, is sent to {ai} to see the outfit. To find where each piece is from, a cut-out of each piece is put up at a private, unguessable web address for 15 minutes so Google Lens (through Serper) can search for it, then deleted. We don't store your picture or show it to anyone; we keep the list of pieces we found for 7 days, under a one-way code made from the picture, so the same picture doesn't cost you another look.</li>
   <li><b>JARVIS, the in-app assistant:</b> he only listens after you tap to talk, and only while his bar is open (he stops after a minute and a half of quiet, when you close him, or when you leave the app). What you say is turned into text by ElevenLabs and understood by our AI provider, only to answer you and to ask Ella or Léon for changes to your look. We don't keep your recordings or what you said; we count how many times you talked to him today, so the free daily limit works.</li>
   <li><b>Try it on me:</b> only for people 18 and over, and only with a photo of yourself. The photo you upload and the product photos of the look are sent to OpenAI, which makes the try-on picture. We never save your photo or the picture: they're kept in our server's memory only until your phone collects the picture (at most 10 minutes), then deleted. We count how many try-ons you've used today.</li>

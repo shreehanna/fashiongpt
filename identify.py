@@ -411,6 +411,54 @@ WHY_NOT = {
 }
 
 
+@bp.post('/api/describe-outfit')
+def describe_outfit():
+    """Dupe a look from a photo: what the person in it is wearing, piece by piece, in the words a shop would use.
+    Their note ("Zendaya at the Met Gala") helps. Not a look by itself (the dupe that follows is), but it has the same
+    hourly cap per visitor as Where's it from. The photo isn't kept: only the answer, so the same photo is free again."""
+    if not _ai.get('client'):
+        return jsonify({'error': 'Ella is offline right now.'}), 503
+    body = request.get_json(silent=True) or {}
+    shot = str(body.get('image') or '')
+    m = SHOT.match(shot)
+    if not m or len(shot) > 6_000_000:
+        return jsonify({'error': 'That photo didn’t come through. Try another one.'}), 400
+    if not owner_request() and not _allowed(client_ip()):
+        return jsonify({'error': 'That’s a lot of photos! Try again in a little while.'}), 429
+    try:
+        raw = base64.b64decode(m.group(2), validate=True)
+    except Exception:
+        return jsonify({'error': 'That photo didn’t come through. Try again.'}), 400
+    im, jpeg = _jpeg(raw, side=1280)
+    if not jpeg:
+        return jsonify({'error': 'That isn’t a photo Ella can read. Try a JPG or PNG.'}), 400
+    note = ' '.join(str(body.get('note') or '').split())[:200]
+    key = 'describe:' + hashlib.sha256(jpeg + b'|' + note.encode()).hexdigest()[:40]
+    try:
+        hit = json.loads(kv_get(key) or 'null')
+    except Exception:
+        hit = None
+    if hit and time.time() - hit.get('at', 0) < CACHE_SECONDS:
+        return jsonify(hit['answer'])
+    try:
+        pieces = read_outfit(jpeg, note)
+    except Exception as e:
+        print('[describe] reading the photo failed:', repr(e)[:200])
+        return jsonify({'error': 'Ella couldn’t look at that photo just now. Try again in a minute.'}), 503
+    if not pieces:
+        return jsonify({'error': 'Ella couldn’t see an outfit in that photo. Try one where the person and their clothes are clear.'}), 422
+    def said(p):
+        brand = ' '.join(x for x in (p['brand'], p['product']) if x)
+        return f"{p['category']}: {p['description']}" + (f" ({brand})" if brand else '')
+    answer = {'pieces': [{'category': p['category'], 'description': p['description'], 'brand': p['brand']} for p in pieces],
+              'summary': '; '.join(said(p) for p in pieces)}
+    try:
+        kv_set(key, json.dumps({'at': time.time(), 'answer': answer}))
+    except Exception:
+        pass
+    return jsonify(answer)
+
+
 @bp.post('/api/identify')
 @metered
 def identify():
