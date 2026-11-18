@@ -322,6 +322,11 @@ def run_tick():
         db('UPDATE el_push SET last_day = %s WHERE endpoint = %s', (local.date().isoformat(), row['endpoint']))
         if msg and send(row, msg):
             sent += 1
+    try:                                     # JARVIS's reminders (also checked every 30 s while E&L is awake)
+        import butler
+        butler.due_now()
+    except Exception as e:
+        print('[push] reminders skipped:', e)
     # Sunday Edit: this week's story is drafted from Saturday noon (and published on Sunday morning if that's on)
     try:
         import story

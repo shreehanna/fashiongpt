@@ -1038,6 +1038,9 @@ app.register_blueprint(tryon.bp)     # /api/try-on: see the look on your own pho
 import concierge
 concierge.init(client, QUICK_MODEL, STYLE_MODEL)
 app.register_blueprint(concierge.bp)  # /api/concierge, /api/look-tweak: JARVIS for everyone, and stylists' quick swaps
+import butler
+butler.init()
+app.register_blueprint(butler.bp)    # /api/owner/contacts: the owner's JARVIS calls, messages, opens apps, reminds
 
 
 if __name__ == '__main__':

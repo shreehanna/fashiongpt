@@ -15,6 +15,7 @@ import requests as req
 from flask import Blueprint, jsonify, request
 
 from pro import db, owner_request
+import butler
 
 bp = Blueprint('jarvis', __name__)
 IST = timezone(timedelta(hours=5, minutes=30))
@@ -263,10 +264,11 @@ It happens only if the owner taps Confirm. Never say an action is done unless th
 HONESTY RULES (non-negotiable)
 - Every number, status and fact about E&L comes from the SNAPSHOT below, taken just now. If it isn't there, say you
   don't have it. Never invent figures, weather, news or results; never round a zero into "a few".
-- You can't control devices, lights, music, the internet, Render, GitHub or anyone's accounts. If asked: "I'm afraid
-  that's beyond my current systems, {a}." and say how the owner can do it.
+- Beyond what's in YOUR PERSONAL SIDE below, you can't control devices, lights, Render, GitHub or anyone's accounts.
+  If asked: "I'm afraid that's beyond my current systems, {a}." and say how the owner can do it.
 - Loyalty means the truth: if the owner's plan, code or numbers are weak, say so politely and directly, then help.
-- Never repeat API keys, emails or personal details of users; the snapshot has none and you have no access to them."""
+- Never repeat API keys, emails or personal details of users; the snapshot has none and you have no access to them.
+""" + butler.PERSONA.replace('{a}', a)
 
 
 # ── Talking ───────────────────────────────────────────────────────────────────
@@ -324,8 +326,26 @@ def talk():
                    f"casual. Only a hologram request gets a diagram (say \"It's on screen, {a}.\"). What you heard may "
                    "have small transcription slips (brand names, Hinglish): read it generously.")
     system += "\n\nSNAPSHOT (live, taken just now; the only source for facts about E&L):\n" + json.dumps(snap, ensure_ascii=False, default=str)
+    system += ("\n\nTHE OWNER'S OWN THINGS (CONTACTS are names only; you never see numbers):\n"
+               + json.dumps(butler.context(said), ensure_ascii=False, default=str))
     try:
         msg = _ai['client'].messages.create(model=_ai['model'], max_tokens=1500, system=system, messages=merged)
+        text = msg.content[0].text if msg.content else ''
+        reply, mine = butler.split(text)
+        if mine and mine['type'] == 'search':          # look it up, then answer from what came back
+            q = ' '.join(x for x in mine['args'] if x)
+            found = butler.search(q)
+            if found:
+                msg = _ai['client'].messages.create(
+                    model=_ai['model'], max_tokens=1500, messages=merged,
+                    system=system + f"\n\nSEARCH RESULTS for \"{q}\" (fetched just now; answer from these, name the source in a "
+                                    "word or two, and don't search again):\n" + found)
+                text = msg.content[0].text if msg.content else ''
+                reply, mine = butler.split(text)
+                if mine and mine['type'] == 'search':
+                    mine = None
+            else:
+                reply, mine = f"I can't reach the web just now, {a}, so I won't guess.", None
     except Exception as e:
         print('[jarvis] failed:', repr(e)[:300])
         try:
@@ -336,12 +356,20 @@ def talk():
         except Exception:
             pass
         return jsonify({'error': f'A momentary fault, {a}. Do try again.'}), 502
-    reply, action = split_action(msg.content[0].text if msg.content else '')
+    card = None
+    if mine:
+        done = butler.handle(mine, a)
+        card = done.get('card')
+        if done.get('say'):
+            reply = done['say']
+    reply, action = split_action(reply)
+    if card:
+        action = None                        # one thing at a time: the tap card
     if action and action['type'] == 'hide_look' and not any(
             r['id'] == action['id'] and r['kind'] == action['kind'] for r in snap['reported_looks']):
         action = None                        # only a look that's actually reported
-    return jsonify({'reply': reply or f'Apologies, {a}, I seem to have lost my train of thought.', 'action': action,
-                    'pending': snap['pending_for_owner']})
+    return jsonify({'reply': reply or (f'Done, {a}.' if mine else f'Apologies, {a}, I seem to have lost my train of thought.'),
+                    'action': action, 'card': card, 'pending': snap['pending_for_owner']})
 
 
 @bp.post('/api/owner/jarvis/act')

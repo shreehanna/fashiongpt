@@ -1470,6 +1470,26 @@ body::after {
 .jv-ping { display: block; margin: 12px auto 0; background: transparent; color: var(--jv-cyan); border: 1px dashed var(--jv-line);
   border-radius: 99px; padding: 7px 14px; font: 500 12.5px var(--sans); }
 .jv-ping:disabled { color: var(--jv-dim); cursor: default; }
+/* JARVIS's one-tap cards (call, message, open an app) and his contacts */
+.jv-act a.jv-go { background: var(--jv-cyan); color: #04121c; border-radius: 99px; padding: 9px 16px; font: 600 13.5px var(--sans); text-decoration: none; }
+.jv-act a.jv-go:focus-visible { outline: 2px solid var(--jv-text); outline-offset: 2px; }
+.jv-draft { max-width: 100%; padding: 9px 12px; border-radius: 12px; background: rgba(92,214,255,.08); border: 1px solid var(--jv-line);
+  color: var(--jv-text); font: 400 13.5px/1.45 var(--sans); overflow-wrap: anywhere; white-space: pre-wrap; text-align: left; }
+.jv-tools { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-top: 12px; }
+.jv-tools .jv-ping { margin: 0; }
+.jv-book { margin-top: 12px; padding: 12px; border: 1px solid var(--jv-line); border-radius: 14px; display: grid; gap: 10px; }
+.jv-book h4 { margin: 0; font: 600 11px var(--sans); letter-spacing: .25em; text-transform: uppercase; color: var(--jv-cyan); }
+.jv-book p { margin: 0; color: var(--jv-dim); font: 400 12.5px/1.5 var(--sans); }
+.jv-book form { display: flex; gap: 6px; flex-wrap: wrap; }
+.jv-book input, .jv-book select { flex: 1 1 120px; min-width: 0; background: rgba(92,214,255,.06); color: var(--jv-text);
+  border: 1px solid var(--jv-line); border-radius: 10px; padding: 7px 9px; font: 400 13.5px var(--sans); }
+.jv-book button { background: var(--jv-cyan); color: #04121c; border: 0; border-radius: 99px; padding: 7px 14px; font: 600 12.5px var(--sans); cursor: pointer; }
+.jv-book label.jv-file { color: var(--jv-cyan); border: 1px dashed var(--jv-line); border-radius: 99px; padding: 7px 14px; font: 500 12.5px var(--sans); cursor: pointer; text-align: center; }
+.jv-book ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; max-height: 240px; overflow-y: auto; }
+.jv-book li { display: flex; align-items: center; gap: 8px; color: var(--jv-text); font: 400 13px var(--sans); }
+.jv-book li span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.jv-book li small { color: var(--jv-dim); }
+.jv-book li button { background: transparent; color: var(--jv-dim); border: 1px solid var(--jv-line); padding: 2px 8px; }
 /* ── JARVIS for everyone: a small dock at the foot of the page (his own night-blue look in both themes) ── */
 .jvu { --jv-cyan: #5cd6ff; --jv-text: #d8f3ff; --jv-dim: #93b8ca; --jv-line: rgba(92,214,255,.32);
   position: fixed; z-index: 90; left: 50%; transform: translateX(-50%); bottom: calc(12px + env(safe-area-inset-bottom, 0px));
@@ -2619,7 +2639,23 @@ body.jvu-on .toast, body.jvu-on .owner-alert { bottom: calc(96px + env(safe-area
       <input id="jv-in" type="text" placeholder="JARVIS, status report…" autocomplete="off" aria-label="Talk to JARVIS">
       <button type="submit" id="jv-send">Send</button>
     </form>
-    <button type="button" class="jv-ping" id="jv-ping" onclick="jarvisPingSetup()" hidden>🔔 Let JARVIS ping this phone</button>
+    <div class="jv-tools">
+      <button type="button" class="jv-ping" id="jv-ping" onclick="jarvisPingSetup()" hidden>🔔 Let JARVIS ping this phone</button>
+      <button type="button" class="jv-ping" id="jv-book-btn" onclick="jvBookToggle()" aria-expanded="false" aria-controls="jv-book">📇 Contacts</button>
+    </div>
+    <div class="jv-book" id="jv-book" hidden>
+      <h4>JARVIS's contacts</h4>
+      <p>Who he can call or message for you. The numbers stay in E&amp;L, never in his AI: he only sees names.
+        On iPhone, tap a contact in Contacts, then Share Contact, then Save to Files, and import that .vcf here.</p>
+      <form onsubmit="jvBookAdd(event)">
+        <input id="jv-book-name" placeholder="Name (e.g. Mom)" maxlength="60" aria-label="Name" required>
+        <input id="jv-book-phone" placeholder="Phone (+91 …)" inputmode="tel" maxlength="24" aria-label="Phone number" required>
+        <select id="jv-book-app" aria-label="Message them on"><option value="whatsapp">WhatsApp</option><option value="sms">Messages</option></select>
+        <button type="submit">Add</button>
+      </form>
+      <label class="jv-file">⬆ Import a .vcf from Contacts<input type="file" id="jv-book-file" accept=".vcf,text/vcard,text/x-vcard" hidden onchange="jvBookImport(this)"></label>
+      <ul id="jv-book-list"></ul>
+    </div>
   </div>
   <div class="panel"><div class="quiz-label">Growth</div><div id="own-growth">Loading…</div></div>
   <div class="panel"><div class="quiz-label">Ella's Sunday Edit</div><div id="own-edit"></div></div>
@@ -7607,6 +7643,69 @@ function jvAdd(role, text, action) {
   log.appendChild(m);
   log.scrollTop = log.scrollHeight;
 }
+// one-tap cards: JARVIS has found the number and written the message; one tap opens the Phone, WhatsApp, Messages
+// or the app with it all filled in (no website can call or send by itself: the phone asks you to confirm)
+function jvCard(card) {
+  if (!card || !/^(tel:|sms:|facetime(-audio)?:|instagram:\/\/|whatsapp:\/\/|https:\/\/|\/\?open=)/.test(card.href || '')) return;
+  const box = jv.handsfree ? document.getElementById('jv-confirm') : document.createElement('div');
+  box.innerHTML = '';
+  if (jv.handsfree) box.hidden = false; else box.className = 'jv-msg jarvis';
+  if (card.text) { const d = document.createElement('div'); d.className = 'jv-draft'; d.textContent = card.text; box.appendChild(d); }
+  const row = document.createElement('div'); row.className = 'jv-act';
+  const go = document.createElement('a'); go.className = 'jv-go'; go.href = card.href; go.textContent = card.label || 'Open';
+  if (/^https:/.test(card.href)) { go.target = '_blank'; go.rel = 'noopener'; }
+  const no = document.createElement('button'); no.type = 'button'; no.className = 'no'; no.textContent = 'Cancel';
+  const done = () => { if (jv.handsfree) { box.hidden = true; box.innerHTML = ''; } else row.remove(); if (jv.pendingAction && jv.pendingAction.card === card) jv.pendingAction = null; };
+  go.addEventListener('click', () => setTimeout(done, 600));
+  no.onclick = done;
+  row.append(go, no); box.appendChild(row);
+  if (!jv.handsfree) { const log = document.getElementById('jv-log'); log.appendChild(box); log.scrollTop = log.scrollHeight; }
+  jv.pendingAction = { card, row: { remove: done } };
+}
+function jvGo(card) {
+  // said "yes": try to open it straight away (the phone may still want a tap on the card)
+  try {
+    if (/^https:/.test(card.href)) { if (!window.open(card.href, '_blank', 'noopener')) throw new Error('blocked'); }
+    else location.href = card.href;
+  } catch (e) { const say = `Tap the card, ${jv.address}.`; return jvSpeak(say); }
+}
+async function jvBookToggle() {
+  const box = document.getElementById('jv-book'), btn = document.getElementById('jv-book-btn');
+  box.hidden = !box.hidden; btn.setAttribute('aria-expanded', String(!box.hidden));
+  if (!box.hidden) { try { jvBookShow((await api('/api/owner/contacts')).contacts); } catch (e) { toast(e.message); } }
+}
+function jvBookShow(rows) {
+  const ul = document.getElementById('jv-book-list'); ul.innerHTML = '';
+  (rows || []).forEach(c => {
+    const li = document.createElement('li');
+    const n = document.createElement('span'); n.textContent = c.name;
+    const ph = document.createElement('small'); ph.textContent = c.phone + (c.app === 'sms' ? ' · Messages' : ' · WhatsApp');
+    const x = document.createElement('button'); x.type = 'button'; x.textContent = '✕'; x.setAttribute('aria-label', 'Remove ' + c.name);
+    x.onclick = async () => { try { jvBookShow((await api('/api/owner/contacts/delete', { name: c.name })).contacts); } catch (e) { toast(e.message); } };
+    li.append(n, ph, x); ul.appendChild(li);
+  });
+  if (!(rows || []).length) { const li = document.createElement('li'); li.innerHTML = '<small>No contacts yet.</small>'; ul.appendChild(li); }
+}
+async function jvBookAdd(e) {
+  e.preventDefault();
+  const name = document.getElementById('jv-book-name'), phone = document.getElementById('jv-book-phone');
+  try {
+    jvBookShow((await api('/api/owner/contacts', { name: name.value, phone: phone.value, app: document.getElementById('jv-book-app').value })).contacts);
+    name.value = ''; phone.value = '';
+  } catch (err) { toast(err.message); }
+}
+async function jvBookImport(input) {
+  const f = input.files && input.files[0];
+  input.value = '';
+  if (!f) return;
+  const fd = new FormData(); fd.append('file', f);
+  try {
+    const r = await fetch('/api/owner/contacts/import', { method: 'POST', body: fd });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(d.error || 'That file didn\'t work.');
+    jvBookShow(d.contacts); toast(`Added ${d.added} contact${d.added === 1 ? '' : 's'} for JARVIS.`);
+  } catch (err) { toast(err.message); }
+}
 // ── JARVIS's voice, as loud as Ella's and Léon's ──
 // His ElevenLabs voice comes out quieter than theirs, and an <audio> player can't go past 100%. So each of his lines
 // is decoded here, its speaking level measured (ignoring the pauses) and lifted to a normal speaking level (never
@@ -7793,7 +7892,11 @@ async function jvVoiceCommand(text) {
     jvMicStop(); jvState('Asleep', ''); jvControls();
     return;
   }
-  if (jv.pendingAction) {
+  if (jv.pendingAction && jv.pendingAction.card) {
+    if (/^(yes|yeah|yep|do it|go ahead|send( it)?|call( (him|her|them))?|open( it)?|please do)\b/i.test(text)) return jvGo(jv.pendingAction.card);
+    if (/^(no|nope|cancel|don'?t|leave it|scrap that)\b/i.test(text)) { jv.pendingAction.row.remove(); jv.pendingAction = null; const ok = `As you wish, ${jv.address}.`; jvAdd('assistant', ok); return jvSpeak(ok); }
+  }
+  if (jv.pendingAction && !jv.pendingAction.card) {
     if (/^(yes|yeah|yep|confirm(ed)?|do it|go ahead|go for it|please do|publish it)\b/i.test(text)) { jvAdd('user', text); return jvDo(jv.pendingAction.action, jv.pendingAction.row); }
     if (/^(no|nope|cancel|don'?t|leave it|scrap that)\b/i.test(text)) { jvAdd('user', text); jv.pendingAction.row.remove(); jv.pendingAction = null; const ok = `As you wish, ${jv.address}.`; jvAdd('assistant', ok); return jvSpeak(ok); }
   }
@@ -7833,6 +7936,7 @@ async function jarvisSend(text, spoken) {
     jv.history.push({ role: 'user', text: said }, { role: 'assistant', text: r.reply });
     jvSave();
     jvAdd('assistant', r.reply, r.action);
+    if (r.card) jvCard(r.card);
     track('jarvis_ask');
     jv.busy = false;
     await jvSpeak(r.reply);
