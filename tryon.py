@@ -142,18 +142,29 @@ def _product_photo(url):
         return None
 
 
-def prompt_for(items, refs):
+def prompt_for(items, photo_of=None):
+    """photo_of: {index of a piece in items: its image number}. Each piece with a product photo is tied to that image by
+    number, so the model never mixes them up, and the photo (what the person would actually buy) decides its colour,
+    print and fabric; the words only say what the piece is."""
+    photo_of = photo_of or {}
     lines = []
-    for it in items:
+    for i, it in enumerate(items):
         name = ' '.join(str(it.get('real_name') or it.get('name') or '').split())[:120]
         brand = ' '.join(str(it.get('brand') or '').split())[:60]
         desc = ' '.join(str(it.get('description') or '').split())[:160]
         cat = ' '.join(str(it.get('category') or '').split())[:40]
-        if name:
-            lines.append(f"- {cat + ': ' if cat else ''}{name}{' by ' + brand if brand and brand != 'From my closet' else ''}"
-                         f"{' (' + desc + ')' if desc else ''}")
-    photos = (f"Images 2 to {refs + 1} are the product photos of pieces in the outfit: match each one's colour, fabric, "
-              "print, cut and details exactly. " if refs else '')
+        if not name:
+            continue
+        what = f"- {cat + ': ' if cat else ''}{name}{' by ' + brand if brand and brand != 'From my closet' else ''}"
+        if i in photo_of:
+            what += f" (exactly as shown in image {photo_of[i]})"
+        elif desc:
+            what += f" ({desc})"
+        lines.append(what)
+    photos = ("Each piece marked with an image number must look exactly like that product photo: same colour, print, "
+              "fabric, sheerness, cut, length and details. The photo wins over any words. Do not recolour a piece to "
+              "match the rest of the outfit, and do not swap a photographed piece for a different one. "
+              if photo_of else '')
     return ("Image 1 is a photo of a real person. Make a realistic fashion photo of THIS SAME PERSON wearing the outfit "
             "below, full length or three-quarter length. " + photos +
             "Keep their face, identity, skin tone, hair, body shape, height and proportions exactly as in image 1: "
@@ -166,13 +177,15 @@ def prompt_for(items, refs):
 # ── the picture ───────────────────────────────────────────────────────────────
 def make_picture(photo_url, items, who):
     """Calls OpenAI. Returns (jpeg bytes, None) or (None, (kind, message))."""
-    refs = []
+    refs, photo_of = [], {}
     with ThreadPoolExecutor(max_workers=4) as pool:
         wanted = [it.get('shop_image') or it.get('photo') for it in items][:6]
-        for got in pool.map(_product_photo, wanted):
+        for i, got in enumerate(pool.map(_product_photo, wanted)):
             if got and len(refs) < 4:
                 refs.append(got)
-    body = {'model': os.environ.get('TRYON_MODEL') or 'gpt-image-2', 'prompt': prompt_for(items, len(refs)),
+                photo_of[i] = len(refs) + 1          # image 1 is the person; their pieces' photos follow
+    print(f'[tryon] {len(refs)} of {len(items)} pieces have a product photo')
+    body = {'model': os.environ.get('TRYON_MODEL') or 'gpt-image-2', 'prompt': prompt_for(items, photo_of),
             'images': [{'image_url': photo_url}] + [{'image_url': u} for u in refs],
             'size': '1024x1536', 'quality': os.environ.get('TRYON_QUALITY') or 'medium',
             'output_format': 'jpeg', 'output_compression': 85, 'moderation': 'auto', 'n': 1,

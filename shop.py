@@ -20,7 +20,7 @@ import time
 from collections import OrderedDict, deque
 from concurrent.futures import ThreadPoolExecutor, wait
 import threading
-from urllib.parse import quote_plus, urlparse
+from urllib.parse import quote_plus, urljoin, urlparse
 
 import requests as req
 from flask import Blueprint, jsonify, request
@@ -557,6 +557,24 @@ def page_price(html):
     return None
 
 
+def page_image(html, base):
+    """The product photo's address, always https. Shopify shops (and many others) write it as http://... or //cdn...,
+    which a phone's https page won't show, so the card was left without a photo and the try-on without a reference."""
+    for prop in ('og:image:secure_url', 'og:image', 'twitter:image'):
+        u = htmllib.unescape(_meta(html, prop) or '').strip()
+        if not u:
+            continue
+        if u.startswith('//'):
+            u = 'https:' + u
+        elif u.lower().startswith('http://'):
+            u = 'https://' + u[7:]
+        elif u.startswith('/'):
+            u = urljoin(base, u)
+        if u.startswith('https://') and _safe_host(_host(u)):
+            return u
+    return None
+
+
 def _safe_host(host):
     return bool(host) and '.' in host and not re.match(r'^[\d.]+$|^\[|localhost|\.local$|\.internal$', host)
 
@@ -587,10 +605,9 @@ def check_page(url, pattern=None, cc='in'):
         og_avail = (_meta(html, 'product:availability') or _meta(html, 'og:availability') or '').lower()
         sold_out = (bool(avail) and not any(a in ('instock', 'limitedavailability', 'preorder', 'onlineonly') for a in avail)) \
             or og_avail in ('out of stock', 'oos', 'outofstock')
-        image = _meta(html, 'og:image') or _meta(html, 'twitter:image')
+        image = page_image(html, final)
         return {'state': 'ok', 'final': final, 'title': _meta(html, 'og:title'),
-                'image': image if image and image.startswith('https://') else None, 'sold_out': sold_out,
-                'price': page_price(html)}
+                'image': image, 'sold_out': sold_out, 'price': page_price(html)}
     except (req.RequestException, UnicodeError) as e:
         return {'state': 'unknown', 'error': type(e).__name__}
 

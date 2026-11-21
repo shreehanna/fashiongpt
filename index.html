@@ -3437,7 +3437,7 @@ function fillResultItem(div, item) {
   set('.oi-brand', item.brand);
   const worn = div.querySelector('.oi-worn');   // one of the muse's own real pieces (muses.apply_real)
   if (worn) { worn.textContent = item.worn ? '✦ Worn by ' + item.worn : ''; worn.hidden = !item.worn; }
-  set('.oi-price', item.shop_price || item.price);
+  set('.oi-price', item.shop_price || plainPrice(item.price));
   const priceEl = div.querySelector('.oi-price');
   if (priceEl && (item.shop_price || item.price) && item.brand !== 'From my closet') {
     // a price read off the product page itself, or else Ella's estimate, said plainly
@@ -3809,7 +3809,8 @@ function showShopMatch(a, item) {
     a.href = item.shop_url;
     a.textContent = '🛒 Shop on ' + item.brand;
     let host = ''; try { host = new URL(item.shop_url).hostname.replace(/^www\./, ''); } catch (e) {}
-    if (item.shop_closest) say(`≈ Closest real piece: not sold exactly as described, so this is the nearest real one from ${item.brand}${item.shop_sold_out ? ' (sold out right now)' : ''}.`, item.shop_sold_out);
+    if (item.shop_other) say(`≈ Same piece, another colour: this listing is ${item.shop_other.got}, but ${stylistName()} picked ${item.shop_other.want}. Choose that colour on the page if it’s offered${item.shop_sold_out ? ' (sold out right now)' : ''}.`, item.shop_sold_out);
+    else if (item.shop_closest) say(`≈ Closest real piece: not sold exactly as described, so this is the nearest real one from ${item.brand}${item.shop_sold_out ? ' (sold out right now)' : ''}.`, item.shop_sold_out);
     else say(`✓ Real product, checked on ${host || item.brand}` + (item.shop_sold_out ? ' · sold out right now' : ''), item.shop_sold_out, true);
   } else {
     // No product page to open: the fallback is a Google search for the piece's exact name (the real product's own
@@ -3823,6 +3824,54 @@ function showShopMatch(a, item) {
     else say(exact ? `No shop page to open right now. Search the exact piece on Google: “${q}”.`
                    : `Ella couldn't find this piece in any shop. Search it on Google: “${q}”.`, true);
   }
+}
+// Ella's price is an estimate and the card already says so: "Estimated ₹20,000" reads as just ₹20,000
+function plainPrice(p) {
+  return String(p || '').replace(/^\s*(estimated|estimate|est\.?|approx\.?|approximately|around|about|roughly|~)\s*:?\s*/i, '')
+    .replace(/\s*\((estimated?|approx\.?)\)\s*$/i, '').trim();
+}
+// Colour and print words, by family, so "ivory" matches "cream" and "fuchsia" matches "pink"
+const COLOUR_FAMILY = (() => {
+  const fam = {
+    white: 'white ivory cream ecru offwhite bone chalk', beige: 'beige sand camel tan stone oatmeal taupe nude khaki',
+    brown: 'brown chocolate cocoa mocha coffee espresso', black: 'black jet onyx', grey: 'grey gray charcoal slate',
+    blue: 'blue navy cobalt sky indigo azure', teal: 'teal turquoise aqua', green: 'green olive sage emerald mint forest',
+    yellow: 'yellow mustard lemon butter', gold: 'gold golden', silver: 'silver', orange: 'orange rust tangerine terracotta marigold',
+    coral: 'coral peach salmon apricot', red: 'red scarlet cherry crimson', burgundy: 'burgundy wine maroon oxblood',
+    pink: 'pink fuchsia magenta blush rose bubblegum', purple: 'purple lilac lavender violet plum mauve',
+    floral: 'floral flower flowers wildflower wildflowers hibiscus botanical', animal: 'leopard zebra snake cheetah',
+    stripe: 'stripe stripes striped pinstripe', check: 'check checked plaid gingham tartan houndstooth',
+    dots: 'polka dot dots', paisley: 'paisley', print: 'print printed'
+  };
+  const m = {};
+  Object.entries(fam).forEach(([f, ws]) => ws.split(' ').forEach(w => { m[w] = f; }));
+  return m;
+})();
+const PRINT_FAMILIES = new Set(['floral', 'animal', 'stripe', 'check', 'dots', 'paisley', 'print']);
+function coloursIn(text) {
+  const found = new Map();   // family -> the first word that named it
+  String(text || '').toLowerCase().replace(/off-white/g, 'offwhite').replace(/[^a-z]+/g, ' ').split(' ').forEach(w => {
+    const f = COLOUR_FAMILY[w];
+    if (f && !found.has(f)) found.set(f, w);
+  });
+  return found;
+}
+// The shop check finds a product by its name, in whatever colour the listing opens on. When the listing's own title
+// or address names a colour or print and none of them is the one Ella picked, it's the same piece in another colour:
+// {got, want} for the card; null when it matches, or when either side names no colour (can't tell).
+function otherColour(item, link) {
+  let want = coloursIn(item.name);
+  if (!want.size) want = coloursIn(item.description);
+  let slug = '';
+  try { slug = decodeURIComponent(new URL(link.url).pathname.split('/').filter(Boolean).pop() || ''); } catch (e) {}
+  const got = coloursIn(`${link.title || ''} ${slug}`);
+  if (!want.size || !got.size) return null;
+  const gotPrint = [...got.keys()].some(f => PRINT_FAMILIES.has(f));
+  for (const f of want.keys()) {
+    if (got.has(f)) return null;
+    if (PRINT_FAMILIES.has(f) && gotPrint) return null;     // a print on both sides: can't tell which
+  }
+  return { got: [...got.values()][0], want: [...want.values()][0] };
 }
 function showShopPhoto(anchor, url) {
   const card = anchor && anchor.closest('.outfit-item');
@@ -3842,7 +3891,7 @@ function holdShopLink(a) {
   a.classList.add('is-finding');
   a.textContent = 'Finding the exact item…';
 }
-const SHOP_V = 6;   // bump when the product search gets better, so every saved piece is looked up again once
+const SHOP_V = 7;   // bump when the product search gets better, so every saved piece is looked up again once (7: photos given as http:// or //)
 async function findShopLinks(items, anchors) {
   const need = [];
   items.forEach((it, i) => {
@@ -4008,6 +4057,7 @@ function applyShopLink(item, anchor, link) {
       .forEach(k => { item[k] = ''; });
     item.photo_none = false;
     item.shop_closest = item.shop_sold_out = false;
+    item.shop_other = null;
     if (anchor && anchor.closest('.outfit-item')) fillResultItem(anchor.closest('.outfit-item'), item);
   }
   if (link && link.url && /^https:\/\//.test(link.url)) {
@@ -4015,6 +4065,8 @@ function applyShopLink(item, anchor, link) {
     item.shop_v = SHOP_V;
     item.shop_title = link.title || '';
     item.shop_closest = !!link.closest;
+    item.shop_other = otherColour(item, link);   // the same piece, but the listing is another colour or print
+    if (item.shop_other) item.shop_closest = true;
     item.shop_unchecked = false;
     item.shop_price = typeof link.price === 'string' && link.price.length <= 24 ? link.price : '';
     rename(realProductName(link.title));
