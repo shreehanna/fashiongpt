@@ -126,18 +126,28 @@ def retailers_for(code):
     return REGIONS[group(code)]['retailers']
 
 
+def atlas_pool(data):
+    """The Brand Atlas brands for this request's budget, the shopper's own country's brands first."""
+    budget = str((data or {}).get('budget') or 'everyday')
+    c = country_of(data)
+    return pool_for(budget, c[0] if c else None)
+
+
 def prompt_note(data):
     """A paragraph for every styling prompt: the Brand Atlas pool for this budget, and only what this
     person can buy and get delivered in their country."""
-    budget = str((data or {}).get('budget') or 'everyday')
-    c = country_of(data)
-    pool = pool_for(budget, c[0] if c else None)
     atlas = ("\nBrand Atlas brands for this budget. Pick mainly from these; use another brand only if it suits "
-             "the look better or a chosen muse really wears it:\n" + pool + "\n")
+             "the look better or a chosen muse really wears it:\n" + atlas_pool(data) + "\n")
+    return atlas + country_rule(data)
+
+
+def country_rule(data):
+    """Only what this person can buy and get delivered in their country ('' when the page sent no country)."""
+    c = country_of(data)
     if not c:
-        return atlas
+        return ''
     code, name = c
-    return atlas + (
+    return (
         f"Shopper's country: {name} ({code}). Only choose pieces from brands or stores that sell and deliver to "
         f"{name} right now: the brand's own {name} website, its stores there, or a retailer that ships there "
         f"(for example Revolve, Net-a-Porter, Farfetch or Nike where they deliver). Leave out anything that isn't "

@@ -506,7 +506,9 @@ def character_rule(char, era='', gender=''):
                    f"outfit's main colours) and \"why\" (one or two sentences on why it suits both {name} and the occasion).")
 
 
-def rules(gender, occasion, muse, who, mode='', budget='', country='', era='', character=None, info=None):
+def rules(gender, occasion, muse, who, mode='', budget='', country='', era='', character=None, info=None, house=True):
+    """house=False: the look's own brief sets the taste (Ella's Pinterest-stylist prompt), so no house glam on top,
+    and the fresh starting point is a suggestion, never an order."""
     try:
         given = avoid_list(gender, occasion, who)
     except Exception as e:
@@ -530,7 +532,7 @@ def rules(gender, occasion, muse, who, mode='', budget='', country='', era='', c
             used_ids = []
         return real_outfit_rule(muse.strip()[:60], muse_identity(muse), outfits, used_ids, occasion, look, file,
                                 info.get('pieces') or []) + HONEST_NAMES
-    text = (house_style(gender, mode, budget, country, era) + aesthetic_rule(era) +
+    text = ((house_style(gender, mode, budget, country, era) if house else '') + aesthetic_rule(era) +
             (character_rule(character, era, gender) if character else muse_rule(muse, era, file, info.get('pieces') or [])))
     if mode in COPY_MODES:
         # Dupe and Get this look copy something: no random starting piece or palette, no forcing it to be different
@@ -549,6 +551,11 @@ def rules(gender, occasion, muse, who, mode='', budget='', country='', era='', c
                  "colours), without leaving that identity.")
     else:
         start = variation(gender, occasion, era, (muse or '').strip()[:60])
+    if not house:
+        start = (start.replace('Starting point for this look (to keep every look new): ',
+                               'A fresh direction to consider, so this look feels new (use it only if it suits the aesthetic, '
+                               'muse and occasion; never force it): ')
+                 .replace(', unless the muse or occasion clearly calls for something else.', '.'))
     return text + start + HONEST_NAMES
 
 
@@ -596,7 +603,7 @@ def _who_and_rules(data):
     data['_muse_key'] = muse
     return gender, occasion, muse, who, rules(gender, occasion, muse, who, str(data.get('mode') or ''),
                                               str(data.get('budget') or ''), str(data.get('country') or '')[:2],
-                                              str(data.get('era') or '')[:80], character, info)
+                                              str(data.get('era') or '')[:80], character, info, house=data.get('_house', True))
 
 
 def plan_looks(data):

@@ -566,6 +566,17 @@ body {
 #screen-results.is-writing-look .results-actions, #screen-results.is-writing-look .rating-row,
 #screen-results.is-writing-look #recent-looks-section { display: none; }
 .results-ella-note:empty { display: none; }
+.look-concept { margin: -18px 0 32px; padding: 14px 20px; border-left: 3px solid var(--accent); border-radius: var(--r);
+  background: rgba(251,246,236,0.9); display: grid; gap: 10px; }
+[data-theme="dark"] .look-concept { background: var(--surface); }
+.look-concept div { display: grid; gap: 2px; }
+.look-concept dt { font: 600 10.5px/1.3 var(--sans); letter-spacing: .14em; text-transform: uppercase; color: var(--fg3); }
+.look-concept dd { margin: 0; font: 400 14px/1.55 var(--sans); color: var(--fg2); }
+.oi-price .oi-checked { font: 500 10.5px var(--sans); letter-spacing: .04em; color: var(--fg3); margin-left: 6px; }
+.outfit-item.is-unverified .oi-name, .outfit-item.is-unverified .oi-price { opacity: .6; }
+.oi-match.is-verified { color: #2f6b3a; }
+[data-theme="dark"] .oi-match.is-verified { color: #8fd19e; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .oi-match.is-verified { color: #8fd19e; } }
 .results-actions {
   display: flex; gap: 10px; flex-wrap: wrap; justify-content: center;
   margin-bottom: 32px;
@@ -1158,6 +1169,8 @@ body::after {
 }
 .voice-subtitle { max-width: 300px; }
 .outfit-item > .oi-match { padding-inline: 20px; margin: -2px 0 8px; font-size: 11.5px; line-height: 1.4; color: var(--fg2); }
+.left-out { grid-column: 1 / -1; margin: 8px 0 0; padding-inline: 20px; font-size: 12.5px; line-height: 1.5; color: var(--fg2); }
+.left-out-show { margin-left: 4px; padding: 0; border: 0; background: none; color: var(--gold-ink); font: inherit; text-decoration: underline; cursor: pointer; }
 .outfit-item > .oi-dupe { margin: 10px 20px 14px; padding: 10px 12px; border-radius: 12px; border: 1px dashed var(--gold-ink); background: var(--surface);
   display: grid; gap: 8px; text-align: left; text-shadow: none; }
 .oi-dupe *, .oi-dupe.is-finding { text-shadow: none; }
@@ -2328,6 +2341,7 @@ body.jvu-on .toast, body.jvu-on .owner-alert { bottom: calc(96px + env(safe-area
       <p class="real-outfit" id="real-outfit" hidden></p>
     </div>
     <div class="results-ella-note" id="ella-note"></div>
+    <dl class="look-concept" id="look-concept" hidden></dl>
     <div class="outfit-grid" id="outfit-grid"></div>
     <div class="styling-notes" id="styling-notes"></div>
     <div class="results-actions">
@@ -3367,6 +3381,7 @@ function beginResults(data) {
   document.getElementById('result-meta').textContent =
     [state.occasion, state.celeb && `${state.celeb} energy`, state.era].filter(Boolean).join(' · ');
   document.getElementById('ella-note').textContent = data.ella_note || '';
+  showConcept(data);
 
   // Reset rating UI
   const tu = document.getElementById('thumb-up');
@@ -3374,7 +3389,10 @@ function beginResults(data) {
   if (tu) { tu.className = 'thumb-btn'; tu.textContent = '👍 Love it'; }
   if (td) { td.className = 'thumb-btn'; td.textContent = '👎 Not quite'; }
 
-  document.getElementById('outfit-grid').innerHTML = '';
+  const grid = document.getElementById('outfit-grid');
+  grid.innerHTML = '';
+  delete grid.dataset.showAll;
+  if (grid.nextElementSibling && grid.nextElementSibling.classList.contains('left-out')) grid.nextElementSibling.remove();
   const sn = document.getElementById('styling-notes');
   if (sn) sn.style.display = 'none';
   return [];
@@ -3419,7 +3437,14 @@ function fillResultItem(div, item) {
   set('.oi-brand', item.brand);
   const worn = div.querySelector('.oi-worn');   // one of the muse's own real pieces (muses.apply_real)
   if (worn) { worn.textContent = item.worn ? '✦ Worn by ' + item.worn : ''; worn.hidden = !item.worn; }
-  set('.oi-price', item.price);
+  set('.oi-price', item.shop_price || item.price);
+  const priceEl = div.querySelector('.oi-price');
+  if (priceEl && (item.shop_price || item.price) && item.brand !== 'From my closet') {
+    // a price read off the product page itself, or else Ella's estimate, said plainly
+    const tag = document.createElement('span'); tag.className = 'oi-checked';
+    tag.textContent = item.shop_price ? '· price checked' : '· estimate';
+    priceEl.appendChild(tag);
+  }
   set('.oi-desc', item.description);
   div.querySelector('.oi-pinterest').href = `https://pinterest.com/search/pins/?q=${encodeURIComponent(`${item.real_name || item.name || ''} ${item.brand || ''} fashion`)}`;
   set('.oi-pin-label', `Shop ${item.real_name || item.name || ''} on Pinterest`);
@@ -3462,10 +3487,25 @@ function loadItemImage(div, item) {
     if (wrap) wrap.style.display = 'none';
   });
 }
+function showConcept(data) {
+  // the look's idea, palette and silhouette (Ella's Pinterest-stylist brief asks for them first)
+  const box = document.getElementById('look-concept');
+  if (!box) return;
+  box.innerHTML = '';
+  [['The idea', data.outfit_direction], ['Palette', data.colour_palette], ['Silhouette', data.silhouette]].forEach(([k, v]) => {
+    if (!v) return;
+    const row = document.createElement('div');
+    const dt = document.createElement('dt'); dt.textContent = k;
+    const dd = document.createElement('dd'); dd.textContent = String(v).slice(0, 400);
+    row.append(dt, dd); box.appendChild(row);
+  });
+  box.hidden = !box.children.length;
+}
 function finishResults(data, anchors) {
   state.currentOutfit = data;
   document.getElementById('result-title').textContent = data.look_name || 'Your Look';
   document.getElementById('ella-note').textContent = data.ella_note || '';
+  showConcept(data);
   findShopLinks(data.items || [], anchors);
 
   // Auto-log to recentLooks (max 5)
@@ -3760,15 +3800,17 @@ function showShopMatch(a, item) {
   if (!a) return;
   const note = a.previousElementSibling;
   const hasNote = note && note.classList.contains('oi-match');
-  const say = (text, warn) => { if (hasNote) { note.textContent = text; note.classList.toggle('is-nolink', !!warn); note.hidden = !text; } };
+  const say = (text, warn, ok) => { if (hasNote) { note.textContent = text; note.classList.toggle('is-nolink', !!warn); note.classList.toggle('is-verified', !!ok && !warn); note.hidden = !text; } };
+  const card = a.closest('.outfit-item');
+  if (card) card.classList.toggle('is-unverified', !item.shop_url && !item.shop_unchecked && item.brand !== 'From my closet');
   a.classList.remove('is-finding', 'is-search');
   a.removeAttribute('aria-disabled');
   if (item.shop_url) {
     a.href = item.shop_url;
     a.textContent = '🛒 Shop on ' + item.brand;
-    if (item.shop_closest) say(`Not sold exactly as Ella described it, so this is the closest real piece from ${item.brand}${item.shop_sold_out ? ' (sold out right now)' : ''}.`, item.shop_sold_out);
-    else if (item.real_name) say(item.shop_sold_out ? 'Sold out right now' : '', item.shop_sold_out);   // the card already carries its name
-    else say(item.shop_title ? 'Opens: ' + item.shop_title + (item.shop_sold_out ? ' · sold out right now' : '') : '', item.shop_sold_out);
+    let host = ''; try { host = new URL(item.shop_url).hostname.replace(/^www\./, ''); } catch (e) {}
+    if (item.shop_closest) say(`≈ Closest real piece: not sold exactly as described, so this is the nearest real one from ${item.brand}${item.shop_sold_out ? ' (sold out right now)' : ''}.`, item.shop_sold_out);
+    else say(`✓ Real product, checked on ${host || item.brand}` + (item.shop_sold_out ? ' · sold out right now' : ''), item.shop_sold_out, true);
   } else {
     // No product page to open: the fallback is a Google search for the piece's exact name (the real product's own
     // name when any search saw it), and the card says exactly what to search for.
@@ -3858,6 +3900,11 @@ function showDupe(anchor, item, finding) {
   box.classList.toggle('is-finding', !!finding);
   if (finding) { box.textContent = '✦ Finding you a dupe…'; box.hidden = false; return; }
   const d = needsDupe(item) && item.dupe;
+  // Only real products are shown as things to buy: a piece with no product page and no real alternative either
+  // (both searches done) is left out of the look, and a line under the pieces says so.
+  const nothingReal = needsDupe(item) && !item.shop_url && item.dupe_none === true && item.dupe_v === SHOP_V;
+  item.left_out = nothingReal;
+  if (nothingReal) leaveOut(card);
   if (!d || !/^https:\/\//.test(d.url || '')) { box.hidden = true; return; }
   const head = document.createElement('div'); head.className = 'oi-dupe-head';
   head.textContent = item.shop_sold_out ? '✦ Sold out? Ella’s dupe' : '✦ Can’t get it? Ella’s dupe';
@@ -3875,6 +3922,35 @@ function showDupe(anchor, item, finding) {
   a.addEventListener('click', () => track('dupe_open'));
   box.append(head, a);
   box.hidden = false;
+}
+function leaveOut(card) {
+  const grid = card && card.parentElement;
+  if (!grid || card.hidden || grid.dataset.showAll) return;
+  card.hidden = true;
+  let note = grid.nextElementSibling;
+  if (!note || !note.classList.contains('left-out')) {
+    note = document.createElement('p');
+    note.className = 'left-out';
+    grid.after(note);
+  }
+  const n = grid.querySelectorAll('.outfit-item[hidden]').length;
+  const who = stylistName();
+  note.textContent = `${who} left out ${n === 1 ? 'a piece' : n + ' pieces'} ${who === 'Léon' ? 'he' : 'she'} couldn’t find as a real product, or a real alternative, that delivers to you. `;
+  const show = document.createElement('button');
+  show.type = 'button'; show.className = 'left-out-show'; show.textContent = n === 1 ? 'Show it anyway' : 'Show them anyway';
+  show.addEventListener('click', () => {
+    grid.dataset.showAll = '1';
+    grid.querySelectorAll('.outfit-item[hidden]').forEach(c => { c.hidden = false; });
+    note.remove();
+  });
+  note.appendChild(show);
+}
+function stylistName() {
+  return (window._activeStylist || 'ella') === 'leon' ? 'Léon' : 'Ella';
+}
+// The pieces still in the look: everything but what was left out for having no real product
+function shownPieces(items) {
+  return (items || []).filter(it => it && !it.left_out);
 }
 async function findDupes(items, anchors) {
   const need = [];
@@ -3928,7 +4004,7 @@ function applyShopLink(item, anchor, link) {
   };
   if (link && (link.url || link.google || link.site) && !link.unavailable) {
     // a real answer replaces whatever an older search found (it may have matched the wrong piece)
-    ['shop_url', 'shop_title', 'shop_exact', 'shop_site', 'shop_google', 'shop_site_url', 'shop_image', 'photo_url', 'real_name']
+    ['shop_url', 'shop_title', 'shop_exact', 'shop_site', 'shop_google', 'shop_site_url', 'shop_image', 'photo_url', 'real_name', 'shop_price']
       .forEach(k => { item[k] = ''; });
     item.photo_none = false;
     item.shop_closest = item.shop_sold_out = false;
@@ -3940,6 +4016,7 @@ function applyShopLink(item, anchor, link) {
     item.shop_title = link.title || '';
     item.shop_closest = !!link.closest;
     item.shop_unchecked = false;
+    item.shop_price = typeof link.price === 'string' && link.price.length <= 24 ? link.price : '';
     rename(realProductName(link.title));
     item.shop_sold_out = !!link.sold_out;
     item.shop_image = /^https:\/\//.test(link.image || '') ? link.image : '';
@@ -4160,7 +4237,7 @@ function openShareCard() {
   document.getElementById('sc-look-desc').textContent =
     `${state.currentOutfit.look_name || 'Your Look'} · ${state.celeb} × ${state.era}`;
   const list = document.getElementById('sc-items-list');
-  list.innerHTML = (state.currentOutfit.items || []).slice(0, 4).map(item => `
+  list.innerHTML = shownPieces(state.currentOutfit.items).slice(0, 4).map(item => `
     <div class="sc-item">
       <span class="sc-item-name">${item.name}</span>
       <span class="sc-item-brand">${item.brand}</span>
@@ -5717,7 +5794,7 @@ function tryOnReady() {
   go.disabled = !(tryOnPhoto && document.getElementById('tryon-ok').checked) || /isn't switched on/.test(left);
 }
 function tryOnPieces() {
-  return (state.currentOutfit.items || []).map(it => ({
+  return shownPieces(state.currentOutfit.items).map(it => ({
     category: it.category || '', name: it.name || '', real_name: it.real_name || '', brand: it.brand || '', description: it.description || '',
     shop_image: (it.shop_image && !brokenPhotos.has(it.shop_image)) ? it.shop_image : (it.photo_v === PHOTO_V ? (it.photo_url || '') : '')
   }));
@@ -8884,7 +8961,7 @@ async function jvuThink(text) {
   const body = {
     text, step: jvu.step, stylist: jvu.req.stylist || '', occasion: jvu.req.occasion || (look ? state.occasion : '') || '',
     closet: (state.closetItems || []).length, history: jvu.history.slice(-6),
-    look: look ? { look_name: look.look_name, items: look.items.map(i => ({ category: i.category, name: i.name, brand: i.brand, price: i.price })) } : null
+    look: look ? { look_name: look.look_name, items: look.items.map(i => ({ category: i.category, name: i.name, brand: i.brand, price: i.shop_price || i.price })) } : null
   };
   jvu.history.push({ role: 'user', text });
   try { return await api('/api/concierge', body); }

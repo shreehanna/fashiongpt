@@ -522,6 +522,41 @@ def _meta(html, prop):
     return m.group(1).strip() if m else None
 
 
+_SYMBOL = {'INR': '₹', 'USD': '$', 'EUR': '€', 'GBP': '£', 'JPY': '¥', 'AUD': 'A$', 'CAD': 'C$', 'SGD': 'S$',
+           'AED': 'AED ', 'HKD': 'HK$', 'NZD': 'NZ$', 'CHF': 'CHF ', 'SAR': 'SAR ', 'KRW': '₩', 'CNY': '¥'}
+
+
+def _money(amount, currency):
+    """'2499.00', 'INR' -> '₹2,499' (lakh-style for rupees: ₹1,25,000). None if it can't be read sensibly."""
+    try:
+        v = float(str(amount).replace(',', '').strip())
+    except ValueError:
+        return None
+    cur = str(currency or '').upper().strip()[:3]
+    sym = _SYMBOL.get(cur) or (cur + ' ' if re.fullmatch(r'[A-Z]{3}', cur) else '')
+    if not sym or not (0 < v < 10_000_000):
+        return None
+    if cur == 'INR':
+        n = str(int(round(v)))
+        if len(n) > 3:
+            n = re.sub(r'(\d)(?=(\d\d)+$)', r'\1,', n[:-3]) + ',' + n[-3:]
+        return sym + n
+    return sym + (f'{v:,.0f}' if v == int(v) else f'{v:,.2f}')
+
+
+def page_price(html):
+    """The product page's own price: its price meta tags, else its structured data when that names one price only
+    (a page full of 'you may also like' prices is skipped rather than guessed)."""
+    amount = _meta(html, 'product:price:amount') or _meta(html, 'og:price:amount')
+    if amount:
+        return _money(amount, _meta(html, 'product:price:currency') or _meta(html, 'og:price:currency'))
+    prices = set(p.replace(',', '') for p in re.findall(r'"price"\s*:\s*"?(\d[\d,]*(?:\.\d+)?)"?', html))
+    currencies = set(c.upper() for c in re.findall(r'"priceCurrency"\s*:\s*"([A-Za-z]{3})"', html))
+    if len(prices) == 1 and len(currencies) == 1:
+        return _money(prices.pop(), currencies.pop())
+    return None
+
+
 def _safe_host(host):
     return bool(host) and '.' in host and not re.match(r'^[\d.]+$|^\[|localhost|\.local$|\.internal$', host)
 
@@ -554,7 +589,8 @@ def check_page(url, pattern=None, cc='in'):
             or og_avail in ('out of stock', 'oos', 'outofstock')
         image = _meta(html, 'og:image') or _meta(html, 'twitter:image')
         return {'state': 'ok', 'final': final, 'title': _meta(html, 'og:title'),
-                'image': image if image and image.startswith('https://') else None, 'sold_out': sold_out}
+                'image': image if image and image.startswith('https://') else None, 'sold_out': sold_out,
+                'price': page_price(html)}
     except (req.RequestException, UnicodeError) as e:
         return {'state': 'unknown', 'error': type(e).__name__}
 
@@ -571,6 +607,8 @@ def _choose(ranked, pattern, cc, trace=None, budget=3):
         found = {'url': c.get('final') or link, 'title': _clean_title(c.get('title') or title), 'raw': c.get('title') or title}
         if c.get('image'):
             found['image'] = c['image']
+        if c.get('price'):
+            found['price'] = c['price']               # the real price, read off the product page
         if c['state'] == 'ok' and c.get('sold_out'):
             found['sold_out'] = True
             fallback = fallback or found
